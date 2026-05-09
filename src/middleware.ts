@@ -9,8 +9,8 @@ const SUPER_ADMIN_EMAILS = [
   "novexistech"
 ];
 
-// Gizli süper admin URL'si (UUID içeren örnek bir route)
-const isSuperAdminRoute = createRouteMatcher(["/management/super-auth-7f9a2b8c-1d3e-4f6a-9b8c-5d4e3f2a1b0c(.*)"]);
+// Gizli süper admin URL'si
+const isSuperAdminRoute = createRouteMatcher(["/sys-core-admin-7f9a2b8c(.*)"]);
 
 // Herkese açık rotalar
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/"]);
