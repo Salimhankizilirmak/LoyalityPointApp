@@ -22,8 +22,13 @@ export async function createOrganizationAction(formData: FormData) {
   }
 
   const name = formData.get("name") as string;
+  const bossEmail = formData.get("bossEmail") as string;
+
   if (!name || name.trim() === "") {
     return { error: "Firma adı zorunludur." };
+  }
+  if (!bossEmail || !bossEmail.includes("@")) {
+    return { error: "Geçerli bir patron e-posta adresi girin." };
   }
 
   try {
@@ -33,8 +38,16 @@ export async function createOrganizationAction(formData: FormData) {
       createdBy: userId,
     });
     
+    // Oluşturulan organizasyona patronu "org:admin" rolüyle davet et
+    await client.organizations.createOrganizationInvitation({
+      organizationId: org.id,
+      emailAddress: bossEmail,
+      role: "org:admin",
+      inviterUserId: userId,
+    });
+    
     revalidatePath("/admin");
-    return { success: true, message: `Firma '${org.name}' başarıyla oluşturuldu!` };
+    return { success: true, message: `Firma '${org.name}' başarıyla oluşturuldu ve patrona (${bossEmail}) davet gönderildi!` };
   } catch (error: any) {
     console.error("Org creation error:", error);
     return { error: error.message || "Firma oluşturulurken bir hata oluştu." };

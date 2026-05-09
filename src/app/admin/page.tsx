@@ -50,15 +50,28 @@ export default function SuperAdminPage() {
           </CardHeader>
           <form id="add-org-form" action={handleSubmit} className="relative z-10">
             <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-neutral-300">Firma Adı</Label>
-                <Input 
-                  id="name" 
-                  name="name" 
-                  placeholder="Örn: X Kahve Şubeleri" 
-                  required 
-                  className="bg-neutral-900/50 border-neutral-700 text-white placeholder:text-neutral-600 focus-visible:ring-red-500 transition-all"
-                />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-neutral-300">Firma Adı</Label>
+                  <Input 
+                    id="name" 
+                    name="name" 
+                    placeholder="Örn: X Kahve Şubeleri" 
+                    required 
+                    className="bg-neutral-900/50 border-neutral-700 text-white placeholder:text-neutral-600 focus-visible:ring-red-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bossEmail" className="text-neutral-300">Patron E-posta (Davet Edilecek)</Label>
+                  <Input 
+                    id="bossEmail" 
+                    name="bossEmail" 
+                    type="email"
+                    placeholder="patron@firma.com" 
+                    required 
+                    className="bg-neutral-900/50 border-neutral-700 text-white placeholder:text-neutral-600 focus-visible:ring-red-500 transition-all"
+                  />
+                </div>
               </div>
 
               {message && (
