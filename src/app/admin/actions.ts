@@ -10,8 +10,14 @@ export async function createOrganizationAction(formData: FormData) {
     return { error: "Yetkisiz erişim." };
   }
 
-  const role = (sessionClaims?.metadata as any)?.role;
-  if (role !== "superadmin") {
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
+  
+  const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
+  const allowedEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
+
+  if (!allowedEmails.includes(email)) {
     return { error: "Bu işlem için Süper Admin yetkisi gereklidir." };
   }
 
@@ -27,7 +33,7 @@ export async function createOrganizationAction(formData: FormData) {
       createdBy: userId,
     });
     
-    revalidatePath("/sys-core-admin-7f9a2b8c");
+    revalidatePath("/admin");
     return { success: true, message: `Firma '${org.name}' başarıyla oluşturuldu!` };
   } catch (error: any) {
     console.error("Org creation error:", error);

@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 export default async function DashboardRedirect() {
@@ -9,11 +9,16 @@ export default async function DashboardRedirect() {
   }
 
   // 1. Süper Admin Kontrolü
-  const metadataRole = (sessionClaims?.metadata as any)?.role;
-  if (metadataRole === "superadmin") {
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
+  
+  const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
+  const allowedEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
+
+  if (allowedEmails.includes(email)) {
     redirect("/admin");
   }
-
   // 2. Organizasyona Bağlı Kullanıcılar (Patron, Yönetici, Çalışan)
   if (orgId) {
     if (orgRole === "org:admin") {
