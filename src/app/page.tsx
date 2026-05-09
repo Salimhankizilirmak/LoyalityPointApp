@@ -2,11 +2,32 @@
 
 import { motion } from "framer-motion";
 import { SignInButton, SignUpButton, UserButton, useAuth } from "@clerk/nextjs";
-import { ArrowRight, QrCode, Star, TrendingUp, ShieldCheck } from "lucide-react";
+import { ArrowRight, QrCode, Star, TrendingUp, ShieldCheck, Download } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function LandingPage() {
   const { isSignedIn } = useAuth();
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white overflow-hidden selection:bg-emerald-500/30">
@@ -99,6 +120,15 @@ export default function LandingPage() {
               Panele Git 
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
+          )}
+
+          {deferredPrompt && (
+            <button 
+              onClick={handleInstallClick}
+              className="bg-white/10 text-white border border-white/20 px-8 py-4 rounded-full text-lg font-semibold hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <Download className="w-5 h-5" /> Uygulamamızı İndirin
+            </button>
           )}
         </motion.div>
 

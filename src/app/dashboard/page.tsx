@@ -11,7 +11,7 @@ export default async function DashboardRedirect() {
   // 1. Süper Admin Kontrolü
   const metadataRole = (sessionClaims?.metadata as any)?.role;
   if (metadataRole === "superadmin") {
-    redirect("/sys-core-admin-7f9a2b8c");
+    redirect("/admin");
   }
 
   // 2. Organizasyona Bağlı Kullanıcılar (Patron, Yönetici, Çalışan)
