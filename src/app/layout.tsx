@@ -1,26 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
 import type { Viewport } from "next";
 
 export const viewport: Viewport = {
-  themeColor: "#10b981",
+  themeColor: "#13131b",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // PWA hissiyatı için yakınlaştırmayı kapatmak önerilir
+  userScalable: false,
 };
 
 export const metadata: Metadata = {
@@ -35,7 +30,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    apple: "/icons/icon-192x192.png", // Apple touch icon için
+    apple: "/icons/icon-192x192.png",
   },
 };
 
@@ -48,7 +43,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="tr"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        className={`dark ${inter.variable} h-full antialiased font-sans`}
       >
         <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
       </html>

@@ -22,3 +22,14 @@ export const pointsTransactions = sqliteTable("points_transactions", {
   transactionType: text("transaction_type", { enum: ["earn", "spend", "manual_adjustment"] }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),
 });
+
+export const organizations = sqliteTable("organizations", {
+  id: text("id").primaryKey(), // Clerk organization ID (org_xxx)
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  bossEmail: text("boss_email").notNull(),
+  logoUrl: text("logo_url"),
+  pointRate: integer("point_rate").default(10).notNull(), // Yüzde olarak puan kazanma oranı (örn: 10 = %10)
+  validityMonths: integer("validity_months").default(12).notNull(), // Puanların geçerlilik süresi (ay)
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),
+});

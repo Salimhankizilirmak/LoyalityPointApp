@@ -8,7 +8,7 @@ export default function SignUpPage() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px]" />
       </div>
       <div className="relative z-10">
-        <SignUp appearance={{ elements: { formButtonPrimary: 'bg-emerald-500 hover:bg-emerald-600 text-sm normal-case' } }} />
+        <SignUp forceRedirectUrl="/dashboard" appearance={{ elements: { formButtonPrimary: 'bg-emerald-500 hover:bg-emerald-600 text-sm normal-case' } }} />
       </div>
     </div>
   );

@@ -1,137 +1,288 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useUser, UserButton } from "@clerk/nextjs";
-import { QRCodeSVG } from "qrcode.react";
-import { syncCustomerData, getCustomerTransactions } from "./actions";
-import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
-import { Wallet, Clock, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Star, Gift, QrCode, ChevronRight, Award, ShoppingBag,
+  Bell, User, Shield, Sparkles, Clock, Info
+} from "lucide-react";
 
-export default function CustomerDashboard() {
-  const { isLoaded, user } = useUser();
-  const [customer, setCustomer] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+const PURPLE = "#7c3aed";
+const PURPLE_LIGHT = "#f5f3ff";
 
-  useEffect(() => {
-    if (isLoaded && user) {
-      const init = async () => {
-        try {
-          const cust = await syncCustomerData();
-          setCustomer(cust);
-          const txs = await getCustomerTransactions();
-          setTransactions(txs);
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setLoading(false);
-        }
-      };
-      init();
-    }
-  }, [isLoaded, user]);
+interface Transaction {
+  id: number;
+  type: "earned" | "spent" | "bonus";
+  pts: number;
+  desc: string;
+  date: string;
+}
 
-  if (!isLoaded || loading) {
-    return (
-      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center text-emerald-400">
-        <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="animate-pulse">Bilgileriniz yükleniyor...</p>
-      </div>
-    );
-  }
+const TRANSACTIONS: Transaction[] = [
+  { id: 1, type: "earned", pts: 240, desc: "Alışveriş – İst. Cevahir", date: "Bugün, 14:38" },
+  { id: 2, type: "spent", pts: -150, desc: "İndirim kuponu kullanıldı", date: "Dün, 11:20" },
+  { id: 3, type: "bonus", pts: 500, desc: "Hoş Geldin Bonusu", date: "22 Nis, 09:00" },
+  { id: 4, type: "earned", pts: 180, desc: "Alışveriş – Ankara Ankamall", date: "18 Nis, 16:42" },
+  { id: 5, type: "earned", pts: 320, desc: "Alışveriş – İzmir Forum", date: "11 Nis, 13:05" },
+];
+
+const OFFERS = [
+  { id: 1, title: "%20 Sonbahar İndirimi", pts: 1500, expires: "30 Haz 2025", category: "Giyim" },
+  { id: 2, title: "Ücretsiz Kargo", pts: 800, expires: "31 Tem 2025", category: "E-ticaret" },
+  { id: 3, title: "Kahve Kuponu", pts: 400, expires: "15 Haz 2025", category: "Yiyecek" },
+];
+
+const TIER_INFO = {
+  Bronze: { min: 0, max: 2000, color: "#b45309", bg: "#fef3c7", next: "Silver", ptsNeeded: 2000 },
+  Silver: { min: 2000, max: 5000, color: "#475569", bg: "#f1f5f9", next: "Gold", ptsNeeded: 5000 },
+  Gold: { min: 5000, max: 10000, color: "#a16207", bg: "#fef9c3", next: "Platinum", ptsNeeded: 10000 },
+  Platinum: { min: 10000, max: 10000, color: "#7c3aed", bg: "#f5f3ff", next: "Platinum", ptsNeeded: 99999 },
+};
+
+const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
+
+const TX_TYPE = {
+  earned: { color: "#059669", label: "Kazandı", sign: "+" },
+  spent: { color: "#d97706", label: "Harcadı", sign: "" },
+  bonus: { color: PURPLE, label: "Bonus", sign: "+" },
+};
+
+export default function CustomerDashboardPage() {
+  const [activeTab, setActiveTab] = useState<"puan" | "teklifler" | "qr" | "profil">("puan");
+  const [showQRDetail, setShowQRDetail] = useState(false);
+  const pts = 4820;
+  const [tier, setTier] = useState<keyof typeof TIER_INFO>("Gold");
+  const ti = TIER_INFO[tier];
+  const progress = Math.min(((pts - ti.min) / (ti.max - ti.min)) * 100, 100);
+
+  const TABS: { key: typeof activeTab; icon: typeof Star; label: string }[] = [
+    { key: "puan", icon: Star, label: "Puanlarım" },
+    { key: "teklifler", icon: Gift, label: "Teklifler" },
+    { key: "qr", icon: QrCode, label: "QR Kodum" },
+    { key: "profil", icon: User, label: "Profil" },
+  ];
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-4 sm:p-8">
+    <div className="min-h-screen flex flex-col max-w-sm mx-auto" style={{ background: "#f8fafc", fontFamily: "system-ui,-apple-system,sans-serif" }}>
       {/* Header */}
-      <header className="flex justify-between items-center mb-8 max-w-md mx-auto">
-        <h1 className="text-xl font-bold text-neutral-200">Merhaba, {user?.firstName}</h1>
-        <UserButton />
-      </header>
-
-      <main className="max-w-md mx-auto space-y-6 pb-12">
-        {/* Puan Kartı */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 border-none shadow-2xl shadow-emerald-500/20 text-white overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-            <CardContent className="p-8">
-              <div className="flex items-center gap-2 mb-2 opacity-80">
-                <Wallet className="w-5 h-5" />
-                <span className="font-medium text-sm tracking-wide">Güncel Bakiyen</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-bold tracking-tight">
-                  {customer ? (customer.currentPoints / 100).toFixed(2) : "0.00"}
-                </span>
-                <span className="text-xl font-medium opacity-80">TL</span>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* QR Kod */}
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, delay: 0.1 }}>
-          <Card className="bg-white/5 border-white/10 backdrop-blur-xl text-center py-10 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
-            <h2 className="text-neutral-400 mb-6 font-medium relative z-10">Kasada Okutun</h2>
-            <div className="inline-block p-4 bg-white rounded-2xl shadow-xl relative z-10 hover:scale-105 transition-transform cursor-pointer">
-              <QRCodeSVG 
-                value={user?.id || ""} 
-                size={220}
-                bgColor="#ffffff"
-                fgColor="#000000"
-                level="H"
-                marginSize={1}
-                imageSettings={{
-                  src: "/window.svg", // Logo ekleyebiliriz ortaya, şimdilik placeholder
-                  x: undefined,
-                  y: undefined,
-                  height: 40,
-                  width: 40,
-                  excavate: true,
-                }}
-              />
+      <div className="px-5 pt-8 pb-5"
+        style={{ background: `linear-gradient(160deg, ${PURPLE} 0%, #9333ea 100%)` }}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
+              <span className="text-white font-bold text-sm">FG</span>
             </div>
-            <p className="mt-6 text-xs text-neutral-500 tracking-[0.2em] font-mono relative z-10 uppercase">
-              ID: {user?.id.split('_')[1] || user?.id}
-            </p>
-          </Card>
-        </motion.div>
+            <div>
+              <p className="text-white/70 text-xs">Merhaba</p>
+              <p className="text-white font-bold">Fatma Güler</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center">
+              <Bell size={16} className="text-white" />
+              <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-yellow-300" />
+            </div>
+          </div>
+        </div>
 
-        {/* Geçmiş İşlemler */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}>
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-neutral-200">
-            <Clock className="w-5 h-5 text-emerald-400" />
-            Son İşlemler
-          </h3>
-          <div className="space-y-3">
-            {transactions.length === 0 ? (
-              <div className="text-neutral-500 text-sm text-center py-6 bg-white/5 rounded-xl border border-white/10">
-                Henüz bir işlem bulunmuyor.
-              </div>
-            ) : (
-              transactions.map((tx) => (
-                <div key={tx.id} className="flex justify-between items-center p-4 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm transition-colors hover:bg-white/10">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${tx.transactionType === 'earn' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                      {tx.transactionType === 'earn' ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <div className="font-medium text-neutral-200">{tx.transactionType === 'earn' ? 'Puan Kazanıldı' : 'Puan Harcandı'}</div>
-                      <div className="text-xs text-neutral-500">
-                        {new Date(tx.createdAt).toLocaleString("tr-TR")}
+        {/* Point Card */}
+        <div className="rounded-2xl p-5 mb-5" style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+          <p className="text-white/60 text-xs mb-1">Toplam Puanınız</p>
+          <div className="flex items-end gap-2 mb-4">
+            <span className="text-white font-black" style={{ fontSize: 42, lineHeight: 1 }}>{fmt(pts)}</span>
+            <span className="text-white/60 text-sm mb-1.5">puan</span>
+          </div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: ti.bg }}>
+              <Award size={11} style={{ color: ti.color }} />
+              <span className="text-xs font-bold" style={{ color: ti.color }}>{tier}</span>
+            </div>
+            <span className="text-white/60 text-xs">{tier !== "Platinum" ? `${fmt(ti.max - pts)} puan → ${ti.next}` : "Maksimum seviye"}</span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.15)" }}>
+            <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+              className="h-full rounded-full" style={{ background: "rgba(255,255,255,0.9)" }} />
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-3 gap-2 pb-1">
+          {[
+            { label: "Bu ay", value: fmt(1240), icon: TrendingUp },
+            { label: "Alışveriş", value: "87", icon: ShoppingBag },
+            { label: "Geçerlilik", value: "12 ay", icon: Clock },
+          ].map(({ label, value, icon: Icon }) => (
+            <div key={label} className="text-center p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.1)" }}>
+              <p className="text-white font-bold text-sm">{value}</p>
+              <p className="text-white/60 text-xs">{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-1 px-5 pt-4 pb-2 bg-white sticky top-0 z-10" style={{ borderBottom: "1px solid #f1f5f9" }}>
+        {TABS.map(({ key, icon: Icon, label }) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition-all text-xs font-medium"
+            style={{ background: activeTab === key ? PURPLE_LIGHT : "transparent", color: activeTab === key ? PURPLE : "#94a3b8" }}>
+            <Icon size={16} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 px-5 py-4">
+        <AnimatePresence mode="wait">
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
+
+            {/* Puanlarım */}
+            {activeTab === "puan" && (
+              <div className="space-y-3">
+                <h2 className="text-slate-800 font-semibold text-sm">İşlem Geçmişi</h2>
+                {TRANSACTIONS.map((tx, i) => {
+                  const t = TX_TYPE[tx.type];
+                  return (
+                    <motion.div key={tx.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center gap-3 p-3.5 rounded-2xl bg-white"
+                      style={{ border: "1px solid #f1f5f9" }}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: `${t.color}12` }}>
+                        <Star size={15} style={{ color: t.color }} />
                       </div>
+                      <div className="flex-1">
+                        <p className="text-slate-700 text-xs font-semibold">{tx.desc}</p>
+                        <p className="text-slate-400 text-xs">{tx.date}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold" style={{ color: t.color }}>
+                          {t.sign}{fmt(Math.abs(tx.pts))}
+                        </p>
+                        <p className="text-slate-400 text-xs">{t.label}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Teklifler */}
+            {activeTab === "teklifler" && (
+              <div className="space-y-3">
+                <h2 className="text-slate-800 font-semibold text-sm">Mevcut Teklifler</h2>
+                {OFFERS.map((offer, i) => (
+                  <motion.div key={offer.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+                    className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid #f1f5f9" }}>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full mb-1.5 inline-block"
+                            style={{ background: PURPLE_LIGHT, color: PURPLE }}>{offer.category}</span>
+                          <h3 className="text-slate-800 font-semibold text-sm">{offer.title}</h3>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xl font-black" style={{ color: PURPLE }}>{fmt(offer.pts)}</p>
+                          <p className="text-slate-400 text-xs">puan</p>
+                        </div>
+                      </div>
+                      <p className="text-slate-400 text-xs mb-3">Geçerlilik: {offer.expires}</p>
+                      <button disabled={pts < offer.pts}
+                        className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2"
+                        style={{
+                          background: pts >= offer.pts ? PURPLE : "#f1f5f9",
+                          color: pts >= offer.pts ? "#fff" : "#94a3b8",
+                        }}>
+                        {pts >= offer.pts ? <><Gift size={13} />Kuponu Kullan</> : <><Info size={13} />Yeterli Puanınız Yok</>}
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* QR */}
+            {activeTab === "qr" && (
+              <div className="flex flex-col items-center py-4 space-y-5">
+                <div className="text-center">
+                  <h2 className="text-slate-800 font-semibold text-sm">QR Kodunuz</h2>
+                  <p className="text-slate-400 text-xs mt-1">Kasiyere okutun veya ID'yi paylaşın</p>
+                </div>
+                <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 240, damping: 20 }}
+                  className="relative p-6 rounded-3xl bg-white"
+                  style={{ border: "2px solid #c4b5fd", boxShadow: "0 8px 32px rgba(124,58,237,0.15)" }}>
+                  <div className="grid grid-cols-7 gap-1" style={{ width: 168, height: 168 }}>
+                    {Array.from({ length: 49 }).map((_, i) => (
+                      <div key={i} className="rounded-sm"
+                        style={{ background: Math.random() > 0.5 ? PURPLE : "transparent", aspectRatio: "1" }} />
+                    ))}
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center"
+                      style={{ border: `2px solid ${PURPLE}` }}>
+                      <span className="text-xs font-black" style={{ color: PURPLE }}>LC</span>
                     </div>
                   </div>
-                  <div className={`font-bold ${tx.transactionType === 'earn' ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {tx.transactionType === 'earn' ? '+' : '-'}{(Math.abs(tx.amount) / 100).toFixed(2)} TL
+                </motion.div>
+                <div className="text-center">
+                  <p className="font-mono font-bold text-lg tracking-widest text-slate-800">KD-001</p>
+                  <p className="text-slate-400 text-xs mt-1">Sadakat Kimlik Numaranız</p>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl w-full"
+                  style={{ background: PURPLE_LIGHT, border: "1px solid #c4b5fd" }}>
+                  <Shield size={14} style={{ color: PURPLE }} />
+                  <p className="text-xs font-medium" style={{ color: PURPLE }}>Bu kod yalnızca size aittir. Kimseyle paylaşmayın.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Profil */}
+            {activeTab === "profil" && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white" style={{ border: "1px solid #f1f5f9" }}>
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black"
+                    style={{ background: PURPLE_LIGHT, color: PURPLE }}>FG</div>
+                  <div>
+                    <h2 className="text-slate-900 font-bold">Fatma Güler</h2>
+                    <p className="text-slate-400 text-sm">fatma@email.com</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Award size={12} style={{ color: ti.color }} />
+                      <span className="text-xs font-semibold" style={{ color: ti.color }}>{tier} Üye</span>
+                    </div>
                   </div>
                 </div>
-              ))
+                <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #f1f5f9" }}>
+                  {[
+                    { label: "Telefon", value: "0532 *** **11" },
+                    { label: "Üye No", value: "KD-001" },
+                    { label: "Üyelik Tarihi", value: "12 Ocak 2024" },
+                    { label: "Toplam Alışveriş", value: "87 kez" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center justify-between px-4 py-3.5"
+                      style={{ borderBottom: "1px solid #f8fafc" }}>
+                      <span className="text-slate-400 text-xs">{label}</span>
+                      <span className="text-slate-700 text-xs font-semibold">{value}</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="w-full py-3 rounded-2xl text-sm font-semibold text-center"
+                  style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>
+                  Çıkış Yap
+                </button>
+              </div>
             )}
-          </div>
-        </motion.div>
-      </main>
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
+}
+
+// Placeholder for missing import
+function TrendingUp({ size, className }: { size: number; className?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>;
 }

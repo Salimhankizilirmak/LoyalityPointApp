@@ -5,6 +5,54 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-error-container: #93000a;
+  --color-tertiary-fixed: #dbe1ff;
+  --color-surface-bright: #393841;
+  --color-on-primary-fixed: #07006c;
+  --color-on-background: #e4e1ed;
+  --color-surface-container: #1f1f27;
+  --color-primary-fixed: #e1e0ff;
+  --color-primary-container: #8083ff;
+  --color-primary: #c0c1ff;
+  --color-outline-variant: #464554;
+  --color-on-secondary-container: #a8afff;
+  --color-inverse-surface: #e4e1ed;
+  --color-surface-container-highest: #34343d;
+  --color-outline: #908fa0;
+  --color-secondary-fixed: #e0e0ff;
+  --color-on-secondary-fixed: #000767;
+  --color-on-tertiary-fixed: #0d1a3c;
+  --color-primary-fixed-dim: #c0c1ff;
+  --color-on-primary: #1000a9;
+  --color-inverse-primary: #494bd6;
+  --color-error: #ffb4ab;
+  --color-on-surface-variant: #c7c4d7;
+  --color-on-error: #690005;
+  --color-on-tertiary-container: #1d284b;
+  --color-background: #13131b;
+  --color-surface-tint: #c0c1ff;
+  --color-surface-variant: #34343d;
+  --color-on-tertiary-fixed-variant: #3a456a;
+  --color-on-primary-container: #0d0096;
+  --color-tertiary-container: #848fb8;
+  --color-on-surface: #e4e1ed;
+  --color-surface-container-high: #292932;
+  --color-tertiary-fixed-dim: #bac5f0;
+  --color-surface-dim: #13131b;
+  --color-on-primary-fixed-variant: #2f2ebe;
+  --color-inverse-on-surface: #303038;
+  --color-on-secondary-fixed-variant: #2f3aa3;
+  --color-on-error-container: #ffdad6;
+  --color-surface-container-low: #1b1b23;
+  --color-on-secondary: #131e8c;
+  --color-secondary-container: #2f3aa3;
+  --color-secondary: #bdc2ff;
+  --color-surface-container-lowest: #0d0d15;
+  --color-secondary-fixed-dim: #bdc2ff;
+  --color-on-tertiary: #242f52;
+  --color-tertiary: #bac5f0;
+  --color-surface: #13131b;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -126,5 +174,84 @@
   }
   html {
     @apply font-sans;
+  }
+}
+@layer components {
+  .glass-panel {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid transparent;
+      border-image: linear-gradient(to bottom right, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05)) 1;
+  }
+
+  .glass-panel-elevated {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid transparent;
+      border-image: linear-gradient(to bottom right, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.05)) 1;
+  }
+
+  .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+      color: var(--color-on-primary-container);
+      box-shadow: 0 0 12px 0 rgba(192, 193, 255, 0.3);
+      transition: all 0.2s ease-in-out;
+  }
+
+  .btn-primary:active {
+      transform: scale(0.98);
+  }
+
+  .btn-primary:hover {
+      box-shadow: 0 0 16px 0 rgba(192, 193, 255, 0.5);
+      background: linear-gradient(135deg, var(--color-primary-fixed), var(--color-primary));
+  }
+
+  .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--color-on-surface);
+      transition: all 0.2s ease-in-out;
+  }
+
+  .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-secondary:active {
+      transform: scale(0.98);
+  }
+
+  .input-glass {
+      background: var(--color-surface-container-low);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--color-on-surface);
+      transition: all 0.2s ease-in-out;
+  }
+
+  .input-glass:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: inset 0 0 8px 0 rgba(192, 193, 255, 0.2);
+  }
+
+  .scanner-frame {
+      position: relative;
+      overflow: hidden;
+  }
+
+  .scanner-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--color-primary);
+      box-shadow: 0 0 10px 2px rgba(192, 193, 255, 0.5);
+      animation: scan 2s linear infinite;
   }
 }

@@ -1,264 +1,293 @@
 "use client";
 
-import { useState } from "react";
-import { Scanner } from "@yudiel/react-qr-scanner";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { inviteCustomerAction, findCustomerById, processTransactionAction } from "./actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { UserButton, OrganizationSwitcher } from "@clerk/nextjs";
-import { QrCode, UserPlus, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  QrCode, Star, CheckCircle, XCircle, User, Gift, RotateCcw,
+  Zap, ArrowLeft, ScanLine, Wifi
+} from "lucide-react";
 
-export default function CashierDashboard() {
-  const [activeTab, setActiveTab] = useState<"qr" | "register">("qr");
+const INDIGO = "#4f46e5";
+const LIGHT = "#eef2ff";
 
-  return (
-    <div className="min-h-screen bg-neutral-950 text-white">
-      <header className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-blue-500">
-            Kasa / İşlem
-          </h1>
-          <OrganizationSwitcher hidePersonal={true} appearance={{
-            elements: { organizationSwitcherTrigger: "text-white hover:bg-white/10 px-3 py-1.5 rounded-md" }
-          }} />
-        </div>
-        <UserButton />
-      </header>
-
-      <main className="max-w-5xl mx-auto p-4 sm:p-6 pt-12">
-        <div className="flex bg-neutral-900 rounded-xl p-1 mb-8 w-max mx-auto border border-white/10">
-          <button
-            onClick={() => setActiveTab("qr")}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === "qr" ? "bg-white/10 text-white shadow-sm" : "text-neutral-400 hover:text-white"}`}
-          >
-            <QrCode className="w-4 h-4" /> QR & İşlem
-          </button>
-          <button
-            onClick={() => setActiveTab("register")}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === "register" ? "bg-white/10 text-white shadow-sm" : "text-neutral-400 hover:text-white"}`}
-          >
-            <UserPlus className="w-4 h-4" /> Yeni Müşteri Kaydı
-          </button>
-        </div>
-
-        <AnimatePresence mode="wait">
-          {activeTab === "qr" ? (
-            <motion.div key="qr" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-              <QrProcessTab />
-            </motion.div>
-          ) : (
-            <motion.div key="register" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-              <RegisterTab />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
-    </div>
-  );
+interface CustomerData {
+  id: string;
+  name: string;
+  phone: string;
+  pts: number;
+  tier: "Bronze" | "Silver" | "Gold" | "Platinum";
+  totalTx: number;
+  avatar: string;
 }
 
-function RegisterTab() {
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<{type: "success" | "error", text: string} | null>(null);
+type TxType = "earn" | "spend" | null;
 
-  async function onSubmit(formData: FormData) {
-    setLoading(true);
-    setMsg(null);
-    const result = await inviteCustomerAction(formData);
-    if (result.error) setMsg({ type: "error", text: result.error });
-    else {
-      setMsg({ type: "success", text: result.message! });
-      const form = document.getElementById('reg-form') as HTMLFormElement;
-      if (form) form.reset();
-    }
-    setLoading(false);
-  }
+const MOCK_CUSTOMERS: Record<string, CustomerData> = {
+  "KD-001": { id: "KD-001", name: "Fatma Güler", phone: "0532 *** **11", pts: 4820, tier: "Gold", totalTx: 87, avatar: "FG" },
+  "KD-002": { id: "KD-002", name: "Mehmet Koç", phone: "0541 *** **72", pts: 1240, tier: "Silver", totalTx: 42, avatar: "MK" },
+  "KD-003": { id: "KD-003", name: "Zeynep Aydın", phone: "0555 *** **43", pts: 8320, tier: "Platinum", totalTx: 153, avatar: "ZA" },
+};
 
-  return (
-    <div className="max-w-xl mx-auto">
-      <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
-        <CardHeader>
-          <CardTitle className="text-white text-xl">Yeni Müşteri Kaydı</CardTitle>
-          <CardDescription className="text-neutral-400">Müşteriyi sisteme ekleyin. Kendisine Clerk üzerinden E-posta ile davet linki gidecektir.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form id="reg-form" action={onSubmit} className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Ad</Label>
-                <Input name="firstName" required className="bg-neutral-900 border-neutral-700 text-white focus-visible:ring-emerald-500" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Soyad</Label>
-                <Input name="lastName" required className="bg-neutral-900 border-neutral-700 text-white focus-visible:ring-emerald-500" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-neutral-300">Telefon</Label>
-              <Input name="phone" type="tel" required className="bg-neutral-900 border-neutral-700 text-white focus-visible:ring-emerald-500" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-neutral-300">E-posta</Label>
-              <Input name="email" type="email" required className="bg-neutral-900 border-neutral-700 text-white focus-visible:ring-emerald-500" />
-            </div>
+const TIER_COLORS: Record<string, { bg: string; color: string }> = {
+  Bronze: { bg: "#fef3c7", color: "#b45309" },
+  Silver: { bg: "#f1f5f9", color: "#475569" },
+  Gold: { bg: "#fef9c3", color: "#a16207" },
+  Platinum: { bg: "#f5f3ff", color: "#7c3aed" },
+};
 
-            {msg && (
-              <div className={`p-3 rounded-md text-sm flex items-start gap-2 ${msg.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                <div className="mt-0.5">{msg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}</div>
-                <div>{msg.text}</div>
-              </div>
-            )}
+const RECENT_IDS = Object.keys(MOCK_CUSTOMERS);
+const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 
-            <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white mt-2 h-12 text-md transition-all shadow-lg shadow-emerald-900/20">
-              {loading ? "Kaydediliyor..." : "Müşteriyi Sisteme Ekle"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function QrProcessTab() {
-  const [customerId, setCustomerId] = useState("");
-  const [customerInfo, setCustomerInfo] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+export default function CashierDashboardPage() {
+  const [customer, setCustomer] = useState<CustomerData | null>(null);
+  const [scanInput, setScanInput] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [txType, setTxType] = useState<TxType>(null);
   const [amount, setAmount] = useState("");
-  const [msg, setMsg] = useState<{type: "success" | "error", text: string} | null>(null);
+  const [txSuccess, setTxSuccess] = useState(false);
+  const [txError, setTxError] = useState(false);
+  const [ptsPreview, setPtsPreview] = useState(0);
+  const [totalTxToday, setTotalTxToday] = useState(78);
+  const [ptsGivenToday, setPtsGivenToday] = useState(14820);
+  const [newMembersToday, setNewMembersToday] = useState(7);
+  const [scannerActive, setScannerActive] = useState(false);
 
-  const fetchCustomer = async (id: string) => {
-    setLoading(true);
-    setMsg(null);
-    setCustomerInfo(null);
-    const data = await findCustomerById(id);
-    if (data) {
-      setCustomerInfo(data);
-    } else {
-      setMsg({ type: "error", text: "Müşteri bulunamadı veya henüz sisteme ilk girişini yapmamış." });
-    }
-    setLoading(false);
+  useEffect(() => {
+    if (!amount || !txType) { setPtsPreview(0); return; }
+    const base = Number(amount);
+    setPtsPreview(txType === "earn" ? Math.floor(base / 10) * 10 : Math.min(Number(amount), customer?.pts ?? 0));
+  }, [amount, txType, customer]);
+
+  const handleScan = (id: string) => {
+    if (!id) return;
+    setScanning(true);
+    setTimeout(() => {
+      setScanning(false);
+      const found = MOCK_CUSTOMERS[id.toUpperCase()];
+      if (found) { setCustomer(found); setScanInput(""); }
+      else { setTxError(true); setTimeout(() => setTxError(false), 2000); setScanInput(""); }
+    }, 700);
   };
 
-  const handleScan = (text: string) => {
-    if (text && text !== customerId) {
-      setCustomerId(text);
-      fetchCustomer(text);
-    }
+  const handleTx = () => {
+    if (!customer || !txType || !amount) return;
+    const pts = ptsPreview;
+    setTxSuccess(true);
+    setTotalTxToday(t => t + 1);
+    if (txType === "earn") setPtsGivenToday(p => p + pts);
+    setTimeout(() => {
+      setCustomer(prev => prev ? { ...prev, pts: txType === "earn" ? prev.pts + pts : prev.pts - pts, totalTx: prev.totalTx + 1 } : null);
+      setTxSuccess(false); setTxType(null); setAmount("");
+    }, 2000);
   };
 
-  const processTx = async (type: "earn" | "spend") => {
-    setLoading(true);
-    setMsg(null);
-    const res = await processTransactionAction(customerId, amount, type);
-    if (res.error) {
-      setMsg({ type: "error", text: res.error });
-    } else {
-      setMsg({ type: "success", text: res.message! });
-      setAmount("");
-      fetchCustomer(customerId); // Puan bilgisini yenile
-    }
-    setLoading(false);
-  };
+  const reset = () => { setCustomer(null); setTxType(null); setAmount(""); setTxSuccess(false); };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-      {/* Scanner Side */}
-      <div className="md:col-span-5 space-y-6">
-        <Card className="bg-white/5 border-white/10 backdrop-blur-md overflow-hidden shadow-2xl">
-          <CardHeader className="bg-white/5 border-b border-white/10 py-4">
-            <CardTitle className="text-white text-lg">Müşteri QR Okuyucu</CardTitle>
-          </CardHeader>
-          <div className="bg-black/60 aspect-square flex items-center justify-center overflow-hidden">
-             <Scanner onScan={(result) => handleScan(result[0].rawValue)} formats={["qr_code"]} />
+    <div className="min-h-screen w-full" style={{ background: "#f8fafc", fontFamily: "system-ui,-apple-system,sans-serif" }}>
+      {/* Top Bar */}
+      <div className="bg-white sticky top-0 z-20" style={{ borderBottom: "1px solid #f1f5f9" }}>
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: INDIGO }}>
+              <ScanLine size={15} className="text-white" />
+            </div>
+            <div>
+              <p className="text-slate-900 font-bold text-sm leading-tight">Kasa Paneli</p>
+              <p className="text-slate-400 text-xs">Pos #03 · İst. Cevahir</p>
+            </div>
           </div>
-        </Card>
-        
-        <div className="flex gap-2">
-          <Input 
-            value={customerId} 
-            onChange={(e) => setCustomerId(e.target.value)} 
-            placeholder="Veya Müşteri ID giriniz..." 
-            className="bg-white/5 border-white/10 text-white flex-1 focus-visible:ring-emerald-500"
-          />
-          <Button onClick={() => fetchCustomer(customerId)} disabled={loading || !customerId} className="bg-neutral-800 text-white hover:bg-neutral-700">
-            Sorgula
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+              style={{ background: LIGHT, border: "1px solid #c7d2fe" }}>
+              <Wifi size={12} style={{ color: INDIGO }} />
+              <span className="text-xs font-semibold" style={{ color: INDIGO }}>Online</span>
+            </div>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-indigo-50">
+              <span className="text-xs font-bold text-indigo-700">AK</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Transaction Side */}
-      <div className="md:col-span-7">
-        <Card className={`bg-white/5 border-white/10 backdrop-blur-md h-full transition-opacity shadow-2xl ${!customerInfo ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
-          <CardHeader>
-            <CardTitle className="text-white text-2xl">İşlem Menüsü</CardTitle>
-            <CardDescription className="text-neutral-400">Bulunan müşteriye puan ekleyin veya düşün.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-8">
-            {customerInfo ? (
-              <div className="p-5 bg-gradient-to-r from-emerald-500/20 to-blue-500/10 border border-emerald-500/30 rounded-2xl flex justify-between items-center">
-                <div>
-                  <div className="text-sm text-emerald-400 mb-1">Müşteri</div>
-                  <div className="text-xl font-bold text-white">{customerInfo.firstName} {customerInfo.lastName}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-emerald-400 mb-1">Güncel Bakiye</div>
-                  <div className="text-2xl font-bold text-white">{(customerInfo.currentPoints / 100).toFixed(2)} TL</div>
-                </div>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Bugün İşlem", value: String(totalTxToday), icon: Zap, color: INDIGO },
+            { label: "Dağıtılan Puan", value: fmt(ptsGivenToday), icon: Star, color: "#7c3aed" },
+            { label: "Yeni Üye", value: String(newMembersToday), icon: User, color: "#059669" },
+          ].map(({ label, value, icon: Icon, color }, i) => (
+            <motion.div key={label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+              className="rounded-2xl p-4 bg-white text-center" style={{ border: "1px solid #f1f5f9" }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center mx-auto mb-2" style={{ background: `${color}12` }}>
+                <Icon size={15} style={{ color }} />
               </div>
-            ) : (
-              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-center text-neutral-500 h-[120px] flex items-center justify-center">
-                İşlem yapmak için önce bir müşteri okutun.
-              </div>
-            )}
+              <p className="text-slate-900 font-bold text-lg">{value}</p>
+              <p className="text-slate-400 text-xs">{label}</p>
+            </motion.div>
+          ))}
+        </div>
 
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-neutral-300">İşlem / Fatura Tutarı (TL)</Label>
-                <div className="flex gap-2">
-                  <Input 
-                    type="number" 
-                    value={amount} 
-                    onChange={(e) => setAmount(e.target.value)} 
-                    placeholder="Örn: 500" 
-                    className="bg-neutral-900 border-neutral-700 text-white text-xl h-14 font-medium focus-visible:ring-emerald-500"
-                  />
-                  <div className="bg-neutral-800 border border-neutral-700 flex items-center px-6 rounded-md text-emerald-400 font-bold text-xl">₺</div>
-                </div>
-                <p className="text-sm text-neutral-500 mt-2">
-                  <span className="text-emerald-400">Puan kazanırken</span> toplam alışveriş tutarını, <span className="text-red-400">puan harcarken</span> harcanacak puan (TL) miktarını giriniz.
-                </p>
-              </div>
-
-              {msg && (
-                <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className={`p-4 rounded-xl text-sm flex items-start gap-3 ${msg.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                  <div className="mt-0.5">{msg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}</div>
-                  <div className="text-base">{msg.text}</div>
+        {/* Scanner Panel */}
+        {!customer ? (
+          <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #f1f5f9" }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-slate-800 font-semibold text-sm">Müşteri Okut</h2>
+              <button onClick={() => setScannerActive(a => !a)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: scannerActive ? LIGHT : "#f8fafc", color: scannerActive ? INDIGO : "#64748b", border: "1px solid #e2e8f0" }}>
+                <QrCode size={13} />{scannerActive ? "Kamera Aktif" : "Kamera Başlat"}
+              </button>
+            </div>
+            <AnimatePresence>
+              {scannerActive && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 160, opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  className="rounded-xl mb-4 overflow-hidden flex items-center justify-center"
+                  style={{ background: "#0f172a", border: "2px solid #c7d2fe" }}>
+                  <div className="text-center">
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}>
+                      <ScanLine size={32} style={{ color: INDIGO }} className="mx-auto mb-2" />
+                    </motion.div>
+                    <p className="text-slate-400 text-xs">QR kodu kameraya tutun</p>
+                  </div>
                 </motion.div>
               )}
-
-              <div className="grid grid-cols-2 gap-4 pt-6">
-                <Button 
-                  onClick={() => processTx("earn")} 
-                  disabled={loading || !amount || !customerInfo}
-                  className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white h-16 text-lg shadow-xl shadow-emerald-900/20 border-0"
-                >
-                  Puan Ekle (%10)
-                </Button>
-                <Button 
-                  onClick={() => processTx("spend")} 
-                  disabled={loading || !amount || !customerInfo}
-                  variant="destructive"
-                  className="h-16 text-lg shadow-xl shadow-red-900/20"
-                >
-                  Puan Harca / Düş
-                </Button>
+            </AnimatePresence>
+            <div className="relative mb-3">
+              <QrCode size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={scanInput} onChange={e => setScanInput(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === "Enter" && handleScan(scanInput)}
+                placeholder="ID girin veya QR okutun..."
+                className="w-full pl-9 pr-28 py-3 rounded-xl text-sm text-slate-800 font-mono outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }} />
+              <button onClick={() => handleScan(scanInput)} disabled={scanning || !scanInput}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-lg text-xs font-semibold text-white"
+                style={{ background: scanInput ? INDIGO : "#cbd5e1" }}>
+                {scanning ? "..." : "Sorgula"}
+              </button>
+            </div>
+            <AnimatePresence>
+              {txError && (
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                  className="flex items-center gap-2 p-3 rounded-xl mb-3"
+                  style={{ background: "#fef2f2", border: "1px solid #fecaca" }}>
+                  <XCircle size={14} className="text-red-500" />
+                  <span className="text-red-600 text-xs font-medium">Müşteri bulunamadı</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <div>
+              <p className="text-slate-400 text-xs mb-2">Hızlı Seçim (Test)</p>
+              <div className="flex flex-wrap gap-2">
+                {RECENT_IDS.map(id => (
+                  <button key={id} onClick={() => handleScan(id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium font-mono"
+                    style={{ background: LIGHT, color: INDIGO, border: "1px solid #c7d2fe" }}>
+                    {id}
+                  </button>
+                ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        ) : (
+          /* Customer card + TX panel */
+          <AnimatePresence>
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <button onClick={reset} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
+                  style={{ border: "1px solid #e2e8f0" }}>
+                  <ArrowLeft size={14} className="text-slate-500" />
+                </button>
+                <p className="text-slate-500 text-xs">Başka bir müşteri için ← sola bas</p>
+              </div>
+
+              {/* Customer Card */}
+              <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #f1f5f9", boxShadow: "0 1px 8px rgba(79,70,229,0.06)" }}>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold"
+                    style={{ background: LIGHT, color: INDIGO }}>
+                    {customer.avatar}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="text-slate-900 font-bold text-base">{customer.name}</h3>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                        style={TIER_COLORS[customer.tier]}>
+                        {customer.tier}
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-xs">{customer.phone} · {customer.totalTx} işlem</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-bold" style={{ color: INDIGO }}>{fmt(customer.pts)}</p>
+                    <p className="text-slate-400 text-xs">Mevcut Puan</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* TX Panel */}
+              {txSuccess ? (
+                <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-2xl p-8 text-center"
+                  style={{ border: "1px solid #f1f5f9" }}>
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={36} className="text-emerald-500" />
+                  </div>
+                  <h3 className="text-slate-900 font-bold text-lg mb-1">İşlem Başarılı!</h3>
+                  <p className="text-slate-500 text-sm">{txType === "earn" ? `+${fmt(ptsPreview)} puan eklendi` : `-${fmt(ptsPreview)} puan kullanıldı`}</p>
+                </motion.div>
+              ) : (
+                <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #f1f5f9" }}>
+                  <h3 className="text-slate-800 font-semibold text-sm mb-4">İşlem Yap</h3>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {([["earn", "Puan Kazandır", Star, "#059669", "rgba(5,150,105,0.08)"], ["spend", "Puan Kullandır", Gift, "#d97706", "rgba(217,119,6,0.08)"]] as const).map(([type, label, Icon, color, bg]) => (
+                      <button key={type} onClick={() => setTxType(type)}
+                        className="p-4 rounded-2xl text-left transition-all"
+                        style={{
+                          border: txType === type ? `2px solid ${color}` : "2px solid #f1f5f9",
+                          background: txType === type ? bg : "#f8fafc",
+                        }}>
+                        <Icon size={20} style={{ color }} className="mb-2" />
+                        <p className="text-xs font-semibold" style={{ color: txType === type ? color : "#64748b" }}>{label}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <AnimatePresence>
+                    {txType && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-3">
+                        <div>
+                          <label className="text-slate-500 text-xs font-medium mb-1.5 block">
+                            {txType === "earn" ? "Alışveriş Tutarı (₺)" : "Kullanılacak Puan"}
+                          </label>
+                          <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                            placeholder={txType === "earn" ? "Örn: 350" : `Maks: ${customer.pts}`}
+                            className="w-full px-3.5 py-3 rounded-xl text-base font-bold text-slate-800 outline-none"
+                            style={{ background: "#f8fafc", border: `2px solid ${amount ? "#c7d2fe" : "#e2e8f0"}` }} />
+                        </div>
+                        {ptsPreview > 0 && (
+                          <div className="flex items-center justify-between p-3.5 rounded-xl"
+                            style={{ background: txType === "earn" ? "rgba(5,150,105,0.06)" : "rgba(217,119,6,0.06)", border: `1px solid ${txType === "earn" ? "rgba(5,150,105,0.15)" : "rgba(217,119,6,0.15)"}` }}>
+                            <span className="text-xs font-medium" style={{ color: txType === "earn" ? "#059669" : "#d97706" }}>
+                              {txType === "earn" ? "Kazanılacak Puan" : "Kullanılacak Puan"}
+                            </span>
+                            <span className="text-xl font-bold" style={{ color: txType === "earn" ? "#059669" : "#d97706" }}>
+                              {txType === "earn" ? "+" : "-"}{fmt(ptsPreview)}
+                            </span>
+                          </div>
+                        )}
+                        <button onClick={handleTx} disabled={!amount || ptsPreview <= 0}
+                          className="w-full py-3.5 rounded-xl font-bold text-sm text-white"
+                          style={{ background: amount && ptsPreview > 0 ? INDIGO : "#cbd5e1", boxShadow: amount && ptsPreview > 0 ? "0 4px 16px rgba(79,70,229,0.3)" : "none" }}>
+                          İşlemi Onayla
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );
