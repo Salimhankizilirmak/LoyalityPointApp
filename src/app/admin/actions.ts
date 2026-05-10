@@ -66,3 +66,15 @@ export async function createOrganizationAction(formData: FormData) {
     return { error: error.errors?.[0]?.message || error.message || "Firma oluşturulurken hata oluştu." };
   }
 }
+
+export async function getAllOrganizations() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Yetkisiz erişim");
+
+  try {
+    const orgs = await db.select().from(organizations).all();
+    return orgs;
+  } catch {
+    return [];
+  }
+}

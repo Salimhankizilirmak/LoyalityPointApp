@@ -1,9 +1,9 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { customers, pointsTransactions } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, like, or } from "drizzle-orm";
 
 export async function getBranchTransactions() {
   const { orgId } = await auth();
@@ -63,3 +63,47 @@ export async function manualAdjustmentAction(customerId: string, amountKurusStr:
     return { error: "Düzeltme sırasında hata oluştu." };
   }
 }
+
+export async function getCustomers(query?: string) {
+  const { orgId } = await auth();
+  if (!orgId) throw new Error("Yetkisiz erişim");
+
+  let baseQuery = db.select().from(customers);
+  
+  if (query) {
+    const search = `%${query}%`;
+    return await baseQuery.where(
+      or(
+        like(customers.firstName, search),
+        like(customers.lastName, search),
+        like(customers.phone, search),
+        like(customers.email, search)
+      )
+    ).all();
+  }
+
+  return await baseQuery.all();
+}
+
+export async function updateCustomer(id: string, data: { firstName: string; lastName: string; phone: string; email: string }) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) throw new Error("Yetkisiz erişim");
+
+  // Manager role check could be added here if needed
+  
+  await db.update(customers).set(data).where(eq(customers.id, id));
+  return { success: true };
+}
+
+export async function deleteCustomer(id: string) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) throw new Error("Yetkisiz erişim");
+
+  // Transaction'ları da silmek gerekebilir veya pasife çekmek
+  // Şimdilik sadece müşteriyi silelim (foreign key constraints'e dikkat)
+  await db.delete(customers).where(eq(customers.id, id));
+  return { success: true };
+}
+
+// Re-exporting member management actions for convenience
+export { getOrgMembers, updateMemberName, removeMember } from "../boss-dashboard/actions";

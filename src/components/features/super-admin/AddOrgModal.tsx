@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Building2, Mail, GitBranch, X, Plus, RefreshCw, Check, Zap } from "lucide-react";
 
 interface AddOrgModalProps {
   onClose: () => void;
   onAdd: (form: { name: string; slug: string; email: string }) => void;
+  isDarkMode?: boolean;
 }
 
-export function AddOrgModal({ onClose, onAdd }: AddOrgModalProps) {
+export function AddOrgModal({ onClose, onAdd, isDarkMode = true }: AddOrgModalProps) {
   const [form, setForm] = useState({ name: "", slug: "", email: "" });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -36,79 +37,83 @@ export function AddOrgModal({ onClose, onAdd }: AddOrgModalProps) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(2,6,23,0.85)", backdropFilter: "blur(10px)" }}>
-      <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.92, opacity: 0 }} transition={{ type: "spring", stiffness: 280, damping: 26 }}
-        className="w-full max-w-md rounded-2xl p-6"
-        style={{ background: "#0f172a", border: "1px solid rgba(34,211,238,0.15)" }}>
-
-        <div className="flex items-center justify-between mb-6">
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border transition-colors ${
+          isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"
+        }`}
+      >
+        <div className={`px-6 py-4 flex items-center justify-between border-b ${
+          isDarkMode ? "border-slate-800" : "border-slate-50"
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.25)" }}>
-              <Building2 size={15} className="text-cyan-400" />
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+              <Building2 size={18} className="text-cyan-400" />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-sm">Yeni Organizasyon</h3>
-              <p className="text-slate-500 text-xs">Tenant provisioning</p>
+              <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>Yeni Organizasyon</h3>
+              <p className="text-slate-500 text-[10px]">Tenant provisioning system</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors">
-            <X size={14} className="text-slate-500" />
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 transition-colors">
+            <X size={18} />
           </button>
         </div>
 
-        <div className="space-y-4 mb-6">
+        <div className="p-6 space-y-4">
           {FIELDS.map(({ key, label, placeholder, icon: Icon, mono }) => (
             <div key={key}>
-              <label className="text-slate-400 text-xs font-medium mb-1.5 flex items-center gap-1.5 block">
-                <Icon size={11} className="text-slate-600" />{label}
+              <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">
+                {label}
               </label>
-              <input
-                value={form[key]}
-                onChange={e => {
-                  const val = key === "slug" ? handleSlug(e.target.value) : e.target.value;
-                  if (key === "name") setForm(f => ({ ...f, name: e.target.value, slug: handleSlug(e.target.value) }));
-                  else setForm(f => ({ ...f, [key]: val }));
-                }}
-                placeholder={placeholder}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none text-white placeholder-slate-600"
-                style={{
-                  fontFamily: mono ? "monospace" : "inherit",
-                  background: "rgba(255,255,255,0.04)",
-                  border: `1px solid ${form[key] ? "rgba(34,211,238,0.25)" : "rgba(255,255,255,0.07)"}`,
-                  caretColor: "#22d3ee",
-                }}
-              />
+              <div className="relative">
+                <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={form[key]}
+                  onChange={e => {
+                    const val = key === "slug" ? handleSlug(e.target.value) : e.target.value;
+                    if (key === "name") setForm(f => ({ ...f, name: e.target.value, slug: handleSlug(e.target.value) }));
+                    else setForm(f => ({ ...f, [key]: val }));
+                  }}
+                  placeholder={placeholder}
+                  className={`w-full pl-10 pr-4 py-3 rounded-2xl text-sm border outline-none transition-all ${
+                    isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400"
+                  }`}
+                  style={{ fontFamily: mono ? "monospace" : "inherit" }}
+                />
+              </div>
               {key === "slug" && form.slug && (
-                <p className="text-slate-600 text-xs mt-1 font-mono">
-                  loyaltycore.io/<span className="text-cyan-600">{form.slug}</span>
+                <p className="text-cyan-600 text-[10px] mt-1 ml-1 font-bold">
+                  loyaltycore.io/{form.slug}
                 </p>
               )}
             </div>
           ))}
-        </div>
 
-        <div className="p-3 rounded-xl mb-5 flex items-start gap-2.5"
-          style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.15)" }}>
-          <Zap size={13} className="text-indigo-400 mt-0.5 flex-shrink-0" />
-          <p className="text-slate-400 text-xs leading-relaxed">
-            Organizasyon oluşturulduktan sonra patron e-postasına otomatik davet ve aktivasyon bağlantısı gönderilecektir.
-          </p>
-        </div>
+          <div className={`p-4 rounded-2xl flex items-start gap-3 transition-colors ${
+            isDarkMode ? "bg-indigo-500/5 border border-indigo-500/10" : "bg-indigo-50 border border-indigo-100"
+          }`}>
+            <Zap size={14} className="text-indigo-400 mt-0.5 flex-shrink-0" />
+            <p className="text-slate-500 text-[11px] leading-relaxed">
+              Organizasyon oluşturulduktan sonra patron e-postasına otomatik davet ve aktivasyon bağlantısı gönderilecektir.
+            </p>
+          </div>
 
-        <button onClick={submit} disabled={!valid || loading || done}
-          className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-          style={{
-            background: done ? "rgba(52,211,153,0.2)" : valid ? "linear-gradient(135deg,#0e7490,#22d3ee)" : "rgba(34,211,238,0.1)",
-            color: done ? "#34d399" : valid ? "#0f172a" : "#475569",
-            border: done ? "1px solid rgba(52,211,153,0.4)" : "none",
-          }}>
-          {loading ? <><RefreshCw size={14} className="animate-spin" /> Oluşturuluyor...</>
-            : done ? <><Check size={14} /> Davet Gönderildi!</>
-            : <><Plus size={14} /> Organizasyonu Oluştur ve Davet Gönder</>}
-        </button>
+          <button onClick={submit} disabled={!valid || loading || done}
+            className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/10 ${
+              done 
+                ? "bg-emerald-500 text-white" 
+                : valid 
+                  ? "bg-cyan-600 text-white hover:scale-[1.01] active:scale-[0.99]" 
+                  : "bg-slate-300 text-white cursor-not-allowed"
+            }`}
+          >
+            {loading ? <><RefreshCw size={16} className="animate-spin" /> Oluşturuluyor...</>
+              : done ? <><Check size={16} /> Davet Gönderildi!</>
+              : <><Plus size={16} /> Organizasyonu Başlat</>}
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

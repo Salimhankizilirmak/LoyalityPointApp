@@ -1,13 +1,14 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, LogOut, Sun, Moon, Database } from "lucide-react";
+import { motion } from "framer-motion";
+import { Store, LogOut, Sun, Moon, Database } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 type UserResource = ReturnType<typeof useUser>["user"];
 
-interface ManagerHeaderProps {
+interface BossHeaderProps {
   user: UserResource | null | undefined;
+  orgName: string;
   showMockData: boolean;
   setShowMockData: (v: boolean) => void;
   isDarkMode: boolean;
@@ -18,8 +19,9 @@ interface ManagerHeaderProps {
   tabs: string[];
 }
 
-export function ManagerHeader({
+export function BossHeader({
   user,
+  orgName,
   showMockData,
   setShowMockData,
   isDarkMode,
@@ -28,9 +30,9 @@ export function ManagerHeader({
   setActiveTab,
   signOut,
   tabs
-}: ManagerHeaderProps) {
+}: BossHeaderProps) {
   const BLUE = "#2563eb";
-  const userRole = (user?.publicMetadata?.role as string) || "manager";
+  const userRole = (user?.publicMetadata?.role as string) || "boss";
   const roleLabel = userRole === "boss" ? "Patron" : userRole === "manager" ? "Yönetici" : "Kasiyer";
 
   return (
@@ -40,21 +42,21 @@ export function ManagerHeader({
         backdropFilter: "blur(16px)", 
         borderBottom: `1px solid ${isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}` 
       }}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform hover:rotate-12" 
             style={{ background: BLUE, boxShadow: `0 4px 12px ${BLUE}44` }}>
-            <MapPin size={18} className="text-white" />
+            <Store size={18} className="text-white" />
           </div>
           <div>
             <p className={`font-bold text-sm leading-tight transition-colors ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-              İstanbul Cevahir AVM <span className="text-blue-600 ml-2 font-black">V2</span>
+              {orgName || "Organizasyon"}
             </p>
             <p className="text-slate-500 text-xs font-medium flex items-center gap-1.5">
               <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[10px] font-bold uppercase tracking-wider">
                 {roleLabel}
               </span>
-              · {user?.fullName || "Yönetici"}
+              · {user?.fullName || "Patron"}
             </p>
           </div>
         </div>
@@ -66,13 +68,14 @@ export function ManagerHeader({
               style={{ color: activeTab === i ? BLUE : (isDarkMode ? "#94a3b8" : "#64748b") }}>
               {tab}
               {activeTab === i && (
-                <motion.div layoutId="managerActiveTab" className="absolute inset-0 bg-blue-500/10 rounded-xl -z-10" />
+                <motion.div layoutId="bossActiveTab" className="absolute inset-0 bg-blue-500/10 rounded-xl -z-10" />
               )}
             </button>
           ))}
         </nav>
 
         <div className="flex items-center gap-3">
+          {/* Theme Toggle */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
@@ -82,6 +85,7 @@ export function ManagerHeader({
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
+          {/* Mock Toggle */}
           <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all ${
             isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"
           }`}>
@@ -106,6 +110,20 @@ export function ManagerHeader({
             <LogOut size={16} />
           </button>
         </div>
+      </div>
+      
+      {/* Mobile Navigation */}
+      <div className="lg:hidden flex overflow-x-auto px-4 gap-1 pb-1">
+        {tabs.map((tab, i) => (
+          <button key={tab} onClick={() => setActiveTab(i)}
+            className="px-4 py-2.5 text-xs font-bold whitespace-nowrap transition-all border-b-2"
+            style={{ 
+              borderColor: activeTab === i ? BLUE : "transparent", 
+              color: activeTab === i ? BLUE : (isDarkMode ? "#64748b" : "#94a3b8") 
+            }}>
+            {tab}
+          </button>
+        ))}
       </div>
     </div>
   );
