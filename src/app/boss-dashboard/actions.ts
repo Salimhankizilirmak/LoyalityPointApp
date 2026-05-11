@@ -250,6 +250,10 @@ export async function inviteEmployee(data: {
       emailAddress: data.email,
       inviterUserId: userId,
       role: "org:member",
+      publicMetadata: {
+        role: data.role || "cashier",
+        branch: data.branch || "Atanmadı",
+      },
     });
   } catch (err: unknown) {
     const error = err as { errors?: { code?: string; longMessage?: string }[] };
