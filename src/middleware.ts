@@ -8,7 +8,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // 1. Herkes için açık olan sayfalar
   if (isPublicRoute(req)) {
-    const { userId } = await auth();
+    const { userId, sessionClaims } = await auth();
     // Giriş yapmış kullanıcıyı giriş sayfalarından dashboard'a yönlendir
     if (userId && (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -30,9 +30,7 @@ export default clerkMiddleware(async (auth, req) => {
   const allowedEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
   const isSuperAdmin = allowedEmails.includes(userEmail);
 
-  // Metadata cast işlemi (TypeScript hatasını gidermek için)
-  const metadata = (sessionClaims?.metadata || {}) as { role?: string };
-  const role = metadata.role;
+  const role = (sessionClaims?.metadata as any)?.role;
   const orgId = sessionClaims?.orgId;
 
   // Eğer kullanıcı Süper Admin değilse VE (Rolü yok VE Organizasyonu yoksa)
