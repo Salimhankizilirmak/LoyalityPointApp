@@ -17,32 +17,14 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // 2. Korumalı sayfalar için oturum kontrolü
-  const { userId, redirectToSignIn, sessionClaims } = await auth();
+  const { userId, redirectToSignIn } = await auth();
 
   if (!userId) {
     return redirectToSignIn({ returnBackUrl: "/dashboard" });
   }
 
-  // 3. GÜVENLİK KONTROLÜ:
-  // Middleware katmanında e-posta bazen sessionClaims içinde eksik olabilir.
-  // Bu nedenle ana yetkilendirme kontrolünü /dashboard sayfasındaki Server Component'e bırakıyoruz.
-  // Ancak, rolü ve organizasyonu olmayan kullanıcıların iç sayfalara (dashboard dışı) 
-  // direkt erişimini burada kısıtlıyoruz.
-  
-  const role = (sessionClaims?.metadata as any)?.role;
-  const orgId = sessionClaims?.orgId;
-  
-  // Ana yetkilendirme rotaları
-  const isCoreAuthPage = pathname === "/dashboard" || pathname.startsWith("/admin") || pathname === "/create-organization";
-
-  // Eğer kullanıcı Süper Admin değilse (metadata boşsa) ve organizasyona bağlı değilse
-  // ve ana yetkilendirme sayfasında değilse engelle.
-  if (!role && !orgId && !isCoreAuthPage) {
-    if (pathname !== "/unauthorized") {
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
-    }
-  }
-
+  // Tüm detaylı yetkilendirme (Super Admin, Rol, Organizasyon durumu) 
+  // src/lib/auth-utils.ts ve yönlendirmeler /dashboard üzerinden yapılmaktadır.
   return NextResponse.next();
 });
 
