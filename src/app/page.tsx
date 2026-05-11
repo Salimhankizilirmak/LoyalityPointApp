@@ -62,7 +62,7 @@ export default function LandingPage() {
               <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 transition-colors font-semibold flex items-center gap-2">
                 Panele Git <ArrowRight className="w-4 h-4" />
               </Link>
-              <UserButton />
+              <UserButton signOutOptions={{ redirectUrl: "/" }} />
             </>
           )}
         </div>

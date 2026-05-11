@@ -11,9 +11,10 @@ import { InviteBossModal } from "@/components/features/super-admin/InviteBossMod
 import { DashboardHeader } from "../../components/features/super-admin/DashboardHeader";
 import { StatCard } from "../../components/features/super-admin/StatCard";
 import { SystemHealth } from "../../components/features/super-admin/SystemHealth";
-import { getAllOrganizations, toggleOrgStatus } from "./actions";
+import { getAllOrganizations, toggleOrgStatus, getInvitedBosses } from "./actions";
 import { useClerk, useUser } from "@clerk/nextjs";
-import { Organization, ActivityLogItem } from "../../components/features/super-admin/types";
+import { Organization, ActivityLogItem, InvitedBoss } from "../../components/features/super-admin/types";
+import { InvitedBossesList } from "@/components/features/super-admin/InvitedBossesList";
 
 // ── Mock data for aesthetic fallback ──────────────────────────────────────────
 const MOCK_ORGS: Organization[] = [
@@ -33,40 +34,46 @@ export default function SuperAdminDashboard() {
   const [showMockData, setShowMockData] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [realOrgs, setRealOrgs] = useState<Organization[]>([]);
+  const [invitedBosses, setInvitedBosses] = useState<InvitedBoss[]>([]);
   const [logs, setLogs] = useState<ActivityLogItem[]>(INITIAL_LOGS);
   const [showInvite, setShowInvite] = useState(false);
 
   const { signOut } = useClerk();
   const { user } = useUser();
 
-  const loadOrgs = async () => {
+  const loadData = async () => {
     try {
-      const data = await getAllOrganizations();
-      const formatted: Organization[] = data.map(o => ({
+      const [orgsData, bossesData] = await Promise.all([
+        getAllOrganizations(),
+        getInvitedBosses()
+      ]);
+      
+      const formatted: Organization[] = orgsData.map(o => ({
         id: o.id,
         name: o.name,
         slug: o.slug,
         email: o.bossEmail,
-        branches: 0, // Bu veriler DB'ye eklenebilir veya hesaplanabilir
+        branches: 0,
         created: o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : "---",
         status: o.isActive ? "active" : "inactive",
         customers: 0,
         txVolume: 0
       }));
       setRealOrgs(formatted);
+      setInvitedBosses(bossesData as InvitedBoss[]);
     } catch (err) {
-      console.error("Load orgs error:", err);
+      console.error("Load data error:", err);
     }
   };
 
   useEffect(() => {
-    loadOrgs();
+    loadData();
   }, []);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     const result = await toggleOrgStatus(id, currentStatus);
     if (result.success) {
-      loadOrgs();
+      loadData();
     }
   };
 
@@ -100,7 +107,7 @@ export default function SuperAdminDashboard() {
         setShowMockData={setShowMockData}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
-        signOut={signOut}
+        signOut={() => signOut({ redirectUrl: "/" })}
       />
 
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -132,6 +139,7 @@ export default function SuperAdminDashboard() {
           </div>
           <div className="space-y-5">
             <ActivityLog logs={logs} />
+            <InvitedBossesList bosses={invitedBosses} isDarkMode={isDarkMode} />
           </div>
         </div>
       </div>

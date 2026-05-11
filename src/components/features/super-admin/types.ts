@@ -17,3 +17,10 @@ export interface ActivityLogItem {
   time: string;
   actor: string;
 }
+export interface InvitedBoss {
+  id: string;
+  email: string;
+  status: "pending" | "accepted";
+  createdAt: number;
+  lastSignIn?: number | null;
+}

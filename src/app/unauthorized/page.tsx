@@ -23,7 +23,7 @@ export default function UnauthorizedPage() {
         </div>
 
         <div className="pt-8 flex flex-col gap-4">
-          <SignOutButton>
+          <SignOutButton signOutOptions={{ redirectUrl: "/" }}>
             <button className="bg-white text-neutral-950 px-8 py-4 rounded-2xl font-bold hover:bg-neutral-100 transition-all flex items-center justify-center gap-2 group">
               <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
               Oturumu Kapat
