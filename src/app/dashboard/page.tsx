@@ -20,11 +20,17 @@ export default async function DashboardRedirect() {
 
   // 1. Süper Admin Kontrolü
   const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
-  const allowedEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
+  const allowedEmails = envEmails
+    .split(",")
+    .map(e => e.trim().toLowerCase())
+    .filter(email => email !== ""); // Boş değerleri temizle
+
+  console.log(`[DashboardRedirect] Checking if ${email} is in ${allowedEmails.join(", ")}`);
 
   if (allowedEmails.includes(email)) {
-    console.log("[DashboardRedirect] Super Admin detected, redirecting to /admin");
+    console.log("[DashboardRedirect] Super Admin identified by email. Redirecting to /admin immediately.");
     redirect("/admin");
+    return; // Redirection sonrası kodun devam etmesini engelle
   }
 
   // 2. Organizasyona Bağlı Kullanıcılar (Patron, Yönetici, Kasiyer)
