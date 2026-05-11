@@ -11,6 +11,7 @@ import { TransactionFeed } from "@/components/features/manager-dashboard/Transac
 import { EmployeeManagement } from "@/components/features/manager-dashboard/EmployeeManagement";
 import { CustomerManagement } from "@/components/features/manager-dashboard/CustomerManagement";
 import { AddCustomerModal } from "@/components/features/manager-dashboard/AddCustomerModal";
+import { InviteModal } from "@/components/features/boss-dashboard/InviteModal";
 
 // Types
 import { Transaction, Customer, Employee } from "@/components/features/manager-dashboard/types";
@@ -43,6 +44,8 @@ export default function ManagerDashboard() {
   const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
   const [cashiers, setCashiers] = useState<Employee[]>(MOCK_CASHIERS);
   
+  const [showInvite, setShowInvite] = useState(false);
+  
   const { user } = useUser();
   const { signOut } = useClerk();
 
@@ -60,6 +63,17 @@ export default function ManagerDashboard() {
 
   return (
     <div className={`min-h-screen w-full transition-colors duration-500 ${isDarkMode ? "bg-[#020817]" : "bg-slate-50"}`}>
+      <AnimatePresence>
+        {showInvite && (
+          <InviteModal 
+            onClose={() => setShowInvite(false)} 
+            branches={[]} // Yöneticiler şube ataması yapamaz, kendi şubelerine atanır
+            isDarkMode={isDarkMode}
+            fixedRole="cashier"
+          />
+        )}
+      </AnimatePresence>
+
       <ManagerHeader 
         user={user}
         showMockData={showMockData}
@@ -103,6 +117,7 @@ export default function ManagerDashboard() {
                     isDarkMode={isDarkMode}
                     onUpdate={async () => {}}
                     onRemove={async () => {}}
+                    onAddClick={() => setShowInvite(true)}
                     loadingId={null}
                   />
                 </div>
@@ -133,6 +148,7 @@ export default function ManagerDashboard() {
                   isDarkMode={isDarkMode}
                   onUpdate={async () => {}}
                   onRemove={async () => {}}
+                  onAddClick={() => setShowInvite(true)}
                   loadingId={null}
                 />
               </div>

@@ -10,6 +10,7 @@ interface EmployeeManagementProps {
   isDarkMode: boolean;
   onUpdate: (id: string, firstName: string, lastName: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  onAddClick?: () => void;
   loadingId: string | null;
 }
 
@@ -18,6 +19,7 @@ export function EmployeeManagement({
   isDarkMode,
   onUpdate,
   onRemove,
+  onAddClick,
   loadingId
 }: EmployeeManagementProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,7 +45,10 @@ export function EmployeeManagement({
           <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Çalışan Yönetimi</h2>
           <p className="text-slate-500 text-sm mt-1">Kasiyer ve yönetici bilgilerini düzenleyin veya silin.</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+        <button 
+          onClick={onAddClick}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+        >
           <UserPlus size={16} /> Yeni Çalışan
         </button>
       </div>

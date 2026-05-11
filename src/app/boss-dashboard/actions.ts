@@ -212,6 +212,13 @@ export async function inviteEmployee(data: {
   if (!userId || !orgId) throw new Error("Yetkisiz erişim");
 
   const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const inviterMeta = (user.publicMetadata || {}) as Record<string, unknown>;
+
+  // Yetki kontrolü: Manager sadece Cashier davet edebilir
+  if (inviterMeta.role === "manager" && data.role !== "cashier") {
+    throw new Error("Yöneticiler yalnızca kasiyer davet edebilir.");
+  }
 
   // Zaten üye mi kontrol et
   const memberships = await client.organizations.getOrganizationMembershipList({

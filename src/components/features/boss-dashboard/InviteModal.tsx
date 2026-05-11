@@ -10,15 +10,16 @@ interface InviteModalProps {
   onClose: () => void;
   branches: { id: number; name: string }[];
   isDarkMode: boolean;
+  fixedRole?: "manager" | "cashier";
 }
 
 const FORBIDDEN_EMAILS = ["superadmin@loyaltycore.io", "admin@loyalty.io"];
 
-export function InviteModal({ onClose, branches, isDarkMode }: InviteModalProps) {
+export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: InviteModalProps) {
   const { user } = useUser();
   const bossEmail = user?.primaryEmailAddress?.emailAddress;
 
-  const [form, setForm] = useState({ name: "", email: "", role: "cashier", branch: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: fixedRole || "cashier", branch: "" });
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -139,38 +140,40 @@ export function InviteModal({ onClose, branches, isDarkMode }: InviteModalProps)
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClasses}>Rol (Opsiyonel)</label>
-                    <div className="relative">
-                      <select 
-                        value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                        className={`${inputClasses} appearance-none pr-10`}
-                      >
-                        <option value="cashier" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Kasiyer</option>
-                        <option value="manager" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Şube Müdürü</option>
-                      </select>
-                      <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
-                        <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {!fixedRole && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Rol (Opsiyonel)</label>
+                      <div className="relative">
+                        <select 
+                          value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as "manager" | "cashier" }))}
+                          className={`${inputClasses} appearance-none pr-10`}
+                        >
+                          <option value="cashier" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Kasiyer</option>
+                          <option value="manager" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Şube Müdürü</option>
+                        </select>
+                        <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
+                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Şube (Opsiyonel)</label>
+                      <div className="relative">
+                        <select 
+                          value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}
+                          className={`${inputClasses} appearance-none pr-10`}
+                        >
+                          <option value="" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Atama Yok</option>
+                          {branches.map(b => <option key={b.id} value={b.name} className={isDarkMode ? "bg-slate-800" : "bg-white"}>{b.name}</option>)}
+                        </select>
+                        <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
+                          <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div>
-                    <label className={labelClasses}>Şube (Opsiyonel)</label>
-                    <div className="relative">
-                      <select 
-                        value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}
-                        className={`${inputClasses} appearance-none pr-10`}
-                      >
-                        <option value="" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Atama Yok</option>
-                        {branches.map(b => <option key={b.id} value={b.name} className={isDarkMode ? "bg-slate-800" : "bg-white"}>{b.name}</option>)}
-                      </select>
-                      <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
-                        <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               <button 

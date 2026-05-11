@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 
 interface Org {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   email: string;
@@ -20,7 +20,7 @@ interface Org {
 
 interface OrgTableProps {
   orgs: Org[];
-  onToggle: (id: number) => void;
+  onToggle: (id: string, currentStatus: boolean) => void;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
@@ -29,7 +29,7 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<keyof Org>("customers");
   const [sortDir, setSortDir] = useState(-1);
-  const [menuId, setMenuId] = useState<number | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
 
   const sorted = orgs
     .filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || o.slug.includes(search.toLowerCase()))
@@ -106,7 +106,7 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
                 <td className="px-4 py-3.5"><span className="text-slate-300 font-semibold">{fmt(org.customers)}</span></td>
                 <td className="px-4 py-3.5"><span className="text-slate-400 font-mono">{org.email}</span></td>
                 <td className="px-4 py-3.5">
-                  <button onClick={() => onToggle(org.id)}
+                  <button onClick={() => onToggle(org.id, org.status === "active")}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all"
                     style={{
                       background: org.status === "active" ? "rgba(34,197,94,0.1)" : "rgba(100,116,139,0.1)",
