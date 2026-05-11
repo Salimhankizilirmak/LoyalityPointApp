@@ -13,7 +13,7 @@ export function ManagerSidebar() {
       
       <div className="flex items-center gap-3 px-4 mb-8">
         <div className="w-10 h-10 rounded-full flex items-center justify-center">
-          <UserButton signOutOptions={{ redirectUrl: "/" }} />
+          <UserButton />
         </div>
         <div>
           <div className="font-label-md text-label-md text-on-surface font-bold">Admin Console</div>
