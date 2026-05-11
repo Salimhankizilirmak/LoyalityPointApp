@@ -39,7 +39,7 @@ export default async function SignUpPage({
           </div>
 
           <div className="pt-4">
-            <Link href="/sign-in" className="text-cyan-500 hover:text-cyan-400 transition-colors text-xs font-bold uppercase tracking-widest">
+            <Link href="/dashboard" className="text-cyan-500 hover:text-cyan-400 transition-colors text-xs font-bold uppercase tracking-widest">
               Zaten hesabınız var mı? Giriş Yapın
             </Link>
           </div>

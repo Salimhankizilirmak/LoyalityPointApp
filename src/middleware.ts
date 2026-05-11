@@ -8,7 +8,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // 1. Herkes için açık olan sayfalar
   if (isPublicRoute(req)) {
-    const { userId, sessionClaims } = await auth();
+    const { userId } = await auth();
     // Giriş yapmış kullanıcıyı giriş sayfalarından dashboard'a yönlendir
     if (userId && (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -17,26 +17,27 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // 2. Korumalı sayfalar için oturum kontrolü
-  const { userId, sessionClaims, redirectToSignIn } = await auth();
+  const { userId, redirectToSignIn, sessionClaims } = await auth();
 
   if (!userId) {
     return redirectToSignIn({ returnBackUrl: "/dashboard" });
   }
 
-  // 3. KRİTİK GÜVENLİK: Davetsiz Kullanıcı Engelleme (Zero-Tolerance)
-  // Süper Admin e-postalarını kontrol et
-  const userEmail = (sessionClaims?.email as string)?.toLowerCase() || "";
-  const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
-  const allowedEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
-  const isSuperAdmin = allowedEmails.includes(userEmail);
-
+  // 3. GÜVENLİK KONTROLÜ:
+  // Middleware katmanında e-posta bazen sessionClaims içinde eksik olabilir.
+  // Bu nedenle ana yetkilendirme kontrolünü /dashboard sayfasındaki Server Component'e bırakıyoruz.
+  // Ancak, rolü ve organizasyonu olmayan kullanıcıların iç sayfalara (dashboard dışı) 
+  // direkt erişimini burada kısıtlıyoruz.
+  
   const role = (sessionClaims?.metadata as any)?.role;
   const orgId = sessionClaims?.orgId;
+  
+  // Ana yetkilendirme rotaları
+  const isCoreAuthPage = pathname === "/dashboard" || pathname.startsWith("/admin") || pathname === "/create-organization";
 
-  // Eğer kullanıcı Süper Admin değilse VE (Rolü yok VE Organizasyonu yoksa)
-  if (!isSuperAdmin && !role && !orgId) {
-    // Bu kullanıcı davetsiz gelmiş bir 'intruder'dır.
-    // Dashboard'a gitmesine veya herhangi bir onboard ekranı görmesine izin verme.
+  // Eğer kullanıcı Süper Admin değilse (metadata boşsa) ve organizasyona bağlı değilse
+  // ve ana yetkilendirme sayfasında değilse engelle.
+  if (!role && !orgId && !isCoreAuthPage) {
     if (pathname !== "/unauthorized") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
