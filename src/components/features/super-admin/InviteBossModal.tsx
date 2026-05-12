@@ -28,10 +28,10 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
     
     const result = await inviteBossAction(email);
     
-    if (result.success) {
+    if (result && typeof result === 'object' && 'success' in result && result.success) {
       setSent(true);
     } else {
-      setError(result.error || "Bir hata oluştu.");
+      setError((result && typeof result === 'object' && 'error' in result ? (result as { error: string }).error : null) || "Bir hata oluştu.");
       setSending(false);
     }
   };
@@ -87,18 +87,19 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
               )}
 
               <div>
-                <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                <label htmlFor="bossEmail" className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
                   Patron E-posta Adresi *
                 </label>
                 <div className="relative">
                   <Mail size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
                   <input 
+                    id="bossEmail"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="ornek@sirket.com"
                     required
-                    className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all ${
+                    className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${
                       isDarkMode 
                         ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900" 
                         : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
@@ -116,7 +117,7 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
               <button 
                 type="submit"
                 disabled={sending} 
-                className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all ${
+                className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all min-h-[44px] ${
                   !sending 
                     ? "bg-cyan-600 shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] hover:bg-cyan-500" 
                     : "bg-slate-300 cursor-not-allowed opacity-50"

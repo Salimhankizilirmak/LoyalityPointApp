@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Terminal, ChevronUp, ChevronDown, RefreshCw } from "lucide-react";
+import { Terminal } from "lucide-react";
 
 interface Log {
   id: number;

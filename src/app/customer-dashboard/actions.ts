@@ -6,7 +6,7 @@ import { pointsService } from "@/lib/services/points-service";
 export async function syncCustomerData() {
   try {
     return await customerService.syncCustomerData();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Sync error:", error);
     return null;
   }

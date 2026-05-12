@@ -11,16 +11,16 @@ export async function inviteBossAction(email: string) {
 
   try {
     return await adminService.inviteBoss(email, appUrl);
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }
 
 export async function toggleOrgStatus(orgId: string, currentStatus: boolean) {
   try {
     return await adminService.toggleOrgStatus(orgId, currentStatus);
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }
 

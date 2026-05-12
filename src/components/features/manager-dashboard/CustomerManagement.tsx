@@ -63,17 +63,19 @@ export function CustomerManagement({
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold shadow-lg shadow-purple-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all min-h-[44px]"
           >
             <UserPlus size={16} /> Yeni Müşteri
           </button>
           <div className="relative">
+            <label htmlFor="customerSearch" className="sr-only">Müşteri Ara</label>
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
+              id="customerSearch"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Müşteri ara..."
-              className={`pl-10 pr-4 py-2 rounded-xl text-sm border outline-none w-full sm:w-64 ${
+              className={`pl-10 pr-4 py-2 rounded-xl text-sm border outline-none w-full sm:w-64 min-h-[44px] ${
                 isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200"
               }`}
             />
@@ -97,7 +99,7 @@ export function CustomerManagement({
             >
               <div className="flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-bold ${
-                  isDarkMode ? "bg-slate-700 text-purple-400" : "bg-purple-50 text-purple-600"
+                  isDarkMode ? "bg-slate-700 text-cyan-400" : "bg-cyan-50 text-cyan-600"
                 }`}>
                   {cust.firstName[0]}{cust.lastName[0]}
                 </div>
@@ -115,8 +117,8 @@ export function CustomerManagement({
                       className={`px-3 py-1.5 rounded-lg text-xs border outline-none ${isDarkMode ? "bg-slate-900 border-slate-700 text-white" : "bg-slate-50 border-slate-200"}`}
                     />
                     <div className="flex justify-end gap-2 col-span-full">
-                      <button onClick={() => saveEdit(cust.id)} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold">Kaydet</button>
-                      <button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold">İptal</button>
+                      <button onClick={() => saveEdit(cust.id)} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold min-h-[44px]">Kaydet</button>
+                      <button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold min-h-[44px]">İptal</button>
                     </div>
                   </div>
                 ) : (
@@ -129,8 +131,8 @@ export function CustomerManagement({
                       <p className="text-blue-500 font-bold text-sm">{cust.currentPoints} p</p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => startEdit(cust)} className="p-2 rounded-xl text-slate-400 hover:text-blue-500 transition-colors"><Edit3 size={16}/></button>
-                      <button onClick={() => onDelete(cust.id)} disabled={loadingId === cust.id} className="p-2 rounded-xl text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
+                      <button onClick={() => startEdit(cust)} className="p-2 rounded-xl text-slate-400 hover:text-blue-500 transition-colors min-h-[44px]" aria-label="Düzenle"><Edit3 size={16}/></button>
+                      <button onClick={() => onDelete(cust.id)} disabled={loadingId === cust.id} className="p-2 rounded-xl text-slate-400 hover:text-rose-500 transition-colors min-h-[44px]" aria-label="Sil"><Trash2 size={16}/></button>
                     </div>
                   </>
                 )}

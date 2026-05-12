@@ -17,8 +17,8 @@ export async function manualAdjustmentAction(customerId: string, amountKurusStr:
 
   try {
     return await pointsService.manualAdjustment(customerId, amountKurus);
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }
 
@@ -30,19 +30,19 @@ export async function getCustomers(query?: string) {
   }
 }
 
-export async function updateCustomer(id: string, data: any) {
+export async function updateCustomer(id: string, data: Record<string, unknown>) {
   try {
     return await customerService.updateCustomer(id, data);
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw new Error((error instanceof Error ? error.message : "Bilinmeyen hata"));
   }
 }
 
 export async function deleteCustomer(id: string) {
   try {
     return await customerService.deleteCustomer(id);
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw new Error((error instanceof Error ? error.message : "Bilinmeyen hata"));
   }
 }
 

@@ -85,6 +85,8 @@ export function EmployeeManagement({
                       <input 
                         value={firstName} 
                         onChange={e => setFirstName(e.target.value)}
+                        placeholder="Ad"
+                        aria-label="Ad"
                         className={`flex-1 px-3 py-1.5 rounded-lg text-xs border outline-none ${
                           isDarkMode ? "bg-slate-900 border-slate-700 text-white" : "bg-slate-50 border-slate-200"
                         }`}
@@ -92,6 +94,8 @@ export function EmployeeManagement({
                       <input 
                         value={lastName} 
                         onChange={e => setLastName(e.target.value)}
+                        placeholder="Soyad"
+                        aria-label="Soyad"
                         className={`flex-1 px-3 py-1.5 rounded-lg text-xs border outline-none ${
                           isDarkMode ? "bg-slate-900 border-slate-700 text-white" : "bg-slate-50 border-slate-200"
                         }`}

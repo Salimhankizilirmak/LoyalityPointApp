@@ -21,7 +21,7 @@ export function LeaderboardCards({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Top Branches */}
-      <div className="glass-panel rounded-3xl p-8 transition-all">
+      <div className="glass-panel rounded-3xl p-8 transition-all" aria-label="En Başarılı Şubeler Listesi">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
@@ -51,7 +51,7 @@ export function LeaderboardCards({
       </div>
 
       {/* Top Customers */}
-      <div className="glass-panel rounded-3xl p-8 transition-all">
+      <div className="glass-panel rounded-3xl p-8 transition-all" aria-label="Sadık Müşteriler Listesi">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">

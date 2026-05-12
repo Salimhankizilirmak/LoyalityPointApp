@@ -8,7 +8,19 @@ import { Label } from "@/components/ui/label";
 import { manualAdjustmentAction } from "@/app/manager-dashboard/actions";
 import { Edit } from "lucide-react";
 
-export function ManagerTransactionTable({ transactions, onRefresh }: { transactions: any[], onRefresh: () => void }) {
+interface Transaction {
+  id: string;
+  createdAt: number;
+  customerFirstName: string;
+  customerLastName: string;
+  customerClerkId: string;
+  type: 'earn' | 'spend' | 'manual_adjustment';
+  amount: number;
+  employeeId: string;
+  customerId: string;
+}
+
+export function ManagerTransactionTable({ transactions, onRefresh }: { transactions: Transaction[], onRefresh: () => void }) {
   return (
     <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/20 overflow-hidden">
       <div className="p-6 border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-lowest/50 backdrop-blur">
@@ -87,9 +99,9 @@ function ManualAdjustmentDialog({ customerId, customerName, onSuccess }: { custo
       const kurus = Math.floor(amountTL * 100);
       const finalAmount = isPositive ? kurus : -kurus;
       const res = await manualAdjustmentAction(customerId, finalAmount.toString());
-      if (res.error) {
-        alert(res.error);
-      } else {
+      if (res && "error" in res) {
+        alert(String(res.error));
+      } else if (res && "success" in res && res.success) {
         setOpen(false);
         setAmountStr("");
         onSuccess();

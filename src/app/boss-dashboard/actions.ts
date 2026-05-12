@@ -34,11 +34,11 @@ export async function getOrgMembers() {
   return await memberService.getOrgMembers();
 }
 
-export async function inviteEmployee(data: any) {
+export async function inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string }) {
   try {
     return await memberService.inviteEmployee(data);
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw new Error((error instanceof Error ? error.message : "Bilinmeyen hata"));
   }
 }
 

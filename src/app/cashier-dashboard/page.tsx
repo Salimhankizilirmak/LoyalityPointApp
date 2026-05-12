@@ -32,7 +32,7 @@ const TIER_COLORS: Record<string, { bg: string; color: string }> = {
   Bronze: { bg: "#fef3c7", color: "#b45309" },
   Silver: { bg: "#f1f5f9", color: "#475569" },
   Gold: { bg: "#fef9c3", color: "#a16207" },
-  Platinum: { bg: "#f5f3ff", color: "#7c3aed" },
+  Platinum: { bg: "#ecfeff", color: "#0891b2" },
 };
 
 const RECENT_IDS = Object.keys(MOCK_CUSTOMERS);
@@ -46,17 +46,12 @@ export default function CashierDashboardPage() {
   const [amount, setAmount] = useState("");
   const [txSuccess, setTxSuccess] = useState(false);
   const [txError, setTxError] = useState(false);
-  const [ptsPreview, setPtsPreview] = useState(0);
   const [totalTxToday, setTotalTxToday] = useState(78);
   const [ptsGivenToday, setPtsGivenToday] = useState(14820);
   const [newMembersToday, setNewMembersToday] = useState(7);
   const [scannerActive, setScannerActive] = useState(false);
-
-  useEffect(() => {
-    if (!amount || !txType) { setPtsPreview(0); return; }
-    const base = Number(amount);
-    setPtsPreview(txType === "earn" ? Math.floor(base / 10) * 10 : Math.min(Number(amount), customer?.pts ?? 0));
-  }, [amount, txType, customer]);
+  const baseAmount = Number(amount) || 0;
+  const ptsPreview = (!amount || !txType) ? 0 : (txType === "earn" ? Math.floor(baseAmount / 10) * 10 : Math.min(baseAmount, customer?.pts ?? 0));
 
   const handleScan = (id: string) => {
     if (!id) return;
@@ -115,7 +110,7 @@ export default function CashierDashboardPage() {
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Bugün İşlem", value: String(totalTxToday), icon: Zap, color: INDIGO },
-            { label: "Dağıtılan Puan", value: fmt(ptsGivenToday), icon: Star, color: "#7c3aed" },
+            { label: "Dağıtılan Puan", value: fmt(ptsGivenToday), icon: Star, color: INDIGO },
             { label: "Yeni Üye", value: String(newMembersToday), icon: User, color: "#059669" },
           ].map(({ label, value, icon: Icon, color }, i) => (
             <motion.div key={label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
@@ -155,14 +150,17 @@ export default function CashierDashboardPage() {
               )}
             </AnimatePresence>
             <div className="relative mb-3">
+              <label htmlFor="qrInput" className="sr-only">Müşteri ID veya QR</label>
               <QrCode size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={scanInput} onChange={e => setScanInput(e.target.value.toUpperCase())}
+              <input 
+                id="qrInput"
+                value={scanInput} onChange={e => setScanInput(e.target.value.toUpperCase())}
                 onKeyDown={e => e.key === "Enter" && handleScan(scanInput)}
                 placeholder="ID girin veya QR okutun..."
-                className="w-full pl-9 pr-28 py-3 rounded-xl text-sm text-slate-800 font-mono outline-none"
+                className="w-full pl-9 pr-28 py-3 rounded-xl text-sm text-slate-800 font-mono outline-none min-h-[44px]"
                 style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }} />
               <button onClick={() => handleScan(scanInput)} disabled={scanning || !scanInput}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-lg text-xs font-semibold text-white"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-lg text-xs font-semibold text-white min-h-[44px] flex items-center"
                 style={{ background: scanInput ? INDIGO : "#cbd5e1" }}>
                 {scanning ? "..." : "Sorgula"}
               </button>
@@ -256,12 +254,14 @@ export default function CashierDashboardPage() {
                     {txType && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-3">
                         <div>
-                          <label className="text-slate-500 text-xs font-medium mb-1.5 block">
+                          <label htmlFor="txAmount" className="text-slate-500 text-xs font-medium mb-1.5 block">
                             {txType === "earn" ? "Alışveriş Tutarı (₺)" : "Kullanılacak Puan"}
                           </label>
-                          <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                          <input 
+                            id="txAmount"
+                            type="number" value={amount} onChange={e => setAmount(e.target.value)}
                             placeholder={txType === "earn" ? "Örn: 350" : `Maks: ${customer.pts}`}
-                            className="w-full px-3.5 py-3 rounded-xl text-base font-bold text-slate-800 outline-none"
+                            className="w-full px-3.5 py-3 rounded-xl text-base font-bold text-slate-800 outline-none min-h-[44px]"
                             style={{ background: "#f8fafc", border: `2px solid ${amount ? "#c7d2fe" : "#e2e8f0"}` }} />
                         </div>
                         {ptsPreview > 0 && (
@@ -276,7 +276,7 @@ export default function CashierDashboardPage() {
                           </div>
                         )}
                         <button onClick={handleTx} disabled={!amount || ptsPreview <= 0}
-                          className="w-full py-3.5 rounded-xl font-bold text-sm text-white"
+                          className="w-full py-3.5 rounded-xl font-bold text-sm text-white min-h-[44px]"
                           style={{ background: amount && ptsPreview > 0 ? INDIGO : "#cbd5e1", boxShadow: amount && ptsPreview > 0 ? "0 4px 16px rgba(79,70,229,0.3)" : "none" }}>
                           İşlemi Onayla
                         </button>

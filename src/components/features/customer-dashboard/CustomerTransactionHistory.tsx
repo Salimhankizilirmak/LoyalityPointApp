@@ -3,7 +3,14 @@
 import React from "react";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 
-export function CustomerTransactionHistory({ transactions }: { transactions: any[] }) {
+interface CustomerTransaction {
+  id: string;
+  transactionType: 'earn' | 'spend' | 'manual_adjustment';
+  amount: number;
+  createdAt: number;
+}
+
+export function CustomerTransactionHistory({ transactions }: { transactions: CustomerTransaction[] }) {
   return (
     <section aria-label="Recent Activities" className="space-y-4">
       <div className="flex items-center justify-between px-2">

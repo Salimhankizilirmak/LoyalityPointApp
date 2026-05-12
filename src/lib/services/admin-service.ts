@@ -16,8 +16,9 @@ export class AdminService extends BaseService {
       });
       revalidatePath("/admin");
       return { success: true, message: `${email} adresine Patron daveti gönderildi!` };
-    } catch (error: any) {
-      if (error.errors?.[0]?.code === "duplicate_record") {
+    } catch (error: unknown) {
+      const clerkError = error as { errors?: { code: string }[] };
+      if (clerkError.errors?.[0]?.code === "duplicate_record") {
         throw new Error("Bu e-posta adresine zaten aktif bir davet gönderilmiş.");
       }
       throw error;

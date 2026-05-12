@@ -63,7 +63,7 @@ export class OrganizationService extends BaseService {
 
   async createBranch(name: string, city: string) {
     const { user } = await this.requireRole(["boss"]);
-    const orgId = await this.requireOrg();
+    await this.requireOrg();
     const client = await this.getClerkClient();
     
     const slug = `${name.toLowerCase().replace(/\s+/g, "-")}-${Date.now().toString(36)}`;
@@ -80,7 +80,7 @@ export class OrganizationService extends BaseService {
   }
 
   async updateSettings(pointRate: number, validityMonths: number) {
-    await this.requireOrg();
+    const orgId = await this.requireOrg();
     await this.requireRole(["boss"]); // Sadece patron
 
     await this.db.update(organizations)

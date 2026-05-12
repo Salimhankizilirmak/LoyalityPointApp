@@ -18,7 +18,7 @@ export function OverviewStats({
 }: OverviewStatsProps) {
   const stats = [
     { icon: ShoppingBag, label: "Bugünkü İşlem", value: String(txCount), color: "#2563eb", delay: 0 },
-    { icon: Star, label: "Dağıtılan Puan", value: totalPts.toLocaleString(), color: "#7c3aed", delay: 0.1 },
+    { icon: Star, label: "Dağıtılan Puan", value: totalPts.toLocaleString(), color: "#0891b2", delay: 0.1 },
     { icon: Users, label: "Aktif Çalışan", value: activeEmployees, color: "#059669", delay: 0.2 },
   ];
 

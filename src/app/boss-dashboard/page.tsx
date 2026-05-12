@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { 
@@ -78,7 +78,7 @@ export default function BossDashboard() {
   const { signOut } = useClerk();
   const { user } = useUser();
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     try {
       const [profile, emps, allOrgs] = await Promise.all([
         getBossProfile(), 
@@ -99,12 +99,11 @@ export default function BossDashboard() {
 
       setEmployees(emps as Employee[]);
       
-      // DB'den gelen organizasyonları Branch tipine dönüştür
       const mappedBranches: Branch[] = allOrgs.map(o => ({
         id: o.id,
         name: o.name,
-        city: "Atanmadı", // Şimdilik DB'de city yok
-        manager: "Atanmadı", // Şube müdürü bilgisi metadata'da
+        city: "Atanmadı",
+        manager: "Atanmadı",
         transactions: 0,
         earnedPts: 0,
         spentPts: 0,
@@ -124,9 +123,16 @@ export default function BossDashboard() {
     } finally {
       setLoadingEmps(false);
     }
-  };
+  }, [user]);
 
-  useEffect(() => { refreshData(); }, [user]);
+  useEffect(() => { 
+    if (user) {
+      const t = setTimeout(() => {
+        refreshData(); 
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [user, refreshData]);
 
   // Filters
   const managers = employees.filter(e => e.role === "manager");
@@ -146,8 +152,8 @@ export default function BossDashboard() {
     try { 
       await updateMemberName(id, fName, lName); 
       await refreshData(); 
-    } catch (err: any) {
-      alert(err.message || "Güncelleme sırasında hata oluştu.");
+    } catch (err: unknown) {
+      alert((err instanceof Error ? err.message : null) || "Güncelleme sırasında hata oluştu.");
     } finally { 
       setLoadingId(null); 
     }
@@ -178,7 +184,7 @@ export default function BossDashboard() {
     setBranches(prev => [newBranch, ...prev]);
   };
 
-  const handleChangeManager = async (branchId: number, managerId: string) => {
+  const handleChangeManager = async (branchId: number | string, managerId: string) => {
     const managerName = managers.find(m => m.id === managerId)?.name || "Atanmadı";
     setBranches(prev => prev.map(b => b.id === branchId ? { ...b, manager: managerName } : b));
     if (showMockData) {
@@ -215,7 +221,6 @@ export default function BossDashboard() {
           <InviteModal 
             onClose={() => { setShowInvite(false); refreshData(); }} 
             branches={displayBranches} 
-            isDarkMode={true}
           />
         )}
         {showAddBranch && (

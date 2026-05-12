@@ -32,7 +32,7 @@ export abstract class BaseService {
 
   protected async requireRole(roles: ("boss" | "manager" | "cashier" | "customer" | "superadmin")[]) {
     const user = await this.getCurrentUser();
-    const role = (user.publicMetadata?.role as string) || "customer";
+    const currentRole = (user.publicMetadata?.role as string) || "customer";
     
     // Super Admin kontrolü (env üzerinden)
     const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
@@ -43,10 +43,10 @@ export abstract class BaseService {
       return { user, role: "superadmin" as const };
     }
 
-    if (!roles.includes(role)) {
+    if (!(roles as string[]).includes(currentRole)) {
       throw new Error(`Bu işlem için yetkiniz bulunmamaktadır. Gerekli roller: ${roles.join(", ")}`);
     }
 
-    return { user, role };
+    return { user, role: currentRole };
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 
 const colors = fs.readFileSync('colors.css', 'utf-8');

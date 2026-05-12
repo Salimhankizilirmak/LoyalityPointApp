@@ -36,7 +36,7 @@ export class MemberService extends BaseService {
       id: `invite-${inv.id}`,
       name: inv.emailAddress.split("@")[0],
       email: inv.emailAddress,
-      role: (inv.publicMetadata?.role as any) || "cashier",
+      role: (inv.publicMetadata?.role as string) || "cashier",
       avatar: inv.emailAddress.charAt(0).toUpperCase() + "?",
       status: "pending" as const,
     }));

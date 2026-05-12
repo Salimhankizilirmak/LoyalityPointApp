@@ -10,9 +10,16 @@ import { findCustomerById, processTransactionAction } from "@/app/cashier-dashbo
 import { CheckCircle2, AlertCircle, Search, QrCode } from "lucide-react";
 import { motion } from "framer-motion";
 
+interface CustomerInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  currentPoints: number;
+}
+
 export function QrProcessTab() {
   const [customerId, setCustomerId] = useState("");
-  const [customerInfo, setCustomerInfo] = useState<any>(null);
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState("");
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);

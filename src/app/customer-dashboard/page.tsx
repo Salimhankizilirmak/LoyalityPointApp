@@ -7,8 +7,8 @@ import {
   Bell, User, Shield, Sparkles, Clock, Info
 } from "lucide-react";
 
-const PURPLE = "#7c3aed";
-const PURPLE_LIGHT = "#f5f3ff";
+const BRAND = "#0891b2";
+const BRAND_LIGHT = "#ecfeff";
 
 interface Transaction {
   id: number;
@@ -36,7 +36,7 @@ const TIER_INFO = {
   Bronze: { min: 0, max: 2000, color: "#b45309", bg: "#fef3c7", next: "Silver", ptsNeeded: 2000 },
   Silver: { min: 2000, max: 5000, color: "#475569", bg: "#f1f5f9", next: "Gold", ptsNeeded: 5000 },
   Gold: { min: 5000, max: 10000, color: "#a16207", bg: "#fef9c3", next: "Platinum", ptsNeeded: 10000 },
-  Platinum: { min: 10000, max: 10000, color: "#7c3aed", bg: "#f5f3ff", next: "Platinum", ptsNeeded: 99999 },
+  Platinum: { min: 10000, max: 10000, color: "#0891b2", bg: "#ecfeff", next: "Platinum", ptsNeeded: 99999 },
 };
 
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
@@ -44,7 +44,7 @@ const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 const TX_TYPE = {
   earned: { color: "#059669", label: "Kazandı", sign: "+" },
   spent: { color: "#d97706", label: "Harcadı", sign: "" },
-  bonus: { color: PURPLE, label: "Bonus", sign: "+" },
+  bonus: { color: BRAND, label: "Bonus", sign: "+" },
 };
 
 export default function CustomerDashboardPage() {
@@ -66,7 +66,7 @@ export default function CustomerDashboardPage() {
     <div className="min-h-screen flex flex-col max-w-sm mx-auto" style={{ background: "#f8fafc", fontFamily: "system-ui,-apple-system,sans-serif" }}>
       {/* Header */}
       <div className="px-5 pt-8 pb-5"
-        style={{ background: `linear-gradient(160deg, ${PURPLE} 0%, #9333ea 100%)` }}>
+        style={{ background: `linear-gradient(160deg, ${BRAND} 0%, #0e7490 100%)` }}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
@@ -89,7 +89,7 @@ export default function CustomerDashboardPage() {
         <div className="rounded-2xl p-5 mb-5" style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.2)" }}>
           <p className="text-white/60 text-xs mb-1">Toplam Puanınız</p>
           <div className="flex items-end gap-2 mb-4">
-            <span className="text-white font-black" style={{ fontSize: 42, lineHeight: 1 }}>{fmt(pts)}</span>
+            <h1 className="text-white font-black" style={{ fontSize: 42, lineHeight: 1 }}>{fmt(pts)}</h1>
             <span className="text-white/60 text-sm mb-1.5">puan</span>
           </div>
           <div className="flex items-center justify-between mb-2">
@@ -122,16 +122,17 @@ export default function CustomerDashboardPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 px-5 pt-4 pb-2 bg-white sticky top-0 z-10" style={{ borderBottom: "1px solid #f1f5f9" }}>
+      <nav className="flex gap-1 px-5 pt-4 pb-2 bg-white sticky top-0 z-10" style={{ borderBottom: "1px solid #f1f5f9" }}>
         {TABS.map(({ key, icon: Icon, label }) => (
           <button key={key} onClick={() => setActiveTab(key)}
-            className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition-all text-xs font-medium"
-            style={{ background: activeTab === key ? PURPLE_LIGHT : "transparent", color: activeTab === key ? PURPLE : "#94a3b8" }}>
+            aria-label={label}
+            className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition-all text-xs font-medium min-h-[44px]"
+            style={{ background: activeTab === key ? BRAND_LIGHT : "transparent", color: activeTab === key ? BRAND : "#94a3b8" }}>
             <Icon size={16} />
             {label}
           </button>
         ))}
-      </div>
+      </nav>
 
       {/* Tab Content */}
       <div className="flex-1 px-5 py-4">
@@ -181,19 +182,19 @@ export default function CustomerDashboardPage() {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full mb-1.5 inline-block"
-                            style={{ background: PURPLE_LIGHT, color: PURPLE }}>{offer.category}</span>
+                            style={{ background: BRAND_LIGHT, color: BRAND }}>{offer.category}</span>
                           <h3 className="text-slate-800 font-semibold text-sm">{offer.title}</h3>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-xl font-black" style={{ color: PURPLE }}>{fmt(offer.pts)}</p>
+                          <p className="text-xl font-black" style={{ color: BRAND }}>{fmt(offer.pts)}</p>
                           <p className="text-slate-400 text-xs">puan</p>
                         </div>
                       </div>
                       <p className="text-slate-400 text-xs mb-3">Geçerlilik: {offer.expires}</p>
                       <button disabled={pts < offer.pts}
-                        className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
                         style={{
-                          background: pts >= offer.pts ? PURPLE : "#f1f5f9",
+                          background: pts >= offer.pts ? BRAND : "#f1f5f9",
                           color: pts >= offer.pts ? "#fff" : "#94a3b8",
                         }}>
                         {pts >= offer.pts ? <><Gift size={13} />Kuponu Kullan</> : <><Info size={13} />Yeterli Puanınız Yok</>}
@@ -209,22 +210,22 @@ export default function CustomerDashboardPage() {
               <div className="flex flex-col items-center py-4 space-y-5">
                 <div className="text-center">
                   <h2 className="text-slate-800 font-semibold text-sm">QR Kodunuz</h2>
-                  <p className="text-slate-400 text-xs mt-1">Kasiyere okutun veya ID'yi paylaşın</p>
+                  <p className="text-slate-400 text-xs mt-1">Kasiyere okutun veya ID&apos;yi paylaşın</p>
                 </div>
                 <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 240, damping: 20 }}
                   className="relative p-6 rounded-3xl bg-white"
-                  style={{ border: "2px solid #c4b5fd", boxShadow: "0 8px 32px rgba(124,58,237,0.15)" }}>
+                  style={{ border: "2px solid #0891b2", boxShadow: "0 8px 32px rgba(8,145,178,0.15)" }}>
                   <div className="grid grid-cols-7 gap-1" style={{ width: 168, height: 168 }}>
                     {Array.from({ length: 49 }).map((_, i) => (
                       <div key={i} className="rounded-sm"
-                        style={{ background: Math.random() > 0.5 ? PURPLE : "transparent", aspectRatio: "1" }} />
+                        style={{ background: i % 3 === 0 ? BRAND : "transparent", aspectRatio: "1" }} />
                     ))}
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center"
-                      style={{ border: `2px solid ${PURPLE}` }}>
-                      <span className="text-xs font-black" style={{ color: PURPLE }}>LC</span>
+                      style={{ border: `2px solid ${BRAND}` }}>
+                      <span className="text-xs font-black" style={{ color: BRAND }}>LC</span>
                     </div>
                   </div>
                 </motion.div>
@@ -233,9 +234,9 @@ export default function CustomerDashboardPage() {
                   <p className="text-slate-400 text-xs mt-1">Sadakat Kimlik Numaranız</p>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl w-full"
-                  style={{ background: PURPLE_LIGHT, border: "1px solid #c4b5fd" }}>
-                  <Shield size={14} style={{ color: PURPLE }} />
-                  <p className="text-xs font-medium" style={{ color: PURPLE }}>Bu kod yalnızca size aittir. Kimseyle paylaşmayın.</p>
+                  style={{ background: BRAND_LIGHT, border: "1px solid #0891b2" }}>
+                  <Shield size={14} style={{ color: BRAND }} />
+                  <p className="text-xs font-medium" style={{ color: BRAND }}>Bu kod yalnızca size aittir. Kimseyle paylaşmayın.</p>
                 </div>
               </div>
             )}
@@ -245,7 +246,7 @@ export default function CustomerDashboardPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-white" style={{ border: "1px solid #f1f5f9" }}>
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black"
-                    style={{ background: PURPLE_LIGHT, color: PURPLE }}>FG</div>
+                    style={{ background: BRAND_LIGHT, color: BRAND }}>FG</div>
                   <div>
                     <h2 className="text-slate-900 font-bold">Fatma Güler</h2>
                     <p className="text-slate-400 text-sm">fatma@email.com</p>
@@ -269,7 +270,7 @@ export default function CustomerDashboardPage() {
                     </div>
                   ))}
                 </div>
-                <button className="w-full py-3 rounded-2xl text-sm font-semibold text-center"
+                <button className="w-full py-3 rounded-2xl text-sm font-semibold text-center min-h-[44px]"
                   style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>
                   Çıkış Yap
                 </button>

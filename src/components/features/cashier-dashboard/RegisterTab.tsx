@@ -16,10 +16,10 @@ export function RegisterTab() {
     setLoading(true);
     setMsg(null);
     const result = await inviteCustomerAction(formData);
-    if (result.error) {
-      setMsg({ type: "error", text: result.error });
-    } else {
-      setMsg({ type: "success", text: result.message! });
+    if (result && "error" in result) {
+      setMsg({ type: "error", text: String(result.error) });
+    } else if (result && "success" in result && result.success) {
+      setMsg({ type: "success", text: (result as { message?: string }).message || "Müşteri başarıyla eklendi." });
       const form = document.getElementById("reg-form") as HTMLFormElement;
       if (form) form.reset();
     }

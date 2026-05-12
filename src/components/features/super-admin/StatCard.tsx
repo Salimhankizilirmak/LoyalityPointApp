@@ -20,6 +20,7 @@ export function StatCard({ label, value, sub, icon: Icon, accent, delta, delay =
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
       className="p-5 rounded-2xl border border-white/5 bg-[#0f172a]/50 backdrop-blur-sm group hover:border-white/10 transition-all"
+      aria-label={`İstatistik: ${label}`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"

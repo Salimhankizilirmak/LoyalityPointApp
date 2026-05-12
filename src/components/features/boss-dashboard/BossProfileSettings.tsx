@@ -104,7 +104,7 @@ export function BossProfileSettings({
         }`}>
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-500">
               <User size={20} />
             </div>
             <div>
@@ -130,22 +130,24 @@ export function BossProfileSettings({
               <div className="space-y-3 mt-2">
                 <div className="grid grid-cols-2 gap-2">
                   <input
+                    id="editFirstName"
                     value={firstName} onChange={e => setFirstName(e.target.value)}
                     placeholder="Ad"
-                    className={`px-3 py-2 rounded-xl text-xs border outline-none ${isDarkMode ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-slate-200 text-black"
+                    className={`px-3 py-2 rounded-xl text-xs border outline-none min-h-[44px] ${isDarkMode ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-slate-200 text-black"
                       }`}
                   />
                   <input
+                    id="editLastName"
                     value={lastName} onChange={e => setLastName(e.target.value)}
                     placeholder="Soyad"
-                    className={`px-3 py-2 rounded-xl text-xs border outline-none ${isDarkMode ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-slate-200 text-black"
+                    className={`px-3 py-2 rounded-xl text-xs border outline-none min-h-[44px] ${isDarkMode ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-slate-200 text-black"
                       }`}
                   />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setIsEditingName(false)}
-                    className="p-1.5 rounded-lg bg-slate-100 text-slate-500"
+                    className="p-1.5 rounded-lg bg-slate-100 text-slate-500 min-h-[44px]"
                   >
                     <X size={14} />
                   </button>

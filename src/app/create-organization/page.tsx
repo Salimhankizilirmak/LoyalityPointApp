@@ -18,10 +18,10 @@ export default function CreateOrganizationPage() {
     setError("");
 
     const result = await createBossOrganization(form.name, form.slug);
-    if (result.success) {
+    if ("success" in result && result.success) {
       router.push("/boss-dashboard");
     } else {
-      setError(result.error || "Bir hata oluştu.");
+      setError(("error" in result ? result.error : null) || "Bir hata oluştu.");
       setLoading(false);
     }
   };

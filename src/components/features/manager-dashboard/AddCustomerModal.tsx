@@ -53,8 +53,8 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
         <div className={`px-6 py-4 flex items-center justify-between border-b ${isDarkMode ? "border-slate-700" : "border-slate-50"
           }`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center">
-              <UserPlus size={18} className="text-purple-500" />
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+              <UserPlus size={18} className="text-cyan-500" />
             </div>
             <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>Müşteri Kaydet</h3>
           </div>
@@ -76,43 +76,46 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Ad</label>
+                  <label htmlFor="firstName" className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Ad</label>
                   <div className="relative">
                     <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
+                      id="firstName"
                       required
                       value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
                       placeholder="Adınızı Giriniz"
-                      className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all ${isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-purple-500" : "bg-slate-50 border-slate-200 focus:border-purple-400 text-black"
+                      className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
                         }`}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Soyad</label>
+                  <label htmlFor="lastName" className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Soyad</label>
                   <input
+                    id="lastName"
                     required
                     value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
                     placeholder="Soyadınızı Giriniz"
-                    className={`w-full px-4 py-2.5 rounded-xl text-sm border outline-none transition-all ${isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-purple-500" : "bg-slate-50 border-slate-200 focus:border-purple-400 text-black"
+                    className={`w-full px-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
                       }`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Telefon</label>
+                <label htmlFor="phone" className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Telefon</label>
                 <div className="relative">
                   <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
+                    id="phone"
                     required
                     type="tel"
                     value={form.phone} onChange={e => handlePhoneChange(e.target.value)}
                     placeholder="05xx xxx xx xx"
-                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all ${
+                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${
                       form.phone.length > 0 && !isPhoneValid 
                         ? "border-rose-500 bg-rose-500/5 focus:border-rose-500" 
-                        : isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-purple-500" : "bg-slate-50 border-slate-200 focus:border-purple-400 text-black"
+                        : isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
                     }`}
                   />
                 </div>
@@ -127,7 +130,7 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
               <button
                 type="submit"
                 disabled={!valid || loading}
-                className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all ${valid && !loading ? "bg-purple-600 shadow-purple-500/20 hover:scale-[1.02] active:scale-[0.98]" : "bg-slate-300 cursor-not-allowed opacity-50"
+                className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all min-h-[44px] ${valid && !loading ? "bg-cyan-600 shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98]" : "bg-slate-300 cursor-not-allowed opacity-50"
                   }`}
               >
                 {loading ? "Kaydediliyor..." : "Müşteriyi Kaydet"}

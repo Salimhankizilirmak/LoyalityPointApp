@@ -29,7 +29,7 @@ export function ManagerHeader({
   signOut,
   tabs
 }: ManagerHeaderProps) {
-  const BLUE = "#2563eb";
+  const CYAN = "#0891b2";
   const userRole = (user?.publicMetadata?.role as string) || "manager";
   const roleLabel = userRole === "boss" ? "Patron" : userRole === "manager" ? "Yönetici" : "Kasiyer";
 
@@ -43,15 +43,15 @@ export function ManagerHeader({
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform hover:rotate-12" 
-            style={{ background: BLUE, boxShadow: `0 4px 12px ${BLUE}44` }}>
+            style={{ background: CYAN, boxShadow: `0 4px 12px ${CYAN}44` }}>
             <MapPin size={18} className="text-white" />
           </div>
           <div>
             <p className={`font-bold text-sm leading-tight transition-colors ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-              İstanbul Cevahir AVM <span className="text-blue-600 ml-2 font-black">V2</span>
+              İstanbul Cevahir AVM <span className="text-cyan-600 ml-2 font-black">V2</span>
             </p>
             <p className="text-slate-500 text-xs font-medium flex items-center gap-1.5">
-              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[10px] font-bold uppercase tracking-wider">
+              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 text-[10px] font-bold uppercase tracking-wider">
                 {roleLabel}
               </span>
               · {user?.fullName || "Yönetici"}
@@ -62,11 +62,11 @@ export function ManagerHeader({
         <nav className="hidden lg:flex items-center gap-1">
           {tabs.map((tab, i) => (
             <button key={tab} onClick={() => setActiveTab(i)}
-              className="px-4 py-2 rounded-xl text-xs font-semibold transition-all relative group"
-              style={{ color: activeTab === i ? BLUE : (isDarkMode ? "#94a3b8" : "#64748b") }}>
+              className="px-4 py-2 rounded-xl text-xs font-semibold transition-all relative group min-h-[44px]"
+              style={{ color: activeTab === i ? CYAN : (isDarkMode ? "#94a3b8" : "#64748b") }}>
               {tab}
               {activeTab === i && (
-                <motion.div layoutId="managerActiveTab" className="absolute inset-0 bg-blue-500/10 rounded-xl -z-10" />
+                <motion.div layoutId="managerActiveTab" className="absolute inset-0 bg-cyan-500/10 rounded-xl -z-10" />
               )}
             </button>
           ))}
@@ -75,9 +75,10 @@ export function ManagerHeader({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border min-h-[44px] ${
               isDarkMode ? "bg-slate-800 border-slate-700 text-yellow-400" : "bg-slate-50 border-slate-200 text-slate-600"
             }`}
+            aria-label="Koyu Tema Geçişi"
           >
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -85,11 +86,12 @@ export function ManagerHeader({
           <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all ${
             isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"
           }`}>
-            <Database size={12} className={showMockData ? "text-blue-500" : "text-slate-400"} />
+            <Database size={12} className={showMockData ? "text-cyan-500" : "text-slate-400"} />
             <button 
               onClick={() => setShowMockData(!showMockData)}
               className="relative w-8 h-4 rounded-full transition-colors duration-200"
-              style={{ background: showMockData ? BLUE : (isDarkMode ? "#334155" : "#e2e8f0") }}
+              style={{ background: showMockData ? CYAN : (isDarkMode ? "#334155" : "#e2e8f0") }}
+              aria-label="Veri Kaynağı Değiştir"
             >
               <motion.div 
                 animate={{ x: showMockData ? 16 : 2 }}
@@ -99,7 +101,7 @@ export function ManagerHeader({
           </div>
 
           <button onClick={signOut}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border min-h-[44px] ${
               isDarkMode ? "bg-rose-500/10 border-rose-500/20 text-rose-400" : "bg-rose-50 border-rose-100 text-rose-600"
             }`}
             title="Çıkış Yap">

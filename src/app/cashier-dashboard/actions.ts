@@ -13,8 +13,8 @@ export async function inviteCustomerAction(formData: FormData) {
 
   try {
     return await customerService.inviteCustomer(data);
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }
 
@@ -38,7 +38,7 @@ export async function processTransactionAction(customerId: string, amountStr: st
       success: true, 
       message: type === "earn" ? "Puan başarıyla yüklendi!" : "Puan başarıyla harcandı!" 
     };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }

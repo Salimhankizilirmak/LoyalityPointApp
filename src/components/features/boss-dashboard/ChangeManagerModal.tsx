@@ -7,7 +7,7 @@ import { Employee, Branch } from "./types";
 
 interface ChangeManagerModalProps {
   onClose: () => void;
-  onUpdate: (branchId: number, managerId: string) => Promise<void>;
+  onUpdate: (branchId: string | number, managerId: string) => Promise<void>;
   managers: Employee[];
   branch: Branch;
   isDarkMode: boolean;

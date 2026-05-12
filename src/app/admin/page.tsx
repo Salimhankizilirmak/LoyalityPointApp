@@ -67,12 +67,15 @@ export default function SuperAdminDashboard() {
   };
 
   useEffect(() => {
-    loadData();
+    const t = setTimeout(() => {
+      loadData();
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     const result = await toggleOrgStatus(id, currentStatus);
-    if (result.success) {
+    if ("success" in result && result.success) {
       loadData();
     }
   };
@@ -128,8 +131,8 @@ export default function SuperAdminDashboard() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {STAT_CARDS_DATA.map((card, i) => (
-            <StatCard key={card.label} {...card} delay={i * 0.07} />
+          {STAT_CARDS_DATA.map((card) => (
+            <StatCard key={card.label} {...card} />
           ))}
         </div>
 

@@ -8,8 +8,8 @@ import { useUser } from "@clerk/nextjs";
 
 interface InviteModalProps {
   onClose: () => void;
-  branches: { id: number; name: string }[];
-  isDarkMode: boolean;
+  branches: { id: string | number; name: string }[];
+  isDarkMode?: boolean;
   fixedRole?: "manager" | "cashier";
 }
 

@@ -51,7 +51,7 @@ export function SystemHealth({ bars, infra }: SystemHealthProps) {
       </div>
 
       <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
-        {infra.map((item, i) => (
+        {infra.map((item) => (
           <div key={item.label} className="space-y-1">
             <div className="flex items-center gap-1.5 text-slate-500">
               <item.icon size={10} style={{ color: item.color }} />
