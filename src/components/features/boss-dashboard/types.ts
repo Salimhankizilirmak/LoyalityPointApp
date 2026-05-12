@@ -9,14 +9,14 @@ export interface Employee {
 }
 
 export interface Branch {
-  id: number;
+  id: number | string;
   name: string;
   city: string;
   manager: string;
   transactions: number;
   earnedPts: number;
   spentPts: number;
-  status: "active" | "inactive";
+  status: "active" | "passive";
 }
 
 export interface TopCustomer {

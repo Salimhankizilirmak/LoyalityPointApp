@@ -10,7 +10,8 @@ import {
   getOrgMembers, 
   updateMemberName, 
   removeMember, 
-  deleteOrganization 
+  deleteOrganization,
+  getAllBossOrganizations
 } from "./actions";
 
 // Feature Components
@@ -79,15 +80,38 @@ export default function BossDashboard() {
 
   const refreshData = async () => {
     try {
-      const [profile, emps] = await Promise.all([getBossProfile(), getOrgMembers()]);
+      const [profile, emps, allOrgs] = await Promise.all([
+        getBossProfile(), 
+        getOrgMembers(),
+        getAllBossOrganizations()
+      ]);
+      
       setBossInfo({
         name: `${profile.user.firstName || ""} ${profile.user.lastName || ""}`.trim(),
         email: profile.user.email,
-        orgName: profile.org.name,
+        orgName: profile.org?.name || "Yükleniyor...",
       });
-      setPointRate(profile.org.pointRate);
-      setValidityMonths(profile.org.validityMonths);
+
+      if (profile.org) {
+        setPointRate(profile.org.pointRate);
+        setValidityMonths(profile.org.validityMonths);
+      }
+
       setEmployees(emps as Employee[]);
+      
+      // DB'den gelen organizasyonları Branch tipine dönüştür
+      const mappedBranches: Branch[] = allOrgs.map(o => ({
+        id: o.id,
+        name: o.name,
+        city: "Atanmadı", // Şimdilik DB'de city yok
+        manager: "Atanmadı", // Şube müdürü bilgisi metadata'da
+        transactions: 0,
+        earnedPts: 0,
+        spentPts: 0,
+        status: o.isActive ? "active" : "passive"
+      }));
+      setBranches(mappedBranches);
+
     } catch (err) {
       console.error("Data fetch error:", err);
       if (user) {
@@ -185,13 +209,13 @@ export default function BossDashboard() {
   };
 
   return (
-    <div className={`min-h-screen w-full transition-colors duration-500 font-sans ${isDarkMode ? "bg-[#020817]" : "bg-[#f8fafc]"}`}>
+    <div className={`min-h-screen w-full transition-colors duration-500 font-sans bg-[#13131b] text-white`}>
       <AnimatePresence>
         {showInvite && (
           <InviteModal 
             onClose={() => { setShowInvite(false); refreshData(); }} 
             branches={displayBranches} 
-            isDarkMode={isDarkMode}
+            isDarkMode={true}
           />
         )}
         {showAddBranch && (
@@ -199,7 +223,7 @@ export default function BossDashboard() {
             onClose={() => setShowAddBranch(false)} 
             onAdd={handleCreateBranch}
             managers={managers}
-            isDarkMode={isDarkMode}
+            isDarkMode={true}
           />
         )}
         {editingBranch && (
@@ -208,7 +232,7 @@ export default function BossDashboard() {
             managers={managers}
             onClose={() => setEditingBranch(null)}
             onUpdate={handleChangeManager}
-            isDarkMode={isDarkMode}
+            isDarkMode={true}
           />
         )}
       </AnimatePresence>
@@ -218,7 +242,7 @@ export default function BossDashboard() {
         orgName={bossInfo?.orgName || "Yükleniyor..."}
         showMockData={showMockData}
         setShowMockData={setShowMockData}
-        isDarkMode={isDarkMode}
+        isDarkMode={true}
         setIsDarkMode={setIsDarkMode}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -242,30 +266,25 @@ export default function BossDashboard() {
                   totalEarned={totalEarned}
                   totalSpent={totalSpent}
                   employeeCount={displayEmployees.length}
-                  isDarkMode={isDarkMode}
                 />
                 <LeaderboardCards 
                   topCustomers={MOCK_TOP_CUSTOMERS}
                   topBranches={displayBranches}
-                  isDarkMode={isDarkMode}
                   onViewAllCustomers={() => setActiveTab(3)}
                   onViewAllBranches={() => setActiveTab(1)}
                 />
-                <div className={`rounded-3xl p-6 border transition-all ${
-                  isDarkMode ? "bg-slate-900/50 border-slate-700" : "bg-white border-slate-100 shadow-sm"
-                }`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-800"}`}>Şube Performans Detayları</h2>
+                <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="font-bold text-lg text-white">Şube Performans Detayları</h2>
                     <button 
                       onClick={() => setShowAddBranch(true)}
-                      className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                      className="btn-primary px-6 py-3 rounded-xl text-sm font-bold"
                     >
                       Yeni Şube Ekle
                     </button>
                   </div>
                   <BranchTable 
                     branches={displayBranches} 
-                    isDarkMode={isDarkMode} 
                     onDelete={handleDeleteBranch}
                     onChangeManager={setEditingBranch}
                   />
@@ -274,21 +293,18 @@ export default function BossDashboard() {
             )}
 
             {activeTab === 1 && (
-              <div className={`rounded-3xl p-8 border transition-all ${
-                isDarkMode ? "bg-slate-900/50 border-slate-700" : "bg-white border-slate-100 shadow-sm"
-              }`}>
+              <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
                 <div className="flex items-center justify-between mb-8">
-                  <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Tüm Şubeler</h2>
+                  <h2 className="text-xl font-bold text-white">Tüm Şubeler</h2>
                   <button 
                     onClick={() => setShowAddBranch(true)}
-                    className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    className="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold"
                   >
                     Yeni Şube Ekle
                   </button>
                 </div>
                 <BranchTable 
                   branches={displayBranches} 
-                  isDarkMode={isDarkMode} 
                   onDelete={handleDeleteBranch}
                   onChangeManager={setEditingBranch}
                 />

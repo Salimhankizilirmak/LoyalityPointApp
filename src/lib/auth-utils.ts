@@ -36,12 +36,28 @@ export async function getDashboardRedirectPath(
     return "/admin";
   }
 
+  const meta = (user.publicMetadata || {}) as Record<string, unknown>;
+
   // 2. Organizasyon Kontrolü
   if (orgId) {
     console.log(`[AuthUtils] OrgId found: ${orgId}. Checking DB status...`);
-    const dbOrg = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
     
-    if (dbOrg && !dbOrg.isActive) {
+    let isActive = true; // Default to true if DB check fails
+    try {
+      const dbOrg = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+      if (dbOrg) {
+        isActive = dbOrg.isActive;
+      } else {
+        console.warn(`[AuthUtils] Organization ${orgId} not found in DB, but exists in Clerk.`);
+      }
+    } catch (dbError) {
+      console.error("[AuthUtils] Database error during org check:", dbError);
+      // We continue since the user is authenticated via Clerk
+    }
+    
+    const isBoss = orgRole === "org:admin" || meta.role === "boss";
+
+    if (!isActive && !isBoss) {
       console.log("[AuthUtils] Organization is inactive, redirecting to /org-disabled");
       return "/org-disabled";
     }
@@ -52,7 +68,6 @@ export async function getDashboardRedirectPath(
       return "/boss-dashboard";
     }
 
-    const meta = (user.publicMetadata || {}) as Record<string, unknown>;
     console.log(`[AuthUtils] Checking metadata role for org user: ${meta.role}`);
     
     if (meta.role === "manager") {
@@ -76,7 +91,6 @@ export async function getDashboardRedirectPath(
   }
 
   // 3. Organizasyonsuz Kullanıcılar
-  const meta = (user.publicMetadata || {}) as Record<string, unknown>;
   console.log(`[AuthUtils] No OrgId. Metadata role: ${meta.role}`);
 
   if (meta.role === "boss") {

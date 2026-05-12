@@ -33,12 +33,17 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
     if (!valid) return;
     setSending(true);
     setError("");
+    
+    // Seçilen şubenin ID'sini bul
+    const selectedBranch = branches.find(b => b.name === form.branch);
+    
     try {
       await inviteEmployee({
         name: form.name,
         email: form.email,
         role: form.role as "manager" | "cashier",
         branch: form.branch || "Atanmadı",
+        org_id: selectedBranch ? String(selectedBranch.id) : undefined
       });
       setSent(true);
     } catch (err: unknown) {

@@ -49,13 +49,10 @@ export default function LandingPage() {
           {!isSignedIn ? (
             <>
               <SignInButton mode="modal">
-                <button className="text-neutral-300 hover:text-white transition-colors">Giriş Yap</button>
-              </SignInButton>
-              <SignUpButton mode="modal">
                 <button className="bg-white text-neutral-950 px-5 py-2.5 rounded-full hover:scale-105 transition-transform shadow-lg shadow-white/10 font-semibold">
-                  Sisteme Dahil Ol
+                  Giriş Yap
                 </button>
-              </SignUpButton>
+              </SignInButton>
             </>
           ) : (
             <>
@@ -109,12 +106,12 @@ export default function LandingPage() {
           className="flex flex-col sm:flex-row gap-4"
         >
           {!isSignedIn ? (
-            <SignUpButton mode="modal">
+            <SignInButton mode="modal">
               <button className="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-emerald-600 transition-colors shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 group">
-                Hemen Başla 
+                Hemen Giriş Yap 
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
-            </SignUpButton>
+            </SignInButton>
           ) : (
             <Link href="/dashboard" className="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-emerald-600 transition-colors shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 group">
               Panele Git 
