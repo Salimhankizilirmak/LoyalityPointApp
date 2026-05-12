@@ -70,23 +70,7 @@ export class MemberService extends BaseService {
       },
     });
 
-    // 60 saniye içinde onaylanmazsa otomatik sil
-    setTimeout(async () => {
-      try {
-        const pendingInvs = await client.organizations.getOrganizationInvitationList({ organizationId: orgId, status: ["pending"] });
-        const isStillPending = pendingInvs.data.some(inv => inv.id === invitation.id);
-        if (isStillPending) {
-          await client.organizations.revokeOrganizationInvitation({
-            organizationId: orgId,
-            invitationId: invitation.id,
-            requestingUserId: session.userId!,
-          });
-          console.log(`[Auto-Delete] ${data.email} adresine gönderilen davet 60 saniye dolduğu için iptal edildi.`);
-        }
-      } catch (e) {
-        console.error("Auto-delete error:", e);
-      }
-    }, 60000);
+    // 60 saniye kuralı, kullanıcının maili açıp şifre belirlemesi için çok kısa olduğundan kaldırıldı.
 
     // Metadata güncelle (varsa)
     const users = await client.users.getUserList({ emailAddress: [data.email] });

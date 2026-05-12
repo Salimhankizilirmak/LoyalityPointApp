@@ -9,6 +9,11 @@ export class AdminService extends BaseService {
     const client = await this.getClerkClient();
 
     try {
+      const existingUsers = await client.users.getUserList({ emailAddress: [email] });
+      if (existingUsers.data.some(u => (u.publicMetadata as { role?: string })?.role === "boss")) {
+        throw new Error("Bu e-posta adresiyle zaten sisteme kayıtlı bir patron var.");
+      }
+
       const invitation = await client.invitations.createInvitation({
         emailAddress: email,
         publicMetadata: { role: "boss" },
@@ -16,19 +21,9 @@ export class AdminService extends BaseService {
       });
       revalidatePath("/admin");
 
-      // 60 saniye içinde onaylanmazsa otomatik sil
-      setTimeout(async () => {
-        try {
-          const pendingInvs = await client.invitations.getInvitationList({ status: "pending" });
-          const isStillPending = pendingInvs.data.some(inv => inv.id === invitation.id);
-          if (isStillPending) {
-            await client.invitations.revokeInvitation(invitation.id);
-            console.log(`[Auto-Delete] ${email} adresine gönderilen davet 60 saniye dolduğu için iptal edildi.`);
-          }
-        } catch (e) {
-          console.error("Auto-delete error:", e);
-        }
-      }, 60000);
+      // 60 saniye kuralı, kullanıcının maili açıp şifre belirlemesi için çok kısa olduğundan
+      // (ve kayıt esnasında linkin geçersiz olmasına sebep olduğundan) kaldırıldı.
+      // İptal işlemleri manuel olarak arayüzden yapılabilir.
 
       return { success: true, message: `${email} adresine Patron daveti gönderildi!` };
     } catch (error: unknown) {
@@ -71,12 +66,16 @@ export class AdminService extends BaseService {
 
     const bossUsers = users.data.filter(u => (u.publicMetadata as { role?: string })?.role === "boss");
 
-    const pending = invitations.data.map(inv => ({
-      id: inv.id,
-      email: inv.emailAddress,
-      status: "pending" as const,
-      createdAt: inv.createdAt,
-    }));
+    const activeEmails = new Set(bossUsers.map(u => u.emailAddresses[0]?.emailAddress).filter(Boolean));
+
+    const pending = invitations.data
+      .filter(inv => !activeEmails.has(inv.emailAddress)) // Eğer user oluşturulduysa pending listesinde gösterme
+      .map(inv => ({
+        id: inv.id,
+        email: inv.emailAddress,
+        status: "pending" as const,
+        createdAt: inv.createdAt,
+      }));
 
     const active = bossUsers.map(u => ({
       id: u.id,
