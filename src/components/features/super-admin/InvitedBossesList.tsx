@@ -7,9 +7,10 @@ import { InvitedBoss } from "./types";
 interface InvitedBossesListProps {
   bosses: InvitedBoss[];
   isDarkMode: boolean;
+  onRevoke?: (id: string) => Promise<void>;
 }
 
-export function InvitedBossesList({ bosses, isDarkMode }: InvitedBossesListProps) {
+export function InvitedBossesList({ bosses, isDarkMode, onRevoke }: InvitedBossesListProps) {
   const formatDate = (ts: number) => {
     return new Date(ts).toLocaleDateString("tr-TR", {
       day: "2-digit",
@@ -79,6 +80,14 @@ export function InvitedBossesList({ bosses, isDarkMode }: InvitedBossesListProps
                     </>
                   )}
                 </div>
+                {boss.status === "pending" && onRevoke && (
+                  <button 
+                    onClick={() => onRevoke(boss.id)}
+                    className="text-[10px] font-bold text-rose-500 hover:text-white hover:bg-rose-500 px-2 py-1 rounded transition-colors"
+                  >
+                    İptal Et
+                  </button>
+                )}
                 {boss.lastSignIn && (
                   <p className="text-[9px] text-slate-500 font-medium">
                     Son giriş: {formatDate(boss.lastSignIn)}

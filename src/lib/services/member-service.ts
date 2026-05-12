@@ -58,7 +58,7 @@ export class MemberService extends BaseService {
     const client = await this.getClerkClient();
     
     // Davet gönder
-    await client.organizations.createOrganizationInvitation({
+    const invitation = await client.organizations.createOrganizationInvitation({
       organizationId: orgId,
       emailAddress: data.email,
       inviterUserId: session.userId!,
@@ -69,6 +69,24 @@ export class MemberService extends BaseService {
         org_id: orgId,
       },
     });
+
+    // 60 saniye içinde onaylanmazsa otomatik sil
+    setTimeout(async () => {
+      try {
+        const pendingInvs = await client.organizations.getOrganizationInvitationList({ organizationId: orgId, status: ["pending"] });
+        const isStillPending = pendingInvs.data.some(inv => inv.id === invitation.id);
+        if (isStillPending) {
+          await client.organizations.revokeOrganizationInvitation({
+            organizationId: orgId,
+            invitationId: invitation.id,
+            requestingUserId: session.userId!,
+          });
+          console.log(`[Auto-Delete] ${data.email} adresine gönderilen davet 60 saniye dolduğu için iptal edildi.`);
+        }
+      } catch (e) {
+        console.error("Auto-delete error:", e);
+      }
+    }, 60000);
 
     // Metadata güncelle (varsa)
     const users = await client.users.getUserList({ emailAddress: [data.email] });

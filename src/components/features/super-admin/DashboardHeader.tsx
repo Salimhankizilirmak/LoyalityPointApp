@@ -6,6 +6,8 @@ import { useUser } from "@clerk/nextjs";
 
 type UserResource = ReturnType<typeof useUser>["user"];
 
+type TabType = "organizations" | "bosses";
+
 interface DashboardHeaderProps {
   user: UserResource | null | undefined;
   showMockData: boolean;
@@ -13,6 +15,8 @@ interface DashboardHeaderProps {
   isDarkMode: boolean;
   setIsDarkMode: (v: boolean) => void;
   signOut: () => void;
+  activeTab: TabType;
+  setActiveTab: (tab: TabType) => void;
 }
 
 export function DashboardHeader({ 
@@ -21,7 +25,9 @@ export function DashboardHeader({
   setShowMockData, 
   isDarkMode, 
   setIsDarkMode, 
-  signOut 
+  signOut,
+  activeTab,
+  setActiveTab
 }: DashboardHeaderProps) {
   const CYAN = "#22d3ee";
 
@@ -38,6 +44,32 @@ export function DashboardHeader({
             <h1 className={`font-bold text-sm leading-tight ${isDarkMode ? "text-white" : "text-slate-900"}`}>Global Kontrol Paneli</h1>
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Super Admin · {user?.fullName || "Admin"}</p>
           </div>
+        </div>
+
+        {/* Center Tabs */}
+        <div className="hidden sm:flex items-center gap-1 p-1 rounded-xl bg-slate-500/10">
+          <button
+            onClick={() => setActiveTab("organizations")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === "organizations"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            } ${isDarkMode && activeTab === "organizations" ? "!bg-[#1e293b] !text-white" : ""}
+            ${isDarkMode && activeTab !== "organizations" ? "!text-slate-400 hover:!text-slate-200" : ""}`}
+          >
+            Organizasyonlar
+          </button>
+          <button
+            onClick={() => setActiveTab("bosses")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === "bosses"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            } ${isDarkMode && activeTab === "bosses" ? "!bg-[#1e293b] !text-white" : ""}
+            ${isDarkMode && activeTab !== "bosses" ? "!text-slate-400 hover:!text-slate-200" : ""}`}
+          >
+            Patronlar
+          </button>
         </div>
 
         <div className="flex items-center gap-3">

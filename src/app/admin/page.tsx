@@ -11,7 +11,7 @@ import { InviteBossModal } from "@/components/features/super-admin/InviteBossMod
 import { DashboardHeader } from "../../components/features/super-admin/DashboardHeader";
 import { StatCard } from "../../components/features/super-admin/StatCard";
 import { SystemHealth } from "../../components/features/super-admin/SystemHealth";
-import { getAllOrganizations, toggleOrgStatus, getInvitedBosses } from "./actions";
+import { getAllOrganizations, toggleOrgStatus, getInvitedBosses, revokeBossInvitation } from "./actions";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { Organization, ActivityLogItem, InvitedBoss } from "../../components/features/super-admin/types";
 import { InvitedBossesList } from "@/components/features/super-admin/InvitedBossesList";
@@ -31,6 +31,7 @@ const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 const fmtTL = (n: number) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(n);
 
 export default function SuperAdminDashboard() {
+  const [activeTab, setActiveTab] = useState<"organizations" | "bosses">("organizations");
   const [showMockData, setShowMockData] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [realOrgs, setRealOrgs] = useState<Organization[]>([]);
@@ -80,6 +81,16 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleRevokeBoss = async (id: string) => {
+    if (!confirm("Bu daveti iptal etmek istediğinize emin misiniz?")) return;
+    const result = await revokeBossInvitation(id);
+    if ("error" in result) {
+      alert(result.error);
+    } else {
+      loadData();
+    }
+  };
+
   const orgs = showMockData ? [...MOCK_ORGS, ...realOrgs] : realOrgs;
 
   const totalCustomers = orgs.reduce((s, o) => s + o.customers, 0);
@@ -111,6 +122,8 @@ export default function SuperAdminDashboard() {
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         signOut={() => signOut({ redirectUrl: "/" })}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -120,31 +133,48 @@ export default function SuperAdminDashboard() {
               <div className="w-px h-4" style={{ background: "#22d3ee" }} />
               <span className="text-cyan-500 text-xs font-semibold uppercase tracking-widest font-mono">System Core</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Global Kontrol Paneli</h1>
-            <p className="text-slate-500 text-sm mt-1">Sistem genelindeki patronları ve organizasyonları yönetin</p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {activeTab === "organizations" ? "Global Kontrol Paneli" : "Patron Yönetimi"}
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {activeTab === "organizations" 
+                ? "Sistem genelindeki organizasyonları yönetin" 
+                : "Davet edilen patronları ve durumlarını yönetin"}
+            </p>
           </div>
-          <button onClick={() => setShowInvite(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold self-start sm:self-auto transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={{ background: "linear-gradient(135deg,#0e7490,#22d3ee)", color: "#0a0f1e", boxShadow: "0 4px 20px rgba(34,211,238,0.25)" }}>
-            <Plus size={15} />Patron Davet Et
-          </button>
+          {activeTab === "bosses" && (
+            <button onClick={() => setShowInvite(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold self-start sm:self-auto transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: "linear-gradient(135deg,#0e7490,#22d3ee)", color: "#0a0f1e", boxShadow: "0 4px 20px rgba(34,211,238,0.25)" }}>
+              <Plus size={15} />Patron Davet Et
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {STAT_CARDS_DATA.map((card) => (
-            <StatCard key={card.label} {...card} />
-          ))}
-        </div>
+        {activeTab === "organizations" && (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {STAT_CARDS_DATA.map((card) => (
+                <StatCard key={card.label} {...card} />
+              ))}
+            </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2">
-            <OrgTable orgs={orgs} onToggle={handleToggle} />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2">
+                <OrgTable orgs={orgs} onToggle={handleToggle} />
+              </div>
+              <div className="space-y-5">
+                <ActivityLog logs={logs} />
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "bosses" && (
+          <div className="max-w-4xl mx-auto">
+            <InvitedBossesList bosses={invitedBosses} isDarkMode={isDarkMode} onRevoke={handleRevokeBoss} />
           </div>
-          <div className="space-y-5">
-            <ActivityLog logs={logs} />
-            <InvitedBossesList bosses={invitedBosses} isDarkMode={isDarkMode} />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

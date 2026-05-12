@@ -24,6 +24,14 @@ export async function toggleOrgStatus(orgId: string, currentStatus: boolean) {
   }
 }
 
+export async function revokeBossInvitation(invitationId: string) {
+  try {
+    return await adminService.revokeBossInvitation(invitationId);
+  } catch (error: unknown) {
+    return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
+  }
+}
+
 export async function getInvitedBosses() {
   try {
     return await adminService.getInvitedBosses();

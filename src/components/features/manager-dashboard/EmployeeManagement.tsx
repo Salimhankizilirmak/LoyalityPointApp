@@ -120,6 +120,11 @@ export function EmployeeManagement({
                         }`}>
                           {emp.role === "manager" ? "Yönetici" : "Kasiyer"}
                         </span>
+                        {emp.status === "pending" && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500">
+                            Bekliyor
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">

@@ -9,12 +9,27 @@ export class AdminService extends BaseService {
     const client = await this.getClerkClient();
 
     try {
-      await client.invitations.createInvitation({
+      const invitation = await client.invitations.createInvitation({
         emailAddress: email,
         publicMetadata: { role: "boss" },
         redirectUrl: `${appUrl}/dashboard`,
       });
       revalidatePath("/admin");
+
+      // 60 saniye içinde onaylanmazsa otomatik sil
+      setTimeout(async () => {
+        try {
+          const pendingInvs = await client.invitations.getInvitationList({ status: "pending" });
+          const isStillPending = pendingInvs.data.some(inv => inv.id === invitation.id);
+          if (isStillPending) {
+            await client.invitations.revokeInvitation(invitation.id);
+            console.log(`[Auto-Delete] ${email} adresine gönderilen davet 60 saniye dolduğu için iptal edildi.`);
+          }
+        } catch (e) {
+          console.error("Auto-delete error:", e);
+        }
+      }, 60000);
+
       return { success: true, message: `${email} adresine Patron daveti gönderildi!` };
     } catch (error: unknown) {
       const clerkError = error as { errors?: { code: string }[] };
@@ -28,6 +43,14 @@ export class AdminService extends BaseService {
   async toggleOrgStatus(orgId: string, currentStatus: boolean) {
     await this.requireRole(["superadmin"]);
     await this.db.update(organizations).set({ isActive: !currentStatus }).where(eq(organizations.id, orgId));
+    revalidatePath("/admin");
+    return { success: true };
+  }
+
+  async revokeBossInvitation(invitationId: string) {
+    await this.requireRole(["superadmin"]);
+    const client = await this.getClerkClient();
+    await client.invitations.revokeInvitation(invitationId);
     revalidatePath("/admin");
     return { success: true };
   }
