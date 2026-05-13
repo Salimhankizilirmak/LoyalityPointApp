@@ -8,8 +8,8 @@ export default async function SignUpPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const params = await searchParams;
-  // Clerk davetiyeleri url içinde __clerk_ticket parametresi ile gelir
-  const hasTicket = !!params?.__clerk_ticket;
+  // Clerk davetiyeleri url içinde __clerk_ticket veya ticket parametresi ile gelir
+  const hasTicket = !!params?.__clerk_ticket || !!params?.ticket;
 
   if (!hasTicket) {
     return (
