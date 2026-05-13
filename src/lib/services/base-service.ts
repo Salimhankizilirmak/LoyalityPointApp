@@ -1,5 +1,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
+import { organizations } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export abstract class BaseService {
   protected db = db;
@@ -24,10 +26,33 @@ export abstract class BaseService {
 
   protected async requireOrg() {
     const { orgId } = await this.getSession();
-    if (!orgId) {
-      throw new Error("Aktif bir organizasyon/şube seçilmedi.");
+    if (orgId) return orgId;
+
+    // Super Admin Bypass: Eğer kullanıcı Super Admin ise ve sistemde bir Vitrin şubesi varsa ona erişebilir.
+    const isSuper = await this.isSuperAdmin();
+    if (isSuper) {
+      const showcaseOrg = await this.db.select().from(organizations).where(eq(organizations.isShowcase, true)).get();
+      if (showcaseOrg) return showcaseOrg.id;
     }
-    return orgId;
+
+    throw new Error("Aktif bir organizasyon/şube seçilmedi.");
+  }
+
+  protected async isShowcaseOrg(orgId: string) {
+    const org = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    return org?.isShowcase ?? false;
+  }
+
+  protected async isSuperAdmin() {
+    try {
+      const user = await this.getCurrentUser();
+      const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
+      const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
+      const superAdminEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
+      return superAdminEmails.includes(email);
+    } catch {
+      return false;
+    }
   }
 
   protected async requireRole(roles: ("boss" | "manager" | "cashier" | "customer" | "superadmin")[]) {

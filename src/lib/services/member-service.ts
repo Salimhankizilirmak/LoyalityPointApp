@@ -32,14 +32,18 @@ export class MemberService extends BaseService {
       })
     );
 
-    const pendingInvites = invitations.data.map(inv => ({
-      id: `invite-${inv.id}`,
-      name: inv.emailAddress.split("@")[0],
-      email: inv.emailAddress,
-      role: (inv.publicMetadata?.role as string) || "cashier",
-      avatar: inv.emailAddress.charAt(0).toUpperCase() + "?",
-      status: "pending" as const,
-    }));
+    const activeEmails = new Set(activeMembers.filter(Boolean).map(m => m?.email));
+
+    const pendingInvites = invitations.data
+      .filter(inv => !activeEmails.has(inv.emailAddress))
+      .map(inv => ({
+        id: `invite-${inv.id}`,
+        name: inv.emailAddress.split("@")[0],
+        email: inv.emailAddress,
+        role: (inv.publicMetadata?.role as string) || "cashier",
+        avatar: inv.emailAddress.charAt(0).toUpperCase() + "?",
+        status: "pending" as const,
+      }));
 
     return [...activeMembers.filter(Boolean), ...pendingInvites];
   }
@@ -68,6 +72,7 @@ export class MemberService extends BaseService {
         branch: data.branch,
         org_id: orgId,
       },
+      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign-up`,
     });
 
     // 60 saniye kuralı, kullanıcının maili açıp şifre belirlemesi için çok kısa olduğundan kaldırıldı.

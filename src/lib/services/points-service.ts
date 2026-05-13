@@ -6,6 +6,7 @@ export class PointsService extends BaseService {
   async processTransaction(customerId: string, amountTL: number, type: "earn" | "spend") {
     const session = await this.getSession();
     const orgId = await this.requireOrg();
+    const isDemo = await this.isShowcaseOrg(orgId);
 
     let pointsKurus = 0;
     if (type === "earn") {
@@ -30,6 +31,7 @@ export class PointsService extends BaseService {
         orgId,
         amount: amountToApply,
         transactionType: type,
+        isDemo,
       });
 
       await tx.update(customers)
@@ -43,7 +45,8 @@ export class PointsService extends BaseService {
   async manualAdjustment(customerId: string, amountKurus: number) {
     const session = await this.getSession();
     const orgId = await this.requireOrg();
-    await this.requireRole(["manager", "boss"]);
+    const isDemo = await this.isShowcaseOrg(orgId);
+    await this.requireRole(["manager", "boss", "superadmin"]);
 
     const customer = await this.db.select().from(customers).where(eq(customers.id, customerId)).get();
     if (!customer) throw new Error("Müşteri bulunamadı.");
@@ -55,6 +58,7 @@ export class PointsService extends BaseService {
         orgId,
         amount: amountKurus,
         transactionType: "manual_adjustment",
+        isDemo,
       });
 
       await tx.update(customers)

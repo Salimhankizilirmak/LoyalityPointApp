@@ -1,13 +1,13 @@
-🛡️ Loyalty Point App - Sistem İş Akışı ve Güvenlik Protokolleri (v2.2)
-Bu doküman, sistemin "Kapalı Devre, Çok Kiracılı (Multi-tenant) ve Kesin Hiyerarşik Davet" mimarisini tanımlar. Sistemde her rol sadece bir altındaki rolü yönetebilir.
+🛡️ Loyalty Point App - Sistem İş Akışı ve Güvenlik Protokolleri (v2.3)
+Bu doküman, sistemin "Kapalı Devre, Çok Kiracılı (Multi-tenant) ve Kesin Hiyerarşik Davet" mimarisini ve Clerk zorunluluğu olan "Vitrin (Showcase) Şubesi" protokolünü tanımlar. 
 1. Yetki Seviyeleri ve "Kesin" Sorumluluk Zinciri
 A. Süper Admin (Platform Sahibi - Novexis Tech)
 •	Doğrulama: .env.local -> SUPER_ADMIN_EMAILS.
 •	Davet Yetkisi: Sadece Boss (Patron) davet edebilir.
 •	Fonksiyon: * Sistemdeki tüm organizasyonları global olarak izler.
 •	Organizasyonları Active/Passive olarak işaretler.
-•	Boss'un performansını ve toplam şube sayılarını görür.
-•	Kısıtlama: Manager, Cashier veya Customer davet edemez.
+•	Vitrin (Showcase) Şubesi Kontrolü: Clerk tarafından zorunlu tutulan ilk organizasyon "Vitrin" olarak işaretlenir. Süper Admin bu şubeye izolasyon kısıtlamalarına takılmadan erişebilir.
+•	İşlem Logları: Vitrin şubesinde yapılan tüm işlemler `is_demo: true` bayrağıyla işaretlenerek gerçek finansal verilerden izole edilir.
 B. Patron (Boss / Şirket Sahibi)
 •	Davet: Süper Admin tarafından davet edilir.
 •	Davet Yetkisi: Sadece Manager (Yönetici) davet edebilir.

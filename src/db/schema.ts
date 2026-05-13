@@ -20,6 +20,7 @@ export const pointsTransactions = sqliteTable("points_transactions", {
   orgId: text("org_id").notNull(), // İşlemin yapıldığı şubenin Clerk Organization ID'si
   amount: integer("amount").notNull(), // Puan kuruş olarak (örn: +1255 veya -500)
   transactionType: text("transaction_type", { enum: ["earn", "spend", "manual_adjustment"] }).notNull(),
+  isDemo: integer("is_demo", { mode: "boolean" }).default(false).notNull(), // Vitrin şubesinde yapılan demo işlemler
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),
 });
 
@@ -32,5 +33,6 @@ export const organizations = sqliteTable("organizations", {
   pointRate: integer("point_rate").default(10).notNull(), // Yüzde olarak puan kazanma oranı (örn: 10 = %10)
   validityMonths: integer("validity_months").default(12).notNull(), // Puanların geçerlilik süresi (ay)
   isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(), // Organizasyonun aktiflik durumu
+  isShowcase: integer("is_showcase", { mode: "boolean" }).default(false).notNull(), // Clerk tarafından zorunlu tutulan vitrin şubesi
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),
 });

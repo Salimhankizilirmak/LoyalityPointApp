@@ -17,7 +17,7 @@ export class AdminService extends BaseService {
       const invitation = await client.invitations.createInvitation({
         emailAddress: email,
         publicMetadata: { role: "boss" },
-        redirectUrl: `${appUrl}/dashboard`,
+        redirectUrl: `${appUrl}/sign-up`,
       });
       revalidatePath("/admin");
 
