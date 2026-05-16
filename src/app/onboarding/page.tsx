@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  User, Phone, CheckCircle, ArrowRight, ArrowLeft,
+  CheckCircle, ArrowRight, ArrowLeft,
   Gift, Star, Shield, Sparkles
 } from "lucide-react";
 import { useRouter } from "next/navigation";

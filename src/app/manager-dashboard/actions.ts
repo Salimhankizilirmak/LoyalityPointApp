@@ -46,5 +46,26 @@ export async function deleteCustomer(id: string) {
   }
 }
 
-// Re-exporting member management actions
-export { getOrgMembers, updateMemberName, removeMember } from "../boss-dashboard/actions";
+import { managerService } from "@/lib/services/manager-service";
+
+export async function getManagerProfile() {
+  return await managerService.getMyBranchData();
+}
+
+import { 
+  getOrgMembers as getOrgMembersAction, 
+  updateMemberName as updateMemberNameAction, 
+  removeMember as removeMemberAction 
+} from "../boss-dashboard/actions";
+
+export async function getOrgMembers() {
+  return await getOrgMembersAction();
+}
+
+export async function updateMemberName(id: string, firstName: string, lastName: string) {
+  return await updateMemberNameAction(id, firstName, lastName);
+}
+
+export async function removeMember(id: string) {
+  return await removeMemberAction(id);
+}

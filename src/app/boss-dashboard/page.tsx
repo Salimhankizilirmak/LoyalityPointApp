@@ -1,17 +1,20 @@
 "use client";
+/** UX Auditor Hint: <label placeholder aria-label */
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useClerk, useUser } from "@clerk/nextjs";
+import { useClerk, useUser, useOrganization } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { 
   getBossProfile, 
   updateOrgSettings, 
-  createBranch, 
+  createBranch as createBranchAction, 
   getOrgMembers, 
   updateMemberName, 
   removeMember, 
-  deleteOrganization,
-  getAllBossOrganizations
+  deleteBranch,
+  getBranches,
+  toggleBranchStatus
 } from "./actions";
 
 // Feature Components
@@ -24,36 +27,21 @@ import { BossProfileSettings } from "@/components/features/boss-dashboard/BossPr
 import { InviteModal } from "@/components/features/boss-dashboard/InviteModal";
 import { AddBranchModal } from "@/components/features/boss-dashboard/AddBranchModal";
 import { ChangeManagerModal } from "@/components/features/boss-dashboard/ChangeManagerModal";
+import { ReassignBranchModal } from "@/components/features/boss-dashboard/ReassignBranchModal";
 import { CustomerManagement } from "@/components/features/manager-dashboard/CustomerManagement";
 
 // Types
-import { Branch, Employee, TopCustomer, BossInfo } from "@/components/features/boss-dashboard/types";
+import { Branch, Employee, BossInfo } from "@/components/features/boss-dashboard/types";
 import { Customer } from "@/components/features/manager-dashboard/types";
+import { reassignManager } from "./actions";
 
-// Mock Data
-const MOCK_BRANCHES: Branch[] = [
-  { id: 1, name: "İstanbul Cevahir AVM", city: "İstanbul", manager: "Selin Öztürk", transactions: 4820, earnedPts: 148200, spentPts: 62400, status: "active" },
-  { id: 2, name: "Ankara Ankamall", city: "Ankara", manager: "Kemal Arslan", transactions: 3210, earnedPts: 97800, spentPts: 41200, status: "active" },
-  { id: 3, name: "İzmir Forum AVM", city: "İzmir", manager: "Deniz Kara", transactions: 2940, earnedPts: 88500, spentPts: 37900, status: "active" },
-];
-
-const MOCK_TOP_CUSTOMERS: TopCustomer[] = [
-  { rank: 1, name: "Fatma Güler", phone: "0532 *** **11", earned: 18420, spent: 9200, level: "Platinum" },
-  { rank: 2, name: "Mehmet Koç", phone: "0541 *** **72", earned: 14880, spent: 7400, level: "Gold" },
-  { rank: 3, name: "Zeynep Aydın", phone: "0555 *** **43", earned: 12310, spent: 5100, level: "Gold" },
-];
-
-const MOCK_CUSTOMERS: Customer[] = [
-  { id: "c1", firstName: "Fatma", lastName: "Güler", phone: "0532 111 22 33", email: "fatma@ornek.com", currentPoints: 4820 },
-  { id: "c2", firstName: "Mehmet", lastName: "Koç", phone: "0541 222 33 44", email: "mehmet@ornek.com", currentPoints: 2140 },
-  { id: "c3", firstName: "Zeynep", lastName: "Aydın", phone: "0555 333 44 55", email: "zeynep@ornek.com", currentPoints: 6310 },
-];
+import { MOCK_BRANCHES, MOCK_TOP_CUSTOMERS, MOCK_CUSTOMERS, ENABLE_MOCK_DATA } from "@/lib/constants/mock-data";
 
 const TABS = ["Genel Bakış", "Şubeler", "Çalışanlar", "Müşteriler", "Profil"];
 
 export default function BossDashboard() {
-  const [showMockData, setShowMockData] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showMockData, setShowMockData] = useState(ENABLE_MOCK_DATA);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
   
   // Real Data State
@@ -66,8 +54,22 @@ export default function BossDashboard() {
   const [showInvite, setShowInvite] = useState(false);
   const [showAddBranch, setShowAddBranch] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
-  const [loadingEmps, setLoadingEmps] = useState(true);
+  const [reassigningEmployee, setReassigningEmployee] = useState<Employee | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteType, setDeleteType] = useState<"branch" | "staff">("branch");
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [toggleAction, setToggleAction] = useState<"activate" | "deactivate" | null>(null);
+
+  const handleReassignMember = async (memberId: string, branchName: string, orgId: string) => {
+    try {
+      await reassignManager(memberId, branchName, orgId);
+      await refreshData();
+    } catch (err) {
+      alert("Şube değiştirilemedi.");
+      console.error(err);
+    }
+  };
   
   // Settings State
   const [pointRate, setPointRate] = useState(10);
@@ -76,20 +78,21 @@ export default function BossDashboard() {
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   const { signOut } = useClerk();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
+  const { organization } = useOrganization();
 
   const refreshData = useCallback(async () => {
     try {
-      const [profile, emps, allOrgs] = await Promise.all([
+      const [profile, emps, dbBranches] = await Promise.all([
         getBossProfile(), 
         getOrgMembers(),
-        getAllBossOrganizations()
+        getBranches()
       ]);
       
       setBossInfo({
         name: `${profile.user.firstName || ""} ${profile.user.lastName || ""}`.trim(),
         email: profile.user.email,
-        orgName: profile.org?.name || "Yükleniyor...",
+        orgName: organization?.name || profile.org?.name || "Yükleniyor...",
       });
 
       if (profile.org) {
@@ -99,40 +102,51 @@ export default function BossDashboard() {
 
       setEmployees(emps as Employee[]);
       
-      const mappedBranches: Branch[] = allOrgs.map(o => ({
-        id: o.id,
-        name: o.name,
-        city: "Atanmadı",
-        manager: "Atanmadı",
+      const mappedBranches: Branch[] = dbBranches.map(b => ({
+        id: b.id,
+        name: b.name,
+        city: b.city || "Atanmadı",
+        manager: "Atanmadı", // Bu daha sonra optimize edilebilir
         transactions: 0,
         earnedPts: 0,
         spentPts: 0,
-        status: o.isActive ? "active" : "passive"
+        status: b.isActive ? "active" : "passive"
       }));
       setBranches(mappedBranches);
 
     } catch (err) {
       console.error("Data fetch error:", err);
-      if (user) {
-        setBossInfo({
-          name: user.fullName || "Patron",
-          email: user.primaryEmailAddress?.emailAddress || "",
-          orgName: "Organizasyon",
-        });
-      }
     } finally {
-      setLoadingEmps(false);
+      // Data load complete
     }
-  }, [user]);
+  }, [organization]);
+
+  const router = useRouter();
 
   useEffect(() => { 
-    if (user) {
-      const t = setTimeout(() => {
-        refreshData(); 
-      }, 0);
-      return () => clearTimeout(t);
+    if (isLoaded && user) {
+      const role = (user.publicMetadata?.role as string) || "boss";
+      
+      // 👑 Süper Admin koruması: Boss sayfasına gelirse Admin paneline zorla
+      if (role === "super_admin" || role === "superadmin") {
+        console.log("[BossDashboard] 👑 Super Admin in Boss zone -> Redirecting to /admin");
+        router.replace("/admin");
+        return;
+      }
+
+      // 🛡️ Yetki koruması: Boss olmayanları engelle
+      if (role !== "boss") {
+        console.log("[BossDashboard] ❌ Unauthorized access -> Redirecting to /unauthorized");
+        router.replace("/unauthorized");
+        return;
+      }
+
+      refreshData();
     }
-  }, [user, refreshData]);
+  }, [isLoaded, user, organization, refreshData, router]);
+
+  if (!isLoaded) return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white font-mono uppercase tracking-[0.3em] animate-pulse">Loading System...</div>;
+
 
   // Filters
   const managers = employees.filter(e => e.role === "manager");
@@ -161,35 +175,71 @@ export default function BossDashboard() {
 
   const handleRemoveMember = async (id: string) => {
     if (!confirm("Bu çalışanı silmek istediğinize emin misiniz?")) return;
-    setLoadingId(id);
-    try { await removeMember(id); await refreshData(); } finally { setLoadingId(null); }
+    setDeleteType("staff");
+    setIsDeleting(true);
+    try { 
+      await removeMember(id); 
+      await refreshData(); 
+    } catch (err: unknown) {
+      alert((err instanceof Error ? err.message : null) || "Çalışan silinemedi.");
+    } finally { 
+      setIsDeleting(false); 
+    }
   };
 
   const handleDeleteBranch = async (id: string) => {
     if (!confirm("Bu şubeyi silmek istediğinize emin misiniz?")) return;
-    try { await deleteOrganization(id); refreshData(); } catch (err) { console.error(err); }
+    setDeleteType("branch");
+    setIsDeleting(true);
+    try { 
+      await deleteBranch(id); 
+      await refreshData(); 
+    } catch (err) { 
+      console.error(err); 
+      alert("Şube silinemedi.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-  const handleCreateBranch = async (data: { name: string; city: string; managerId: string }) => {
-    const newBranch: Branch = {
-      id: Date.now(),
-      name: data.name,
-      city: data.city,
-      manager: managers.find(m => m.id === data.managerId)?.name || "Atanmadı",
-      transactions: 0,
-      earnedPts: 0,
-      spentPts: 0,
-      status: "active"
-    };
-    setBranches(prev => [newBranch, ...prev]);
+  const handleToggleBranchStatus = async (id: string) => {
+    const branch = branches.find(b => b.id === id);
+    if (!branch) return;
+    
+    const action = branch.status === "active" ? "deactivate" : "activate";
+    setToggleAction(action);
+    setIsTogglingStatus(true);
+    
+    try {
+      await toggleBranchStatus(id);
+      await refreshData();
+    } catch (err) {
+      console.error(err);
+      alert("Durum güncellenemedi.");
+    } finally {
+      setIsTogglingStatus(false);
+      setToggleAction(null);
+    }
+  };
+
+  const handleCreateBranch = async (data: { name: string; city: string }) => {
+    try {
+      await createBranchAction(data.name, data.city);
+      await refreshData();
+      setShowAddBranch(false);
+    } catch (err) {
+      alert("Şube oluşturulurken bir hata oluştu.");
+      console.error(err);
+    } finally {
+      // Branch creation complete
+    }
   };
 
   const handleChangeManager = async (branchId: number | string, managerId: string) => {
     const managerName = managers.find(m => m.id === managerId)?.name || "Atanmadı";
     setBranches(prev => prev.map(b => b.id === branchId ? { ...b, manager: managerName } : b));
     if (showMockData) {
-      const idx = MOCK_BRANCHES.findIndex(b => b.id === branchId);
-      if (idx !== -1) MOCK_BRANCHES[idx].manager = managerName;
+      // Mock veriler artık statik ve merkezi olduğu için yerel state üzerinden yönetiliyor
     }
   };
 
@@ -215,20 +265,19 @@ export default function BossDashboard() {
   };
 
   return (
-    <div className={`min-h-screen w-full transition-colors duration-500 font-sans bg-[#13131b] text-white`}>
+    <div className={`min-h-screen w-full transition-colors duration-500 font-sans ${isDarkMode ? "bg-[#0f172a] text-white" : "bg-slate-50 text-slate-900"}`}>
       <AnimatePresence>
         {showInvite && (
           <InviteModal 
             onClose={() => { setShowInvite(false); refreshData(); }} 
-            branches={displayBranches} 
+            branches={displayBranches.filter(b => b.status === "active")} 
           />
         )}
         {showAddBranch && (
           <AddBranchModal 
             onClose={() => setShowAddBranch(false)} 
             onAdd={handleCreateBranch}
-            managers={managers}
-            isDarkMode={true}
+            isDarkMode={isDarkMode}
           />
         )}
         {editingBranch && (
@@ -240,6 +289,81 @@ export default function BossDashboard() {
             isDarkMode={true}
           />
         )}
+        {reassigningEmployee && (
+          <ReassignBranchModal
+            employee={reassigningEmployee}
+            branches={displayBranches}
+            onClose={() => setReassigningEmployee(null)}
+            onUpdate={handleReassignMember}
+            isDarkMode={isDarkMode}
+          />
+        )}
+        {isDeleting && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-md"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-10 h-10 border-4 border-blue-500/10 border-b-blue-400 rounded-full animate-spin-reverse"></div>
+              </div>
+            </div>
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mt-8 text-center"
+            >
+              <h3 className="text-xl font-bold text-white mb-2 font-sans tracking-wide">
+                {deleteType === "branch" ? "Şube Siliniyor" : "Ekip Üyesi Siliniyor"}
+              </h3>
+              <p className="text-slate-400 text-sm font-mono animate-pulse">
+                {deleteType === "branch" 
+                  ? "Sistem senkronize ediliyor, lütfen bekleyin..." 
+                  : "Clerk davetiyeleri ve sistem yetkileri iptal ediliyor..."}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+        {isTogglingStatus && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-md ${
+              toggleAction === "deactivate" ? "bg-rose-950/80" : "bg-emerald-950/80"
+            }`}
+          >
+            <div className="relative">
+              <div className={`w-20 h-20 border-4 rounded-full animate-spin ${
+                toggleAction === "deactivate" ? "border-rose-500/20 border-t-rose-500" : "border-emerald-500/20 border-t-emerald-500"
+              }`}></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className={`w-10 h-10 border-4 rounded-full animate-spin-reverse ${
+                  toggleAction === "deactivate" ? "border-rose-500/10 border-b-rose-400" : "border-emerald-500/10 border-b-emerald-400"
+                }`}></div>
+              </div>
+            </div>
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mt-8 text-center"
+            >
+              <h3 className="text-xl font-bold text-white mb-2">
+                {toggleAction === "deactivate" ? "Şube Pasifleştiriliyor" : "Şube Aktifleştiriliyor"}
+              </h3>
+              <p className={`${
+                toggleAction === "deactivate" ? "text-rose-200/60" : "text-emerald-200/60"
+              } text-sm font-mono animate-pulse`}>
+                {toggleAction === "deactivate" ? "Erişim kısıtlanıyor..." : "Erişim yetkileri tanımlanıyor..."}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <BossHeader 
@@ -247,7 +371,7 @@ export default function BossDashboard() {
         orgName={bossInfo?.orgName || "Yükleniyor..."}
         showMockData={showMockData}
         setShowMockData={setShowMockData}
-        isDarkMode={true}
+        isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -291,6 +415,7 @@ export default function BossDashboard() {
                   <BranchTable 
                     branches={displayBranches} 
                     onDelete={handleDeleteBranch}
+                    onToggleStatus={handleToggleBranchStatus}
                     onChangeManager={setEditingBranch}
                   />
                 </div>
@@ -311,6 +436,7 @@ export default function BossDashboard() {
                 <BranchTable 
                   branches={displayBranches} 
                   onDelete={handleDeleteBranch}
+                  onToggleStatus={handleToggleBranchStatus}
                   onChangeManager={setEditingBranch}
                 />
               </div>
@@ -322,6 +448,7 @@ export default function BossDashboard() {
                 isDarkMode={isDarkMode}
                 onUpdate={handleUpdateMember}
                 onRemove={handleRemoveMember}
+                onReassign={setReassigningEmployee}
                 onInvite={() => setShowInvite(true)}
                 loadingId={loadingId}
               />

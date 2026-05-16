@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Edit3, Trash2, Check, X, Search, UserPlus } from "lucide-react";
+import { Edit3, Trash2, Search, UserPlus } from "lucide-react";
 import { Customer } from "./types";
 import { AddCustomerModal } from "./AddCustomerModal";
 

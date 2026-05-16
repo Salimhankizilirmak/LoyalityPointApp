@@ -9,6 +9,10 @@ export async function getAllBossOrganizations() {
   return await organizationService.getAllBossOrganizations();
 }
 
+export async function getBranches() {
+  return await organizationService.getBranches();
+}
+
 export async function getBossProfile() {
   return await organizationService.getBossProfile();
 }
@@ -29,6 +33,14 @@ export async function deleteOrganization(id: string) {
   return await organizationService.deleteOrganization(id);
 }
 
+export async function deleteBranch(id: string) {
+  return await organizationService.deleteBranch(id);
+}
+
+export async function toggleBranchStatus(id: string) {
+  return await organizationService.toggleStatus(id);
+}
+
 // Member Services
 export async function getOrgMembers() {
   return await memberService.getOrgMembers();
@@ -38,7 +50,10 @@ export async function inviteEmployee(data: { name: string; email: string; role: 
   try {
     return await memberService.inviteEmployee(data);
   } catch (error: unknown) {
-    throw new Error((error instanceof Error ? error.message : "Bilinmeyen hata"));
+    const err = error as { errors?: { message: string }[]; message?: string };
+    const message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
+    console.error("[Invite Action Error]:", message, error);
+    throw new Error(message);
   }
 }
 
@@ -48,6 +63,10 @@ export async function updateMemberName(memberId: string, firstName: string, last
 
 export async function removeMember(memberId: string) {
   return await memberService.removeMember(memberId);
+}
+
+export async function reassignManager(memberId: string, newBranchName: string, newOrgId: string) {
+  return await memberService.reassignManager(memberId, newBranchName, newOrgId);
 }
 
 // User Profile

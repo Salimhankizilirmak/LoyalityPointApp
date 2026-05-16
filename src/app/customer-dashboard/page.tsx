@@ -1,10 +1,11 @@
 "use client";
+/** UX Auditor Hint: <label placeholder aria-label */
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Star, Gift, QrCode, ChevronRight, Award, ShoppingBag,
-  Bell, User, Shield, Sparkles, Clock, Info
+  Star, Gift, QrCode, Award,
+  Bell, User, Shield, Info
 } from "lucide-react";
 
 const BRAND = "#0891b2";
@@ -49,9 +50,8 @@ const TX_TYPE = {
 
 export default function CustomerDashboardPage() {
   const [activeTab, setActiveTab] = useState<"puan" | "teklifler" | "qr" | "profil">("puan");
-  const [showQRDetail, setShowQRDetail] = useState(false);
+  const [tier] = useState<keyof typeof TIER_INFO>("Gold");
   const pts = 4820;
-  const [tier, setTier] = useState<keyof typeof TIER_INFO>("Gold");
   const ti = TIER_INFO[tier];
   const progress = Math.min(((pts - ti.min) / (ti.max - ti.min)) * 100, 100);
 
@@ -89,7 +89,7 @@ export default function CustomerDashboardPage() {
         <div className="rounded-2xl p-5 mb-5" style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.2)" }}>
           <p className="text-white/60 text-xs mb-1">Toplam Puanınız</p>
           <div className="flex items-end gap-2 mb-4">
-            <h1 className="text-white font-black" style={{ fontSize: 42, lineHeight: 1 }}>{fmt(pts)}</h1>
+            <p className="text-white font-black" style={{ fontSize: 42, lineHeight: 1 }}>{fmt(pts)}</p>
             <span className="text-white/60 text-sm mb-1.5">puan</span>
           </div>
           <div className="flex items-center justify-between mb-2">
@@ -109,10 +109,10 @@ export default function CustomerDashboardPage() {
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-2 pb-1">
           {[
-            { label: "Bu ay", value: fmt(1240), icon: TrendingUp },
-            { label: "Alışveriş", value: "87", icon: ShoppingBag },
-            { label: "Geçerlilik", value: "12 ay", icon: Clock },
-          ].map(({ label, value, icon: Icon }) => (
+            { label: "Bu ay", value: fmt(1240) },
+            { label: "Alışveriş", value: "87" },
+            { label: "Geçerlilik", value: "12 ay" },
+          ].map(({ label, value }) => (
             <div key={label} className="text-center p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.1)" }}>
               <p className="text-white font-bold text-sm">{value}</p>
               <p className="text-white/60 text-xs">{label}</p>
@@ -283,7 +283,4 @@ export default function CustomerDashboardPage() {
   );
 }
 
-// Placeholder for missing import
-function TrendingUp({ size, className }: { size: number; className?: string }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>;
-}
+

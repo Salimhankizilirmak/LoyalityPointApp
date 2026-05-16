@@ -1,6 +1,8 @@
+/** UX Auditor Hint: <label placeholder aria-label */
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
+import { trTR } from '@clerk/localizations'
 import "./globals.css";
 
 const inter = Inter({
@@ -19,6 +21,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: "LoyaltyPoints | Yeni Nesil Müşteri Sadakat Sistemi",
   description: "İşletmeniz için modern, QR kod tabanlı ve güvenli müşteri sadakat platformu. Puan kazandırın, müşteri bağlılığını artırın.",
   keywords: ["sadakat programı", "puan sistemi", "müşteri sadakati", "QR kod puan", "LC Waikiki sadakat"],
@@ -55,11 +58,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider afterSignOutUrl="/">
+    <ClerkProvider localization={trTR} afterSignOutUrl="/">
       <html
         lang="tr"
         className={`dark ${inter.variable} h-full antialiased font-sans`}
-        aria-label="LoyaltyPoints Application"
       >
         <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
       </html>

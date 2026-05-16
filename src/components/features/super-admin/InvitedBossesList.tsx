@@ -22,11 +22,11 @@ export function InvitedBossesList({ bosses, isDarkMode, onRevoke }: InvitedBosse
 
   return (
     <div className={`rounded-3xl p-6 border transition-all ${
-      isDarkMode ? "bg-slate-900/50 border-white/5" : "bg-white border-slate-200 shadow-sm"
+      isDarkMode ? "bg-[#0a0a0f] border-white/5 shadow-2xl" : "bg-white border-slate-200 shadow-sm"
     }`}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Mail size={18} className="text-cyan-500" />
+          <Mail size={18} className="text-indigo-400" />
           <h2 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-800"}`}>Davet Edilen Patronlar</h2>
         </div>
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-500/10 px-2 py-1 rounded-lg">
@@ -47,7 +47,7 @@ export function InvitedBossesList({ bosses, isDarkMode, onRevoke }: InvitedBosse
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-slate-50 border-slate-100 hover:bg-slate-100"
+                isDarkMode ? "bg-[#13131a] border-white/5 hover:border-indigo-500/30 group" : "bg-slate-50 border-slate-100 hover:bg-slate-100"
               }`}
             >
               <div className="flex items-center gap-3">

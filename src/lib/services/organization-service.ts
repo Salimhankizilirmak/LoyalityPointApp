@@ -1,6 +1,6 @@
 import { BaseService } from "./base-service";
-import { organizations } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { organizations, branches } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export class OrganizationService extends BaseService {
@@ -43,9 +43,17 @@ export class OrganizationService extends BaseService {
   }
 
   async createOrganization(name: string, slug: string) {
-    const { user } = await this.requireRole(["boss"]);
+    const { user, role } = await this.requireRole(["boss"]);
     const client = await this.getClerkClient();
-    const email = user.primaryEmailAddress?.emailAddress || "";
+    const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
+
+    // Süper Admin Kısıtlaması: Sadece 1 Organizasyon
+    if (role === "superadmin") {
+      const existingOrgs = await this.db.select().from(organizations).where(eq(organizations.bossEmail, email)).all();
+      if (existingOrgs.length >= 1) {
+        throw new Error("Süper Admin olarak sadece 1 adet organizasyon kurabilirsiniz.");
+      }
+    }
 
     const org = await client.organizations.createOrganization({ name, slug, createdBy: user.id });
     
@@ -62,21 +70,50 @@ export class OrganizationService extends BaseService {
   }
 
   async createBranch(name: string, city: string) {
-    const { user } = await this.requireRole(["boss"]);
-    await this.requireOrg();
-    const client = await this.getClerkClient();
+    await this.requireRole(["boss"]);
+    const orgId = await this.requireOrg();
+
+    // 🛡️ AUTO-SYNC: Eğer organizasyon yerel DB'de yoksa Clerk'ten çek ve kaydet
+    const existing = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    if (!existing) {
+      console.log(`[OrganizationService] 🔄 Auto-syncing org: ${orgId}`);
+      const client = await this.getClerkClient();
+      const clerkOrg = await client.organizations.getOrganization({ organizationId: orgId });
+      const user = await this.getCurrentUser();
+      const email = user.emailAddresses[0]?.emailAddress?.toLowerCase() || "";
+
+      await this.db.insert(organizations).values({
+        id: orgId,
+        name: clerkOrg.name,
+        slug: clerkOrg.slug || "",
+        bossEmail: email,
+        isActive: true,
+      });
+    }
+
+    // 🔍 Mükerrer Şube Kontrolü (Aynı Şehir + Aynı İsim)
+    const duplicate = await this.db.select()
+      .from(branches)
+      .where(and(
+        eq(branches.orgId, orgId),
+        eq(branches.name, name),
+        eq(branches.city, city)
+      ))
+      .get();
     
-    const slug = `${name.toLowerCase().replace(/\s+/g, "-")}-${Date.now().toString(36)}`;
-    const newOrg = await client.organizations.createOrganization({ name, slug, createdBy: user.id });
+    if (duplicate) {
+      throw new Error(`Bu şehirde (${city}) "${name}" isimli bir şube zaten mevcut.`);
+    }
 
-    await this.db.insert(organizations).values({
-      id: newOrg.id,
+    const [newBranch] = await this.db.insert(branches).values({
+      orgId,
       name,
-      slug,
-      bossEmail: user.emailAddresses[0]?.emailAddress || "",
-    });
+      city,
+      isActive: true,
+    }).returning();
 
-    return { success: true, id: newOrg.id, name, city };
+    revalidatePath("/boss-dashboard");
+    return { success: true, id: newBranch.id, name, city };
   }
 
   async updateSettings(pointRate: number, validityMonths: number) {
@@ -88,6 +125,12 @@ export class OrganizationService extends BaseService {
       .where(eq(organizations.id, orgId));
     
     return { success: true };
+  }
+
+  async getBranches() {
+    await this.requireRole(["boss"]);
+    const orgId = await this.requireOrg();
+    return await this.db.select().from(branches).where(eq(branches.orgId, orgId)).all();
   }
 
   async updateName(newName: string) {
@@ -107,12 +150,80 @@ export class OrganizationService extends BaseService {
     await this.requireRole(["boss", "superadmin"]);
     const client = await this.getClerkClient();
     
-    await Promise.all([
-      client.organizations.deleteOrganization(id),
-      this.db.delete(organizations).where(eq(organizations.id, id))
-    ]);
+    try {
+      await client.organizations.deleteOrganization(id);
+    } catch (error: unknown) {
+      const err = error as { status?: number; code?: string };
+      if (err.status === 404 || err.code === 'resource_not_found') {
+        console.warn(`[OrganizationService] 🧹 Org already gone from Clerk: ${id}`);
+      } else {
+        throw error;
+      }
+    }
 
+    // 🗑️ Yerel DB'den her durumda sil
+    await this.db.delete(organizations).where(eq(organizations.id, id));
+    
+    revalidatePath("/boss-dashboard");
+    revalidatePath("/admin");
     return { success: true };
+  }
+
+  async deleteBranch(id: string) {
+    await this.requireRole(["boss", "superadmin"]);
+    const session = await (await import("@clerk/nextjs/server")).auth();
+    const orgId = session.orgId;
+    const client = await this.getClerkClient();
+    
+    // 🛡️ 1. Bu şubeye ait bekleyen davetiyeleri bul ve iptal et
+    if (orgId) {
+      try {
+        const invitations = await client.invitations.getInvitationList({ status: "pending" });
+        // Clerk invitations listesinde bazen org bazlı filtreleme doğrudan yapılamayabilir, 
+        // bu yüzden metadata üzerinden eşleşenleri buluyoruz.
+        const branchInvites = invitations.data.filter(inv => 
+          inv.publicMetadata?.branch_id === id || inv.publicMetadata?.org_id === orgId && inv.publicMetadata?.branch_id === id
+        );
+
+        for (const invite of branchInvites) {
+          try {
+            await client.organizations.revokeOrganizationInvitation({
+              organizationId: orgId,
+              invitationId: invite.id,
+              requestingUserId: session.userId!
+            });
+            console.log(`[OrganizationService] 🚫 Revoked invite for deleted branch: ${invite.emailAddress}`);
+          } catch (e) {
+            console.error(`[OrganizationService] Failed to revoke invite ${invite.id}:`, e);
+          }
+        }
+      } catch (error) {
+        console.error("[OrganizationService] Error during branch invite cleanup:", error);
+      }
+    }
+
+    // 🗑️ 2. Şubeyi sil
+    await this.db.delete(branches).where(eq(branches.id, id));
+    
+    revalidatePath("/boss-dashboard");
+    return { success: true };
+  }
+
+  async toggleStatus(id: string) {
+    await this.requireRole(["boss", "superadmin"]);
+    const branch = await this.db.select().from(branches).where(eq(branches.id, id)).get();
+    if (!branch) throw new Error("Şube bulunamadı.");
+
+    await this.db.update(branches)
+      .set({ isActive: !branch.isActive })
+      .where(eq(branches.id, id));
+
+    revalidatePath("/boss-dashboard");
+    return { success: true, newState: !branch.isActive };
+  }
+
+  async getDbOrg(id: string) {
+    return await this.db.select().from(organizations).where(eq(organizations.id, id)).get();
   }
 }
 

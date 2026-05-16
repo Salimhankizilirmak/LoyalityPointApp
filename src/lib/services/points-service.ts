@@ -7,6 +7,9 @@ export class PointsService extends BaseService {
     const session = await this.getSession();
     const orgId = await this.requireOrg();
     const isDemo = await this.isShowcaseOrg(orgId);
+    
+    const user = await this.getCurrentUser();
+    const branchId = (user.publicMetadata?.branch_id as string) || "unknown";
 
     let pointsKurus = 0;
     if (type === "earn") {
@@ -29,6 +32,7 @@ export class PointsService extends BaseService {
         customerId: customer.id,
         employeeId: session.userId!,
         orgId,
+        branchId,
         amount: amountToApply,
         transactionType: type,
         isDemo,
@@ -46,7 +50,9 @@ export class PointsService extends BaseService {
     const session = await this.getSession();
     const orgId = await this.requireOrg();
     const isDemo = await this.isShowcaseOrg(orgId);
-    await this.requireRole(["manager", "boss", "superadmin"]);
+    const { user } = await this.requireRole(["manager", "boss", "superadmin"]);
+    
+    const branchId = (user.publicMetadata?.branch_id as string) || "unknown";
 
     const customer = await this.db.select().from(customers).where(eq(customers.id, customerId)).get();
     if (!customer) throw new Error("Müşteri bulunamadı.");
@@ -56,6 +62,7 @@ export class PointsService extends BaseService {
         customerId: customer.id,
         employeeId: session.userId!,
         orgId,
+        branchId,
         amount: amountKurus,
         transactionType: "manual_adjustment",
         isDemo,
@@ -83,7 +90,10 @@ export class PointsService extends BaseService {
 
   async getBranchTransactions() {
     const orgId = await this.requireOrg();
-    return await this.db.select({
+    const user = await this.getCurrentUser();
+    const role = (user.publicMetadata?.role as string) || "customer";
+    
+    let baseQuery = this.db.select({
       id: pointsTransactions.id,
       amount: pointsTransactions.amount,
       type: pointsTransactions.transactionType,
@@ -94,10 +104,21 @@ export class PointsService extends BaseService {
       customerId: customers.id,
     })
     .from(pointsTransactions)
-    .leftJoin(customers, eq(pointsTransactions.customerId, customers.id))
-    .where(eq(pointsTransactions.orgId, orgId))
-    .orderBy(desc(pointsTransactions.createdAt))
-    .limit(50);
+    .leftJoin(customers, eq(pointsTransactions.customerId, customers.id));
+
+    if (role === "boss" || role === "superadmin") {
+      // Boss tüm şubelerin işlemlerini görebilir
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      baseQuery = baseQuery.where(eq(pointsTransactions.orgId, orgId)) as any;
+    } else {
+      // Manager ve Cashier sadece kendi şubelerini görebilir (RLS / IDOR Koruması)
+      const branchId = (user.publicMetadata?.branch_id as string) || "none";
+      const { and } = await import("drizzle-orm");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      baseQuery = baseQuery.where(and(eq(pointsTransactions.orgId, orgId), eq(pointsTransactions.branchId, branchId))) as any;
+    }
+
+    return await baseQuery.orderBy(desc(pointsTransactions.createdAt)).limit(50);
   }
 }
 

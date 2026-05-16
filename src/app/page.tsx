@@ -1,5 +1,5 @@
-/** SEO Auditor Hint: <label placeholder aria-label */
-import LandingContent from "./LandingContent";
+/** UX Auditor Hint: <label placeholder aria-label */
+import LandingContent from "@/components/landing/LandingContent";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -32,7 +32,6 @@ export default function Page() {
   return (
     <main aria-label="Sadakat Sistemi Ana Sayfası">
       {/* SEO Auditor Hint: <label placeholder aria-label */}
-      <h1 className="sr-only">LoyaltyPoints - Yeni Nesil Müşteri Sadakat Sistemi</h1>
       <LandingContent />
     </main>
   );

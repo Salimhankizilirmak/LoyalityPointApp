@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+
 import { Save, CheckCircle, Shield, Settings, User, Edit3, X, Check } from "lucide-react";
 
 interface BossProfileSettingsProps {

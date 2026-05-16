@@ -24,87 +24,120 @@ export async function getDashboardRedirectPath(
   console.log(`[AuthUtils] Determining route for userId: ${userId}, orgId: ${orgId}, orgRole: ${orgRole}`);
   console.log(`[AuthUtils] User email: ${email}`);
 
-  // 1. Süper Admin Kontrolü
-  const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
-  const allowedEmails = envEmails
-    .split(",")
-    .map(e => e.trim().toLowerCase())
-    .filter(e => e !== "");
+  const meta = (user.publicMetadata || {}) as Record<string, unknown>;
+  const unsafeMeta = (user.unsafeMetadata || {}) as Record<string, unknown>;
+  const role = (meta.role as string) || (unsafeMeta.role as string);
 
-  if (allowedEmails.includes(email)) {
-    console.log("[AuthUtils] Super Admin detected, redirecting to /admin");
+  // 👑 1. Süper Admin Kontrolü (MUTLAK ÖNCELİK)
+  const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+  const isSuperByEmail = envEmails.includes(email);
+  const isSuperByRole = role === "super_admin" || role === "superadmin";
+
+  if (isSuperByEmail || isSuperByRole) {
+    console.log("[AuthUtils] 👑 Global Super Admin detected, redirecting to /admin");
     return "/admin";
   }
 
-  const meta = (user.publicMetadata || {}) as Record<string, unknown>;
-
-  // 2. Organizasyon Kontrolü
+  // 🏢 2. Organizasyon Kontrolü (Aktif Session)
   if (orgId) {
-    console.log(`[AuthUtils] OrgId found: ${orgId}. Checking DB status...`);
+    console.log(`[AuthUtils] Active OrgId found: ${orgId}. Checking DB status and roles...`);
     
-    let isActive = true; // Default to true if DB check fails
+    let isActive = true;
     try {
       const dbOrg = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-      if (dbOrg) {
-        isActive = dbOrg.isActive;
-      } else {
-        console.warn(`[AuthUtils] Organization ${orgId} not found in DB, but exists in Clerk.`);
-      }
+      if (dbOrg) isActive = dbOrg.isActive;
     } catch (dbError) {
       console.error("[AuthUtils] Database error during org check:", dbError);
-      // We continue since the user is authenticated via Clerk
     }
     
-    const isBoss = orgRole === "org:admin" || meta.role === "boss";
-
+    const isBoss = orgRole === "org:admin" || role === "boss";
     if (!isActive && !isBoss) {
       console.log("[AuthUtils] Organization is inactive, redirecting to /org-disabled");
       return "/org-disabled";
     }
 
-    // Organizasyona bağlı rol kontrolü
     if (orgRole === "org:admin") {
       console.log("[AuthUtils] Org:Admin detected, redirecting to /boss-dashboard");
       return "/boss-dashboard";
     }
 
-    console.log(`[AuthUtils] Checking metadata role for org user: ${meta.role}`);
-    
-    if (meta.role === "manager") {
-      console.log("[AuthUtils] Manager detected, redirecting to /manager-dashboard");
-      return "/manager-dashboard";
+    let membershipRole = "";
+    try {
+      const memberships = await client.users.getOrganizationMembershipList({ userId });
+      const currentMembership = memberships.data.find(m => m.organization.id === orgId);
+      if (currentMembership) {
+        membershipRole = (currentMembership.publicMetadata?.role as string) || "";
+      }
+    } catch (err) {
+      console.warn("[AuthUtils] Could not fetch membership metadata:", err);
     }
 
-    if (meta.role === "cashier") {
-      console.log("[AuthUtils] Cashier detected, redirecting to /cashier-dashboard");
-      return "/cashier-dashboard";
-    }
+    const finalRole = role || membershipRole;
+    if (finalRole === "manager") return "/manager-dashboard";
+    if (finalRole === "cashier") return "/cashier-dashboard";
+    if (finalRole === "customer") return "/customer-dashboard";
 
-    if (meta.role === "customer") {
-      console.log("[AuthUtils] Customer detected, redirecting to /customer-dashboard");
-      return "/customer-dashboard";
-    }
+    const joinedRecently = Date.now() - (user.createdAt || 0) < 5 * 60 * 1000;
+    if (joinedRecently) return "/sign-in?sync=true";
 
-    // Default: yetkisi belirlenememiş organizasyon üyesi
-    console.log("[AuthUtils] Unknown org role, redirecting to /unauthorized");
+    console.log("[AuthUtils] OrgId present but role unknown → redirecting to /unauthorized");
     return "/unauthorized";
   }
 
-  // 3. Organizasyonsuz Kullanıcılar
-  console.log(`[AuthUtils] No OrgId. Metadata role: ${meta.role}`);
-
-  if (meta.role === "boss") {
-    console.log("[AuthUtils] Invited Boss detected without org, redirecting to /create-organization");
-    return "/create-organization";
+  // 🎯 3. Zero-Selection / Metadata Bazlı Yönlendirme (Org seçilmemişse)
+  console.log("[AuthUtils] No active OrgId, checking memberships, staff table and metadata...");
+  
+  // 🛡️ DB Staff Kontrolü (Metadata senkronizasyonu gecikmiş olabilir)
+  try {
+    const { staff: staffTable } = await import("@/db/schema");
+    const staffMember = await db.select().from(staffTable).where(eq(staffTable.id, userId)).get();
+    if (staffMember) {
+      console.log(`[AuthUtils] Found staff member in DB: ${staffMember.role}`);
+      if (staffMember.role === "manager") return "/manager-dashboard";
+      if (staffMember.role === "cashier") return "/cashier-dashboard";
+    }
+  } catch (err) {
+    console.warn("[AuthUtils] Staff table check failed:", err);
   }
 
-  if (meta.role === "customer") {
-    // Organizasyona dahil edilmemiş, yeni kayıt olan müşteri
-    console.log("[AuthUtils] Customer detected without org, redirecting to /customer-dashboard");
-    return "/customer-dashboard";
+  // Üyelikleri kontrol et (Yeni katılanlar için)
+  try {
+    const memberships = await client.users.getOrganizationMembershipList({ userId });
+    if (memberships.data.length > 0) {
+      const latest = memberships.data[0];
+      const mRole = (latest.publicMetadata?.role as string) || "";
+      const mOrgId = latest.organization.id;
+      
+      console.log(`[AuthUtils] Found membership: ${mOrgId}, Role: ${mRole}`);
+      
+      if (mRole === "manager") return "/manager-dashboard";
+      if (mRole === "cashier") return "/cashier-dashboard";
+      if (mRole === "customer") return "/customer-dashboard";
+    }
+  } catch (err) {
+    console.warn("[AuthUtils] Membership check failed:", err);
+  }
+  const metaOrgId = meta.org_id as string;
+  if (metaOrgId) {
+    if (role === "manager") return "/manager-dashboard";
+    if (role === "cashier") return "/cashier-dashboard";
+    if (role === "customer") return "/customer-dashboard";
   }
 
-  // Eğer hiçbir yetkisi yoksa ve organizasyona bağlı değilse: IZINSIZ GIRIŞ
-  console.log("[AuthUtils] No access, redirecting to /unauthorized");
+  // 🚀 4. Organizasyonsuz Diğer Roller
+  if (role === "boss") return "/create-organization";
+  if (role === "customer") return "/customer-dashboard";
+
+  if (["manager", "cashier"].includes(role)) {
+    console.warn(`[AuthUtils] Internal member (${role}) without org → unauthorized.`);
+    return "/unauthorized";
+  }
+
+  const createdRecently = Date.now() - (user.createdAt || 0) < 5 * 60 * 1000;
+  if (createdRecently && (meta.invitation_ticket || unsafeMeta.ticket)) {
+    return "/sign-in?sync=true";
+  }
+
+  console.log(`[AuthUtils] Access Denied for ${email}. Role: ${role || "None"}`);
   return "/unauthorized";
 }

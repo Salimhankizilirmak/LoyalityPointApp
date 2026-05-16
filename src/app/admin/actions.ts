@@ -47,3 +47,12 @@ export async function getAllOrganizations() {
     return [];
   }
 }
+
+export async function getGlobalAnalytics() {
+  try {
+    return await adminService.getGlobalAnalytics();
+  } catch (error) {
+    console.error("Global analytics error:", error);
+    return null;
+  }
+}

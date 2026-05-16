@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Store, LogOut, Sun, Moon, Database } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { LogOut, Sun, Moon, Database } from "lucide-react";
+import { useUser, OrganizationSwitcher } from "@clerk/nextjs";
 
 type UserResource = ReturnType<typeof useUser>["user"];
 
@@ -31,33 +31,55 @@ export function BossHeader({
   signOut,
   tabs
 }: BossHeaderProps) {
-  const BLUE = "#2563eb";
+  const INDIGO = "#6366f1";
+
   const userRole = (user?.publicMetadata?.role as string) || "boss";
-  const roleLabel = userRole === "boss" ? "Patron" : userRole === "manager" ? "Yönetici" : "Kasiyer";
+  const roleLabel = userRole === "super_admin" ? "Süper Admin" : userRole === "boss" ? "Patron" : userRole === "manager" ? "Yönetici" : "Kasiyer";
 
   return (
-    <div className="sticky top-0 z-30 w-full transition-colors duration-300" 
-      style={{ 
-        background: isDarkMode ? "rgba(15,23,42,0.9)" : "rgba(255,255,255,0.9)", 
-        backdropFilter: "blur(16px)", 
-        borderBottom: `1px solid ${isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}` 
+    <div className="sticky top-0 z-30 w-full transition-colors duration-300"
+      style={{
+        background: isDarkMode ? "rgba(15,23,42,0.9)" : "rgba(255,255,255,0.9)",
+        backdropFilter: "blur(16px)",
+        borderBottom: `1px solid ${isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`
       }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform hover:rotate-12" 
-            style={{ background: BLUE, boxShadow: `0 4px 12px ${BLUE}44` }}>
-            <Store size={18} className="text-white" />
-          </div>
-          <div>
-            <p className={`font-bold text-sm leading-tight transition-colors ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-              {orgName || "Organizasyon"}
-            </p>
-            <p className="text-slate-500 text-xs font-medium flex items-center gap-1.5">
-              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[10px] font-bold uppercase tracking-wider">
-                {roleLabel}
+          <div className="flex items-center gap-2">
+            {userRole === "super_admin" || userRole === "superadmin" ? (
+              <span className={`font-bold text-sm px-3 py-1.5 rounded-xl border ${isDarkMode ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400" : "bg-indigo-50 border-indigo-100 text-indigo-600"
+                }`}>
+                {orgName}
               </span>
-              · {user?.fullName || "Patron"}
-            </p>
+            ) : (
+              <OrganizationSwitcher
+                afterCreateOrganizationUrl="/boss-dashboard"
+                afterSelectOrganizationUrl="/boss-dashboard"
+                appearance={{
+                  elements: {
+                    rootBox: "flex items-center",
+                    organizationSwitcherTrigger: `flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 ${
+                      isDarkMode 
+                        ? "!bg-slate-800/50 !border-slate-700/50 !text-white hover:!bg-slate-800" 
+                        : "!bg-white/80 !border-slate-200 !text-slate-900 hover:!bg-slate-50"
+                    }`,
+                    organizationSwitcherTriggerIcon: isDarkMode ? "!text-slate-400" : "!text-slate-500",
+                    organizationPreviewMainIdentifier: `font-semibold text-sm ${isDarkMode ? "!text-white" : "!text-slate-900"}`,
+                    organizationPreviewSecondaryIdentifier: "hidden",
+                    organizationPreviewAvatarBox: `rounded-xl shadow-md border transition-colors ${
+                      isDarkMode ? "!border-slate-700" : "!border-slate-200"
+                    }`,
+                    organizationPreviewAvatarImage: "rounded-xl",
+                    avatarBox: "!rounded-xl !bg-indigo-600 !text-white", // Fallback için indigo giydirme
+                  }
+                }}
+              />
+            )}
+            <div className="flex items-center border-l border-slate-700/20 dark:border-slate-700/50 pl-3 ml-1 h-6">
+              <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
+                {roleLabel} · {user?.fullName || "Kullanıcı"}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -65,10 +87,10 @@ export function BossHeader({
           {tabs.map((tab, i) => (
             <button key={tab} onClick={() => setActiveTab(i)}
               className="px-4 py-2 rounded-xl text-xs font-semibold transition-all relative group"
-              style={{ color: activeTab === i ? BLUE : (isDarkMode ? "#94a3b8" : "#64748b") }}>
+              style={{ color: activeTab === i ? INDIGO : (isDarkMode ? "#94a3b8" : "#64748b") }}>
               {tab}
               {activeTab === i && (
-                <motion.div layoutId="bossActiveTab" className="absolute inset-0 bg-blue-500/10 rounded-xl -z-10" />
+                <motion.div layoutId="bossActiveTab" className="absolute inset-0 bg-indigo-500/10 rounded-xl -z-10" />
               )}
             </button>
           ))}
@@ -78,24 +100,22 @@ export function BossHeader({
           {/* Theme Toggle */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
-              isDarkMode ? "bg-slate-800 border-slate-700 text-yellow-400" : "bg-slate-50 border-slate-200 text-slate-600"
-            }`}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${isDarkMode ? "bg-slate-800 border-slate-700 text-yellow-400" : "bg-slate-50 border-slate-200 text-slate-600"
+              }`}
           >
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
           {/* Mock Toggle */}
-          <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all ${
-            isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"
-          }`}>
-            <Database size={12} className={showMockData ? "text-blue-500" : "text-slate-400"} />
-            <button 
+          <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all ${isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"
+            }`}>
+            <Database size={12} className={showMockData ? "text-indigo-500" : "text-slate-400"} />
+            <button
               onClick={() => setShowMockData(!showMockData)}
               className="relative w-8 h-4 rounded-full transition-colors duration-200"
-              style={{ background: showMockData ? BLUE : (isDarkMode ? "#334155" : "#e2e8f0") }}
+              style={{ background: showMockData ? INDIGO : (isDarkMode ? "#334155" : "#e2e8f0") }}
             >
-              <motion.div 
+              <motion.div
                 animate={{ x: showMockData ? 16 : 2 }}
                 className="absolute top-1 w-2 h-2 rounded-full bg-white shadow-sm"
               />
@@ -103,23 +123,22 @@ export function BossHeader({
           </div>
 
           <button onClick={signOut}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
-              isDarkMode ? "bg-rose-500/10 border-rose-500/20 text-rose-400" : "bg-rose-50 border-rose-100 text-rose-600"
-            }`}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${isDarkMode ? "bg-rose-500/10 border-rose-500/20 text-rose-400" : "bg-rose-50 border-rose-100 text-rose-600"
+              }`}
             title="Çıkış Yap">
             <LogOut size={16} />
           </button>
         </div>
       </div>
-      
+
       {/* Mobile Navigation */}
       <div className="lg:hidden flex overflow-x-auto px-4 gap-1 pb-1">
         {tabs.map((tab, i) => (
           <button key={tab} onClick={() => setActiveTab(i)}
             className="px-4 py-2.5 text-xs font-bold whitespace-nowrap transition-all border-b-2"
-            style={{ 
-              borderColor: activeTab === i ? BLUE : "transparent", 
-              color: activeTab === i ? BLUE : (isDarkMode ? "#64748b" : "#94a3b8") 
+            style={{
+              borderColor: activeTab === i ? INDIGO : "transparent",
+              color: activeTab === i ? INDIGO : (isDarkMode ? "#64748b" : "#94a3b8")
             }}>
             {tab}
           </button>

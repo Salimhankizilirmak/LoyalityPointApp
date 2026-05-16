@@ -1,6 +1,6 @@
 import { Lock, LogOut, MessageSquare } from "lucide-react";
 import { SignOutButton } from "@clerk/nextjs";
-import Link from "next/link";
+
 
 export default function OrgDisabledPage() {
   return (

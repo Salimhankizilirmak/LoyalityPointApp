@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { GlassPanel } from "@/components/ui/GlassPanel";
 import { GlassInput } from "@/components/ui/GlassInput";
-import { PrimaryButton } from "@/components/ui/PrimaryButton";
+
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
 import { findCustomerById, processTransactionAction } from "@/app/cashier-dashboard/actions";
 import { CheckCircle2, AlertCircle, Search, QrCode } from "lucide-react";

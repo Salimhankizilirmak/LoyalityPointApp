@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Edit3, X, Check, CheckCircle } from "lucide-react";
+import { X } from "lucide-react";
 import { Transaction } from "./types";
 
 interface EditPointsModalProps {

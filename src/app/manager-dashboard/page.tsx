@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useClerk, useUser } from "@clerk/nextjs";
+
+import { 
+  getManagerProfile, 
+  getBranchTransactions, 
+  getCustomers, 
+  getOrgMembers,
+  removeMember,
+  updateMemberName
+} from "./actions";
 
 // Components
 import { ManagerHeader } from "@/components/features/manager-dashboard/ManagerHeader";
@@ -10,64 +19,101 @@ import { OverviewStats } from "@/components/features/manager-dashboard/OverviewS
 import { TransactionFeed } from "@/components/features/manager-dashboard/TransactionFeed";
 import { EmployeeManagement } from "@/components/features/manager-dashboard/EmployeeManagement";
 import { CustomerManagement } from "@/components/features/manager-dashboard/CustomerManagement";
-import { AddCustomerModal } from "@/components/features/manager-dashboard/AddCustomerModal";
 import { InviteModal } from "@/components/features/boss-dashboard/InviteModal";
 
 // Types
 import { Transaction, Customer, Employee } from "@/components/features/manager-dashboard/types";
 
-// Mock Data
-const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: 1, customer: "Fatma G.", type: "earned", pts: 240, amount: 480, cashier: "Ayşe K.", time: "14:38" },
-  { id: 2, customer: "Mehmet K.", type: "spent", pts: -150, amount: 320, cashier: "Burak Ş.", time: "14:35" },
-  { id: 3, customer: "Zeynep A.", type: "earned", pts: 180, amount: 360, cashier: "Ayşe K.", time: "14:31" },
-];
-
-const MOCK_CUSTOMERS: Customer[] = [
-  { id: "c1", firstName: "Fatma", lastName: "Güler", phone: "0532 111 22 33", email: "fatma@ornek.com", currentPoints: 4820 },
-  { id: "c2", firstName: "Mehmet", lastName: "Koç", phone: "0541 222 33 44", email: "mehmet@ornek.com", currentPoints: 2140 },
-];
-
-const MOCK_CASHIERS: Employee[] = [
-  { id: "e1", name: "Ayşe Korkmaz", email: "ayse@ornek.com", role: "cashier", avatar: "AK", status: "active", txCount: 47, newReg: 4 },
-  { id: "e2", name: "Burak Şahin", email: "burak@ornek.com", role: "cashier", avatar: "BŞ", status: "active", txCount: 38, newReg: 2 },
-];
-
 const TABS = ["Genel Bakış", "Müşteriler", "Ekibim"];
 
 export default function ManagerDashboard() {
   const [activeTab, setActiveTab] = useState(0);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [showMockData, setShowMockData] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showMockData, setShowMockData] = useState(false);
   
-  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
-  const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
-  const [cashiers, setCashiers] = useState<Employee[]>(MOCK_CASHIERS);
+  // Real Data State
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [cashiers, setCashiers] = useState<Employee[]>([]);
+  const [branchInfo, setBranchInfo] = useState<{name: string, orgId: string} | null>(null);
   
+  // UI State
   const [showInvite, setShowInvite] = useState(false);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
   
   const { user } = useUser();
   const { signOut } = useClerk();
 
-  const handleAddCustomer = async (data: { firstName: string; lastName: string; phone: string }) => {
-    const newCust: Customer = {
-      id: `c-${Date.now()}`,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      phone: data.phone,
-      email: "",
-      currentPoints: 100
-    };
-    setCustomers(prev => [newCust, ...prev]);
+  const refreshData = useCallback(async () => {
+    try {
+      const [profile, txs, custs, emps] = await Promise.all([
+        getManagerProfile(),
+        getBranchTransactions(),
+        getCustomers(),
+        getOrgMembers()
+      ]);
+      
+      setBranchInfo({ name: profile.branchName, orgId: profile.orgId || "" });
+      
+      const mappedTxs: Transaction[] = (txs as { id: string; customerFirstName?: string | null; customerLastName?: string | null; type: string; amount: number; createdAt: Date | null }[]).map(t => ({
+        id: t.id,
+        customer: `${t.customerFirstName || ""} ${t.customerLastName || ""}`.trim() || "Bilinmeyen Müşteri",
+        type: t.type === "earn" ? "earned" : t.type === "spend" ? "spent" : "new",
+        pts: t.amount,
+        amount: t.amount * 2, // Mock amount calculation
+        cashier: "Kasiyer", // Placeholder
+        time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"
+      }));
+
+      setTransactions(mappedTxs);
+      setCustomers(custs as Customer[]);
+      // Sadece kasiyerleri filtrele
+      const filteredCashiers = (emps as Employee[]).filter(e => e.role === "cashier");
+      setCashiers(filteredCashiers);
+    } catch (err) {
+      console.error("Manager data fetch error:", err);
+    } finally {
+      // Loading finished
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => {
+        refreshData();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [user, refreshData]);
+
+  const handleRemoveCashier = async (id: string) => {
+    if (!confirm("Bu kasiyeri silmek istediğinize emin misiniz?")) return;
+    setLoadingId(id);
+    try {
+      await removeMember(id);
+      await refreshData();
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const handleUpdateCashier = async (id: string, f: string, l: string) => {
+    setLoadingId(id);
+    try {
+      await updateMemberName(id, f, l);
+      await refreshData();
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   return (
-    <div className={`min-h-screen w-full transition-colors duration-500 ${isDarkMode ? "bg-[#020817]" : "bg-slate-50"}`}>
+    <div className={`min-h-screen w-full transition-colors duration-500 font-sans ${isDarkMode ? "bg-[#0f172a] text-white" : "bg-slate-50 text-slate-900"}`}>
       <AnimatePresence>
         {showInvite && (
           <InviteModal 
-            onClose={() => setShowInvite(false)} 
-            branches={[]} // Yöneticiler şube ataması yapamaz, kendi şubelerine atanır
+            onClose={() => { setShowInvite(false); refreshData(); }} 
+            branches={branchInfo ? [{ id: branchInfo.orgId, name: branchInfo.name }] : []} 
             isDarkMode={isDarkMode}
             fixedRole="cashier"
           />
@@ -100,56 +146,71 @@ export default function ManagerDashboard() {
                 <div className="lg:col-span-2 space-y-8">
                   <OverviewStats 
                     txCount={transactions.length}
-                    totalPts={4800}
-                    activeEmployees={`${cashiers.length} / 5`}
+                    totalPts={transactions.reduce((s, t) => s + Math.abs(t.pts), 0)}
+                    activeEmployees={`${cashiers.length} Aktif`}
                     isDarkMode={isDarkMode}
                   />
-                  <TransactionFeed 
-                    transactions={transactions}
-                    isDarkMode={isDarkMode}
-                    onEdit={() => {}}
-                    flash={false}
-                  />
+                  <div className="glass-panel-elevated rounded-3xl p-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="font-bold text-lg text-white">Son İşlemler</h2>
+                      <div className="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-500 text-[10px] font-bold uppercase tracking-wider">
+                        Canlı Akış
+                      </div>
+                    </div>
+                    <TransactionFeed 
+                      transactions={transactions}
+                      isDarkMode={isDarkMode}
+                      onEdit={() => {}}
+                      flash={false}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <EmployeeManagement 
-                    employees={cashiers}
-                    isDarkMode={isDarkMode}
-                    onUpdate={async () => {}}
-                    onRemove={async () => {}}
-                    onAddClick={() => setShowInvite(true)}
-                    loadingId={null}
-                  />
+                <div className="space-y-8">
+                  <div className="glass-panel-elevated rounded-3xl p-8">
+                    <EmployeeManagement 
+                      employees={cashiers}
+                      isDarkMode={isDarkMode}
+                      onUpdate={handleUpdateCashier}
+                      onRemove={handleRemoveCashier}
+                      onAddClick={() => setShowInvite(true)}
+                      loadingId={loadingId}
+                    />
+                  </div>
                 </div>
               </div>
             )}
 
             {activeTab === 1 && (
-              <div className={`rounded-3xl p-8 border transition-all ${
-                isDarkMode ? "bg-slate-900/50 border-slate-700" : "bg-white border-slate-100 shadow-sm"
-              }`}>
+              <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
                 <CustomerManagement 
                   customers={customers}
                   isDarkMode={isDarkMode}
                   onUpdate={async () => {}}
                   onDelete={async () => {}}
-                  onAdd={handleAddCustomer}
+                  onAdd={async () => { await refreshData(); }}
                   loadingId={null}
                 />
               </div>
             )}
             
             {activeTab === 2 && (
-              <div className={`rounded-3xl p-8 border transition-all ${
-                isDarkMode ? "bg-slate-900/50 border-slate-700" : "bg-white border-slate-100 shadow-sm"
-              }`}>
+              <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-xl font-bold text-white">Ekip Yönetimi</h2>
+                  <button 
+                    onClick={() => setShowInvite(true)}
+                    className="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold"
+                  >
+                    Kasiyer Davet Et
+                  </button>
+                </div>
                 <EmployeeManagement 
                   employees={cashiers}
                   isDarkMode={isDarkMode}
-                  onUpdate={async () => {}}
-                  onRemove={async () => {}}
+                  onUpdate={handleUpdateCashier}
+                  onRemove={handleRemoveCashier}
                   onAddClick={() => setShowInvite(true)}
-                  loadingId={null}
+                  loadingId={loadingId}
                 />
               </div>
             )}
@@ -159,3 +220,4 @@ export default function ManagerDashboard() {
     </div>
   );
 }
+

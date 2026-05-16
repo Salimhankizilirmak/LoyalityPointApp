@@ -2,20 +2,18 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Store, MapPin, UserCheck, Plus } from "lucide-react";
-import { Employee } from "./types";
+import { X, Store, MapPin, Plus, ChevronDown } from "lucide-react";
+import ILLER from "@/constants/iller.json";
 
 interface AddBranchModalProps {
   onClose: () => void;
-  onAdd: (data: { name: string; city: string; managerId: string }) => Promise<void>;
-  managers: Employee[];
+  onAdd: (data: { name: string; city: string }) => Promise<void>;
   isDarkMode: boolean;
 }
 
-export function AddBranchModal({ onClose, onAdd, managers, isDarkMode }: AddBranchModalProps) {
+export function AddBranchModal({ onClose, onAdd, isDarkMode }: AddBranchModalProps) {
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
-  const [managerId, setManagerId] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,7 +21,7 @@ export function AddBranchModal({ onClose, onAdd, managers, isDarkMode }: AddBran
     if (!name || !city) return;
     setLoading(true);
     try {
-      await onAdd({ name, city, managerId });
+      await onAdd({ name, city });
       onClose();
     } finally {
       setLoading(false);
@@ -69,41 +67,28 @@ export function AddBranchModal({ onClose, onAdd, managers, isDarkMode }: AddBran
               />
             </div>
           </div>
-
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Şehir</label>
             <div className="relative">
-              <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
+              <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" />
+              <select
                 required
                 value={city}
                 onChange={e => setCity(e.target.value)}
-                placeholder="Örn: İstanbul"
-                className={`w-full pl-10 pr-4 py-3 rounded-2xl text-sm border outline-none transition-all ${
-                  isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-blue-500" : "bg-slate-50 border-slate-200 focus:border-blue-400"
-                }`}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Yönetici Ata (Opsiyonel)</label>
-            <div className="relative">
-              <UserCheck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <select
-                value={managerId}
-                onChange={e => setManagerId(e.target.value)}
-                className={`w-full pl-10 pr-4 py-3 rounded-2xl text-sm border outline-none appearance-none transition-all ${
+                className={`w-full pl-10 pr-10 py-3 rounded-2xl text-sm border outline-none appearance-none transition-all relative ${
                   isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-blue-500" : "bg-slate-50 border-slate-200 focus:border-blue-400"
                 }`}
               >
-                <option value="">Yönetici Seçin...</option>
-                {managers.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+                <option value="">Şehir Seçin...</option>
+                {Object.entries(ILLER).map(([id, name]) => (
+                  <option key={id} value={name}>{name}</option>
                 ))}
               </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
           </div>
+
+
 
           <button
             type="submit"

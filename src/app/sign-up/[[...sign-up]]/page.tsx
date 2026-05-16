@@ -1,17 +1,32 @@
-import { SignUp } from "@clerk/nextjs";
 import { ShieldAlert, Mail } from "lucide-react";
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import SignUpForm from "./sign-up-form";
 
 export default async function SignUpPage({
   searchParams,
+  params,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  params: Promise<{ "sign-up"?: string[] }>;
 }) {
-  const params = await searchParams;
-  // Clerk davetiyeleri url içinde __clerk_ticket veya ticket parametresi ile gelir
-  const hasTicket = !!params?.__clerk_ticket || !!params?.ticket;
+  const authData = await auth();
+  if (authData.userId) {
+    redirect("/dashboard");
+  }
 
-  if (!hasTicket) {
+  const [sParams, routeParams] = await Promise.all([searchParams, params]);
+  
+  // Clerk davetiyeleri __clerk_ticket (genel davet) veya __clerk_invitation_token (org daveti) ile gelir
+  const hasTicketInUrl = !!sParams?.__clerk_ticket || !!sParams?.ticket || !!sParams?.__clerk_invitation_token;
+  
+  // Sadece ANA /sign-up sayfasında bilet kontrolü yap.
+  // Alt sayfalardaysak (sso-callback vb.), bilet sessionStorage'dan çekileceği için geçişe izin ver.
+  const isRootSignUp = !routeParams["sign-up"] || routeParams["sign-up"].length === 0;
+  
+  // Güvenlik Kapısı: Root'ta bilet yoksa ve SSO callback değilse engelle
+  if (isRootSignUp && !hasTicketInUrl) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-neutral-950 p-6">
         <div className="absolute inset-0 z-0 pointer-events-none">
@@ -55,25 +70,7 @@ export default async function SignUpPage({
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px]" />
       </div>
       <div className="relative z-10">
-        <SignUp 
-          forceRedirectUrl="/dashboard" 
-          appearance={{ 
-            elements: { 
-              formButtonPrimary: 'bg-emerald-500 hover:bg-emerald-600 text-sm normal-case shadow-none border-0',
-              card: 'bg-neutral-900 border border-white/10 shadow-2xl',
-              headerTitle: 'text-white',
-              headerSubtitle: 'text-neutral-400',
-              socialButtonsBlockButton: 'bg-white/5 border-white/10 text-white hover:bg-white/10',
-              socialButtonsBlockButtonText: 'text-white',
-              dividerLine: 'bg-white/10',
-              dividerText: 'text-neutral-500',
-              formFieldLabel: 'text-neutral-400',
-              formFieldInput: 'bg-white/5 border-white/10 text-white',
-              footerActionText: 'text-neutral-400',
-              footerActionLink: 'text-emerald-500 hover:text-emerald-400'
-            } 
-          }} 
-        />
+        <SignUpForm />
       </div>
     </div>
   );

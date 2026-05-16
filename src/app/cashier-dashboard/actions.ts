@@ -42,3 +42,20 @@ export async function processTransactionAction(customerId: string, amountStr: st
     return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }
+
+export async function getBranchStatus() {
+  const { organizationService } = await import("@/lib/services/organization-service");
+  try {
+    const profile = await organizationService.getBossProfile();
+    if (!profile.org) return { isDeleted: true };
+    
+    // getBossProfile should probably return isActive too
+    const dbOrg = await organizationService.getDbOrg(profile.org.id);
+    return {
+      isActive: dbOrg?.isActive ?? false,
+      isDeleted: false
+    };
+  } catch {
+    return { isDeleted: true };
+  }
+}

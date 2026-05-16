@@ -3,6 +3,7 @@ export interface Employee {
   name: string;
   email: string;
   role: "boss" | "manager" | "cashier";
+  branch?: string;
   avatar: string;
   status: "active" | "pending";
   createdAt?: number;

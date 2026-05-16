@@ -54,10 +54,12 @@ export class CustomerService extends BaseService {
   async inviteCustomer(data: { firstName: string; lastName: string; phone: string; email: string }) {
     await this.requireOrg();
     const client = await this.getClerkClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     
     await client.invitations.createInvitation({
       emailAddress: data.email,
       publicMetadata: { ...data, role: "customer" },
+      redirectUrl: `${appUrl}/sign-up`,
       ignoreExisting: true
     });
 

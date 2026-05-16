@@ -8,6 +8,7 @@ export interface Organization {
   status: "active" | "inactive";
   customers: number;
   txVolume: number;
+  managerCount?: number;
 }
 
 export interface ActivityLogItem {

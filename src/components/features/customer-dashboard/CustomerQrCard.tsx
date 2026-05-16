@@ -2,7 +2,7 @@
 
 import React from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { GlassPanel } from "@/components/ui/GlassPanel";
+
 import { QrCode } from "lucide-react";
 
 export function CustomerQrCard({ userId }: { userId: string }) {

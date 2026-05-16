@@ -13,10 +13,10 @@ interface Log {
 }
 
 const LOG_COLORS = {
-  success: { dot: "#22d3ee", text: "#67e8f9", label: "OK" },
+  success: { dot: "#6366f1", text: "#818cf8", label: "OK" },
   warn: { dot: "#f59e0b", text: "#fcd34d", label: "WARN" },
-  error: { dot: "#f87171", text: "#fca5a5", label: "ERR" },
-  info: { dot: "#818cf8", text: "#a5b4fc", label: "INFO" },
+  error: { dot: "#ef4444", text: "#f87171", label: "ERR" },
+  info: { dot: "#6366f1", text: "#818cf8", label: "INFO" },
 };
 
 interface ActivityLogProps {
@@ -31,16 +31,16 @@ export function ActivityLog({ logs }: ActivityLogProps) {
 
   return (
     <div className="rounded-2xl overflow-hidden h-full flex flex-col"
-      style={{ background: "#0a0f1e", border: "1px solid rgba(255,255,255,0.05)" }}>
+      style={{ background: "#0a0a0f", border: "1px solid rgba(255,255,255,0.05)" }}>
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.3)" }}>
         <div className="flex items-center gap-2">
-          <Terminal size={13} className="text-cyan-500" />
+          <Terminal size={13} className="text-indigo-400" />
           <span className="text-slate-300 text-xs font-semibold tracking-wider uppercase">Activity Log</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-cyan-500 text-xs font-mono">LIVE</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+          <span className="text-indigo-400 text-xs font-mono">LIVE</span>
         </div>
       </div>
       <div ref={ref} className="flex-1 overflow-y-auto p-3 space-y-1 font-mono text-xs" style={{ maxHeight: 340 }}>

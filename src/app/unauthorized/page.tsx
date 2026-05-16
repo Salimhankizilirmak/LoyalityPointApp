@@ -23,10 +23,14 @@ export default function UnauthorizedPage() {
         </div>
 
         <div className="pt-8 flex flex-col gap-4">
-          <SignOutButton signOutOptions={{ redirectUrl: "/" }}>
-            <button className="bg-white text-neutral-950 px-8 py-4 rounded-2xl font-bold hover:bg-neutral-100 transition-all flex items-center justify-center gap-2 group">
-              <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-              Oturumu Kapat
+          <Link href="/dashboard" className="w-full bg-rose-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-rose-500 transition-all flex items-center justify-center gap-2">
+            Tekrar Dene / Senkronize Et
+          </Link>
+
+          <SignOutButton redirectUrl="/">
+            <button className="w-full bg-white/5 text-white border border-white/10 px-8 py-4 rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2 group">
+              <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform text-neutral-400" />
+              Farklı Hesapla Giriş Yap
             </button>
           </SignOutButton>
           

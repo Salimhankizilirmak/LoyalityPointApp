@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { UserPlus, Search, Receipt, Package, HelpCircle, LogOut, QrCode } from "lucide-react";
+
+import { UserPlus, Search, Receipt, Package, HelpCircle, QrCode } from "lucide-react";
 
 export function CashierSidebar({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: "qr" | "register") => void }) {
   return (

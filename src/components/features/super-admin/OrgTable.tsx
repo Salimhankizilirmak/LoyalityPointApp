@@ -16,6 +16,7 @@ interface Org {
   status: "active" | "inactive";
   customers: number;
   txVolume: number;
+  managerCount?: number;
 }
 
 interface OrgTableProps {
@@ -33,7 +34,11 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
 
   const sorted = orgs
     .filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || o.slug.includes(search.toLowerCase()))
-    .sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : -1) * sortDir);
+    .sort((a, b) => {
+      const valA = a[sortKey] ?? "";
+      const valB = b[sortKey] ?? "";
+      return (valA > valB ? 1 : -1) * sortDir;
+    });
 
   const toggleSort = (key: keyof Org) => {
     if (sortKey === key) setSortDir(d => -d);
@@ -42,7 +47,7 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
 
   const SortIcon = ({ k }: { k: keyof Org }) =>
     sortKey === k
-      ? (sortDir === -1 ? <ChevronDown size={11} className="text-cyan-400" /> : <ChevronUp size={11} className="text-cyan-400" />)
+      ? (sortDir === -1 ? <ChevronDown size={11} className="text-indigo-400" /> : <ChevronUp size={11} className="text-indigo-400" />)
       : <ChevronDown size={11} className="text-slate-700" />;
 
   const COLS = [
@@ -56,19 +61,18 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
   ];
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.06)" }}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div className="rounded-2xl overflow-hidden shadow-2xl border border-white/5 bg-[#13131a] backdrop-blur-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-5 border-b border-white/5">
         <div>
-          <h2 className="text-white font-semibold text-sm">Organizasyon Yönetimi</h2>
+          <h2 className="text-sm font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">Organizasyon Yönetimi</h2>
           <p className="text-slate-500 text-xs mt-0.5">{orgs.length} tenant kayıtlı</p>
         </div>
         <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Organizasyon ara..."
-            className="pl-8 pr-4 py-2 rounded-lg text-xs text-white outline-none w-full sm:w-52"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", caretColor: "#22d3ee" }} />
+            className="pl-9 pr-4 py-2.5 rounded-xl text-xs text-white outline-none w-full sm:w-64 bg-white/5 border border-white/10 focus:border-indigo-500/50 transition-all"
+            style={{ caretColor: "#6366f1" }} />
         </div>
       </div>
 
@@ -106,17 +110,22 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
                 <td className="px-4 py-3.5"><span className="text-slate-300 font-semibold">{fmt(org.customers)}</span></td>
                 <td className="px-4 py-3.5"><span className="text-slate-400 font-mono">{org.email}</span></td>
                 <td className="px-4 py-3.5">
-                  <button onClick={() => onToggle(org.id, org.status === "active")}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all"
-                    style={{
-                      background: org.status === "active" ? "rgba(34,197,94,0.1)" : "rgba(100,116,139,0.1)",
-                      color: org.status === "active" ? "#4ade80" : "#64748b",
-                      border: `1px solid ${org.status === "active" ? "rgba(74,222,128,0.25)" : "rgba(100,116,139,0.2)"}`,
-                    }}>
-                    <div className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: org.status === "active" ? "#4ade80" : "#64748b" }} />
-                    {org.status === "active" ? "Aktif" : "Pasif"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => onToggle(org.id, org.status === "active")}
+                      className={`relative w-10 h-5 rounded-full transition-all duration-300 ${
+                        org.status === "active" ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.4)]" : "bg-slate-700"
+                      }`}
+                    >
+                      <motion.div 
+                        animate={{ x: org.status === "active" ? 22 : 2 }}
+                        className="absolute top-1 w-3 h-3 rounded-full bg-white shadow-sm"
+                      />
+                    </button>
+                    <span className={`text-[10px] font-bold uppercase tracking-tight ${org.status === "active" ? "text-indigo-400" : "text-slate-500"}`}>
+                      {org.status === "active" ? "Aktif" : "Pasif"}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="relative">

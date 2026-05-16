@@ -1,5 +1,5 @@
 export interface Transaction {
-  id: number;
+  id: number | string;
   customer: string;
   type: "earned" | "spent" | "new";
   pts: number;

@@ -1,16 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Building2, Globe, ArrowRight, Star, Sparkles, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { createBossOrganization } from "./actions";
 
 export default function CreateOrganizationPage() {
   const router = useRouter();
+  const { user, isLoaded } = useUser();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", slug: "" });
+
+  // 🛡️ UI Level Gating
+  if (isLoaded && user) {
+    const role = (user.publicMetadata?.role as string) || "customer";
+    if (role !== "boss" && role !== "superadmin") {
+      router.replace("/unauthorized");
+      return null;
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

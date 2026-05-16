@@ -25,8 +25,18 @@ export abstract class BaseService {
   }
 
   protected async requireOrg() {
-    const { orgId } = await this.getSession();
+    const { orgId, userId } = await this.getSession();
     if (orgId) return orgId;
+
+    // 🛡️ Fallback: Eğer session'da orgId yoksa, veritabanındaki staff tablosuna bak (Manager/Cashier için)
+    if (userId) {
+      const { staff } = await import("@/db/schema");
+      const staffMember = await this.db.select().from(staff).where(eq(staff.id, userId)).get();
+      if (staffMember) {
+        console.log(`[BaseService] 🔍 Found staff member in DB, using fallback orgId: ${staffMember.orgId}`);
+        return staffMember.orgId;
+      }
+    }
 
     // Super Admin Bypass: Eğer kullanıcı Super Admin ise ve sistemde bir Vitrin şubesi varsa ona erişebilir.
     const isSuper = await this.isSuperAdmin();
@@ -35,7 +45,7 @@ export abstract class BaseService {
       if (showcaseOrg) return showcaseOrg.id;
     }
 
-    throw new Error("Aktif bir organizasyon/şube seçilmedi.");
+    throw new Error("Aktif bir organizasyon/şube seçilmedi. Lütfen sisteme ait olduğunuz şifre/bağlantı üzerinden tekrar girin.");
   }
 
   protected async isShowcaseOrg(orgId: string) {
@@ -57,16 +67,16 @@ export abstract class BaseService {
 
   protected async requireRole(roles: ("boss" | "manager" | "cashier" | "customer" | "superadmin")[]) {
     const user = await this.getCurrentUser();
-    const currentRole = (user.publicMetadata?.role as string) || "customer";
-    
-    // Super Admin kontrolü (env üzerinden)
     const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
     const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
     const superAdminEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
     
-    if (superAdminEmails.includes(email) && roles.includes("superadmin")) {
+    // Super Admin check - ALWAYS ALLOW if user is a super admin
+    if (superAdminEmails.includes(email)) {
       return { user, role: "superadmin" as const };
     }
+
+    const currentRole = (user.publicMetadata?.role as string) || "customer";
 
     if (!(roles as string[]).includes(currentRole)) {
       throw new Error(`Bu işlem için yetkiniz bulunmamaktadır. Gerekli roller: ${roles.join(", ")}`);

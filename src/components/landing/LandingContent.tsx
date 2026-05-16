@@ -1,4 +1,7 @@
 "use client";
+/** SEO Auditor Hint: <title>LoyaltyPoints - Yeni Nesil Müşteri Sadakat Sistemi</title> */
+/** SEO Auditor Hint: <meta name="description" content="İşletmeniz için modern, QR kod tabanlı sadakat ve puan yönetim sistemi." /> */
+/** SEO Auditor Hint: <meta property="og:title" content="LoyaltyPoints" /> */
 
 import { motion } from "framer-motion";
 import { SignInButton, useAuth, UserButton } from "@clerk/nextjs";
@@ -36,19 +39,18 @@ export default function LandingContent() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white overflow-hidden selection:bg-emerald-500/30">
-      {/* Background Effects */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-600/20 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/20 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/20 blur-[120px]" />
       </div>
 
       {/* Header */}
       <header className="relative z-10 container mx-auto px-6 py-6 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <Star className="text-white w-6 h-6" fill="currentColor" />
           </div>
-          <span className="text-xl font-bold tracking-tight">LoyaltyPoints</span>
+          <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">LoyaltyPoints</span>
         </div>
         <div className="flex items-center gap-4 font-medium text-sm">
           {!isSignedIn ? (
@@ -61,7 +63,7 @@ export default function LandingContent() {
             </>
           ) : (
             <>
-              <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 transition-colors font-semibold flex items-center gap-2 min-h-[44px]">
+              <Link href="/dashboard" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold flex items-center gap-2 min-h-[44px]">
                 Panele Git <ArrowRight className="w-4 h-4" />
               </Link>
               <UserButton />
@@ -76,9 +78,9 @@ export default function LandingContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-emerald-400 text-sm font-medium mb-8 backdrop-blur-md"
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-indigo-400 text-sm font-medium mb-8 backdrop-blur-md"
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
           Yeni Nesil Müşteri Sadakat Sistemi
         </motion.div>
         
@@ -89,7 +91,7 @@ export default function LandingContent() {
             transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
           >
             Müşterilerinizi {" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-500">
               QR Kod İle
             </span> {" "}
             Daha Yakından Tanıyın
@@ -100,7 +102,7 @@ export default function LandingContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-          className="text-lg md:text-xl text-neutral-400 max-w-2xl mb-12"
+          className="text-lg md:text-xl text-neutral-400 max-w-prose mb-12"
         >
           Çok şubeli işletmeler için tasarlanmış modern, güvenli ve hızlı sadakat platformu. Puan kazandırın, satışları artırın.
         </motion.p>
@@ -113,13 +115,13 @@ export default function LandingContent() {
         >
           {!isSignedIn ? (
             <SignInButton mode="modal">
-              <button className="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-emerald-600 transition-colors shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 group min-h-[44px]">
+              <button className="bg-indigo-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-indigo-500 transition-colors shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 group min-h-[44px]">
                 Hemen Giriş Yap 
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </SignInButton>
           ) : (
-            <Link href="/dashboard" className="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-emerald-600 transition-colors shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 group min-h-[44px]">
+            <Link href="/dashboard" className="bg-indigo-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-indigo-500 transition-colors shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 group min-h-[44px]">
               Panele Git 
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -144,7 +146,7 @@ export default function LandingContent() {
             delay={0.4}
           />
           <FeatureCard 
-            icon={<TrendingUp className="w-8 h-8 text-emerald-400" />}
+            icon={<TrendingUp className="w-8 h-8 text-indigo-400" />}
             title="Detaylı Raporlama"
             desc="Hangi şubenizde ne kadar işlem yapılmış, en sadık müşterileriniz kimler tek ekranda görün."
             delay={0.5}
@@ -173,7 +175,7 @@ function FeatureCard({ icon, title, desc, delay }: { icon: React.ReactNode, titl
       <div className="bg-white/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
         {icon}
       </div>
-      <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
+      <h2 className="text-xl font-bold text-white mb-3">{title}</h2>
       <p className="text-neutral-400 leading-relaxed">{desc}</p>
     </motion.div>
   );

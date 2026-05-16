@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { UserPlus, X, CheckCircle, AlertCircle, Mail, ShieldAlert } from "lucide-react";
 import { inviteEmployee } from "@/app/boss-dashboard/actions";
@@ -19,31 +19,39 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   const { user } = useUser();
   const bossEmail = user?.primaryEmailAddress?.emailAddress;
 
-  const [form, setForm] = useState({ name: "", email: "", role: fixedRole || "cashier", branch: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: fixedRole || "manager", branch: "" });
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [showForbiddenWarning, setShowForbiddenWarning] = useState(false);
 
+  const envEmails = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
   const emailLower = form.email.toLowerCase().trim();
-  const isForbidden = FORBIDDEN_EMAILS.includes(emailLower) || emailLower === bossEmail?.toLowerCase();
+  // İstemci tarafında sadece en temel kontrolleri yapalım (hız için)
+  const isForbidden = envEmails.includes(emailLower) || emailLower === bossEmail?.toLowerCase();
   
-  const valid = form.name.trim() !== "" && form.email.includes("@") && !isForbidden;
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError("");
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  const valid = form.name.trim() !== "" && form.email.includes("@") && !isForbidden && form.branch !== "";
 
   const handleSend = async () => {
     if (!valid) return;
     setSending(true);
     setError("");
     
-    // Seçilen şubenin ID'sini bul
-    const selectedBranch = branches.find(b => b.name === form.branch);
-    
     try {
       await inviteEmployee({
         name: form.name,
         email: form.email,
-        role: form.role as "manager" | "cashier",
-        branch: form.branch || "Atanmadı",
-        org_id: selectedBranch ? String(selectedBranch.id) : undefined
+        role: fixedRole || "manager",
+        branch: form.branch || "Atanmadı"
       });
       setSent(true);
     } catch (err: unknown) {
@@ -82,7 +90,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
             </div>
             <div>
               <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>Ekip Üyesi Davet Et</h3>
-              <p className={`text-[10px] font-medium ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Yeni yönetici veya kasiyer atayın</p>
+              <p className={`text-[10px] font-medium ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Yeni yönetici atayın</p>
             </div>
           </div>
           <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors ${
@@ -108,19 +116,29 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
             </div>
           ) : (
             <div className="space-y-5">
-              {isForbidden && (
-                <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+              {showForbiddenWarning && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20"
+                >
                   <ShieldAlert size={18} className="text-rose-500 flex-shrink-0" />
                   <p className="text-rose-500 text-[11px] font-bold leading-tight">
-                    Bu e-posta adresi sistem yetkilisi veya kendi hesabınız olduğu için atama yapılamaz.
+                    {emailLower === bossEmail?.toLowerCase() 
+                      ? "Kendi e-posta adresinize davet gönderemezsiniz. Lütfen ekip üyenizin e-postasını girin."
+                      : "Bu e-posta adresi sisteme davet edilemez."}
                   </p>
-                </div>
+                </motion.div>
               )}
 
               {error && (
-                <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[11px] font-bold">
-                  <AlertCircle size={14} /> {error}
-                </div>
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[11px] font-bold"
+                >
+                  <AlertCircle size={14} className="flex-shrink-0" /> {error}
+                </motion.div>
               )}
 
               <div className="space-y-4">
@@ -138,24 +156,38 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                   <div className="relative">
                     <Mail size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
                     <input 
-                      value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      value={form.email} 
+                      onChange={e => {
+                        const newEmail = e.target.value;
+                        const newLower = newEmail.toLowerCase().trim();
+                        const forbidden = FORBIDDEN_EMAILS.includes(newLower) || newLower === bossEmail?.toLowerCase() || envEmails.includes(newLower);
+                        
+                        setForm(f => ({ ...f, email: newEmail }));
+                        
+                        if (forbidden) {
+                          setShowForbiddenWarning(true);
+                          setTimeout(() => setShowForbiddenWarning(false), 10000);
+                        } else {
+                          setShowForbiddenWarning(false);
+                        }
+                      }}
                       placeholder="eposta@adres.com"
                       className={`${inputClasses} pl-10 ${isForbidden ? "border-rose-500 bg-rose-500/5 focus:border-rose-500" : ""}`}
                     />
                   </div>
                 </div>
 
-                {!fixedRole && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className={labelClasses}>Rol (Opsiyonel)</label>
+                      <label className={labelClasses}>Rol *</label>
                       <div className="relative">
                         <select 
-                          value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as "manager" | "cashier" }))}
-                          className={`${inputClasses} appearance-none pr-10`}
+                          disabled
+                          value={fixedRole || "manager"}
+                          className={`${inputClasses} appearance-none pr-10 opacity-60 cursor-not-allowed`}
                         >
-                          <option value="cashier" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Kasiyer</option>
                           <option value="manager" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Şube Müdürü</option>
+                          <option value="cashier" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Kasiyer</option>
                         </select>
                         <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
                           <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -163,22 +195,25 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                       </div>
                     </div>
                     <div>
-                      <label className={labelClasses}>Şube (Opsiyonel)</label>
+                      <label className={labelClasses}>Şube Seçimi *</label>
                       <div className="relative">
                         <select 
+                          required
                           value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}
-                          className={`${inputClasses} appearance-none pr-10`}
+                          className={`${inputClasses} appearance-none pr-10 ${!form.branch ? "border-amber-500/50" : ""}`}
                         >
-                          <option value="" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Atama Yok</option>
+                          <option value="" className={isDarkMode ? "bg-slate-800" : "bg-white"}>Şube Seçin</option>
                           {branches.map(b => <option key={b.id} value={b.name} className={isDarkMode ? "bg-slate-800" : "bg-white"}>{b.name}</option>)}
                         </select>
                         <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
                           <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </div>
                       </div>
+                      {!form.branch && (
+                        <p className="text-[9px] text-amber-500 font-bold mt-1 ml-1 animate-pulse">Lütfen bir şube seçin</p>
+                      )}
                     </div>
                   </div>
-                )}
               </div>
 
               <button 

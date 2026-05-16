@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { User, Mail, Shield, MapPin, Calendar } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 type UserResource = ReturnType<typeof useUser>["user"];

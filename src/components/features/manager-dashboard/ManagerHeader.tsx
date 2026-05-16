@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { MapPin, LogOut, Sun, Moon, Database } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
@@ -31,7 +31,8 @@ export function ManagerHeader({
 }: ManagerHeaderProps) {
   const CYAN = "#0891b2";
   const userRole = (user?.publicMetadata?.role as string) || "manager";
-  const roleLabel = userRole === "boss" ? "Patron" : userRole === "manager" ? "Yönetici" : "Kasiyer";
+  const userBranch = (user?.publicMetadata?.branch as string) || "Bilinmeyen Şube";
+  const roleLabel = userRole === "super_admin" ? "Süper Admin" : userRole === "boss" ? "Patron" : userRole === "manager" ? "Yönetici" : "Kasiyer";
 
   return (
     <div className="sticky top-0 z-30 w-full transition-colors duration-300" 
@@ -40,7 +41,7 @@ export function ManagerHeader({
         backdropFilter: "blur(16px)", 
         borderBottom: `1px solid ${isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}` 
       }}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform hover:rotate-12" 
             style={{ background: CYAN, boxShadow: `0 4px 12px ${CYAN}44` }}>
@@ -48,13 +49,13 @@ export function ManagerHeader({
           </div>
           <div>
             <p className={`font-bold text-sm leading-tight transition-colors ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-              İstanbul Cevahir AVM <span className="text-cyan-600 ml-2 font-black">V2</span>
+              {userBranch} <span className="text-cyan-600 ml-2 font-black">PRESTIGE</span>
             </p>
             <p className="text-slate-500 text-xs font-medium flex items-center gap-1.5">
               <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 text-[10px] font-bold uppercase tracking-wider">
                 {roleLabel}
               </span>
-              · {user?.fullName || "Yönetici"}
+              · {user?.fullName || "Yükleniyor..."}
             </p>
           </div>
         </div>
