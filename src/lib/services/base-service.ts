@@ -76,7 +76,17 @@ export abstract class BaseService {
       return { user, role: "superadmin" as const };
     }
 
-    const currentRole = (user.publicMetadata?.role as string) || "customer";
+    const session = await auth();
+    let currentRole = (user.publicMetadata?.role as string);
+    
+    // Fallback: Eğer metadata yoksa ama Clerk'te "org:admin" rolüne sahipse "boss" say
+    if (!currentRole) {
+      if (session.orgRole === "org:admin" || session.sessionClaims?.o?.rol === "admin") {
+        currentRole = "boss";
+      } else {
+        currentRole = "customer";
+      }
+    }
 
     if (!(roles as string[]).includes(currentRole)) {
       throw new Error(`Bu işlem için yetkiniz bulunmamaktadır. Gerekli roller: ${roles.join(", ")}`);

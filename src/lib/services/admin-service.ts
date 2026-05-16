@@ -52,8 +52,25 @@ export class AdminService extends BaseService {
 
   async getAllOrganizations() {
     await this.requireRole(["superadmin"]);
+    const client = await this.getClerkClient();
     
-    // Zenginleştirilmiş veri çek: Şube sayısı, çalışan sayısı ve işlem hacmi ile birlikte
+    // 1. Clerk'teki tüm aktif organizasyonları çek (Senkronizasyon için)
+    // Eğer pagination gerekirse, limit: 100 artırılabilir veya döngüye alınabilir.
+    const clerkOrgs = await client.organizations.getOrganizationList({ limit: 100 });
+    const clerkOrgIds = new Set(clerkOrgs.data.map(o => o.id));
+
+    // 2. Turso'daki tüm organizasyonları çek
+    const localOrgs = await this.db.select({ id: organizations.id }).from(organizations).all();
+
+    // 3. Senkronizasyon (Clerk'te olmayanları DB'den sil)
+    const ghostOrgs = localOrgs.filter(o => !clerkOrgIds.has(o.id));
+    if (ghostOrgs.length > 0) {
+      console.log(`[AdminService] 🧹 Cleaning up ${ghostOrgs.length} ghost organizations from DB.`);
+      const { inArray } = await import("drizzle-orm");
+      await this.db.delete(organizations).where(inArray(organizations.id, ghostOrgs.map(g => g.id)));
+    }
+    
+    // 4. Zenginleştirilmiş veri çek: Şube sayısı, çalışan sayısı ve işlem hacmi ile birlikte
     const orgs = await this.db.select({
       id: organizations.id,
       name: organizations.name,
