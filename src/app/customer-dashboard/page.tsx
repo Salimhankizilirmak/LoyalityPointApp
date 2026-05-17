@@ -1,31 +1,25 @@
 "use client";
 /** UX Auditor Hint: <label placeholder aria-label */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useClerk } from "@clerk/nextjs";
 import {
   Star, Gift, QrCode, Award,
   Bell, User, Shield, Info
 } from "lucide-react";
+import { syncCustomerData, getCustomerTransactions } from "./actions";
 
 const BRAND = "#0891b2";
 const BRAND_LIGHT = "#ecfeff";
 
 interface Transaction {
-  id: number;
-  type: "earned" | "spent" | "bonus";
-  pts: number;
-  desc: string;
-  date: string;
+  id: string;
+  amount: number;
+  transactionType: string;
+  createdAt: Date | null;
+  description?: string;
 }
-
-const TRANSACTIONS: Transaction[] = [
-  { id: 1, type: "earned", pts: 240, desc: "Alışveriş – İst. Cevahir", date: "Bugün, 14:38" },
-  { id: 2, type: "spent", pts: -150, desc: "İndirim kuponu kullanıldı", date: "Dün, 11:20" },
-  { id: 3, type: "bonus", pts: 500, desc: "Hoş Geldin Bonusu", date: "22 Nis, 09:00" },
-  { id: 4, type: "earned", pts: 180, desc: "Alışveriş – Ankara Ankamall", date: "18 Nis, 16:42" },
-  { id: 5, type: "earned", pts: 320, desc: "Alışveriş – İzmir Forum", date: "11 Nis, 13:05" },
-];
 
 const OFFERS = [
   { id: 1, title: "%20 Sonbahar İndirimi", pts: 1500, expires: "30 Haz 2025", category: "Giyim" },
@@ -42,16 +36,54 @@ const TIER_INFO = {
 
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 
-const TX_TYPE = {
-  earned: { color: "#059669", label: "Kazandı", sign: "+" },
-  spent: { color: "#d97706", label: "Harcadı", sign: "" },
-  bonus: { color: BRAND, label: "Bonus", sign: "+" },
+const TX_TYPE: Record<string, { color: string; label: string; sign: string }> = {
+  earn: { color: "#059669", label: "Kazandı", sign: "+" },
+  spend: { color: "#d97706", label: "Harcadı", sign: "-" },
+  manual_adjustment: { color: BRAND, label: "Düzenleme", sign: "" },
 };
 
 export default function CustomerDashboardPage() {
   const [activeTab, setActiveTab] = useState<"puan" | "teklifler" | "qr" | "profil">("puan");
-  const [tier] = useState<keyof typeof TIER_INFO>("Gold");
-  const pts = 4820;
+  const [customerData, setCustomerData] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    currentPoints: number;
+    id: string;
+    clerkId: string;
+  } | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const { signOut } = useClerk();
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const data = await syncCustomerData();
+        if (data) {
+          setCustomerData(data);
+        }
+        const txs = await getCustomerTransactions();
+        setTransactions(txs as Transaction[]);
+      } catch (err) {
+        console.error("Error loading customer data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const pts = customerData ? Math.floor(customerData.currentPoints / 100) : 0;
+  
+  // Calculate Tier dynamically
+  let tier: keyof typeof TIER_INFO = "Bronze";
+  if (pts >= 10000) tier = "Platinum";
+  else if (pts >= 5000) tier = "Gold";
+  else if (pts >= 2000) tier = "Silver";
+
   const ti = TIER_INFO[tier];
   const progress = Math.min(((pts - ti.min) / (ti.max - ti.min)) * 100, 100);
 
@@ -62,6 +94,17 @@ export default function CustomerDashboardPage() {
     { key: "profil", icon: User, label: "Profil" },
   ];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-semibold text-slate-600">Veriler yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col max-w-sm mx-auto" style={{ background: "#f8fafc", fontFamily: "system-ui,-apple-system,sans-serif" }}>
       {/* Header */}
@@ -70,11 +113,15 @@ export default function CustomerDashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">FG</span>
+              <span className="text-white font-bold text-sm">
+                {customerData ? `${customerData.firstName[0]}${customerData.lastName[0]}`.toUpperCase() : "LC"}
+              </span>
             </div>
             <div>
               <p className="text-white/70 text-xs">Merhaba</p>
-              <p className="text-white font-bold">Fatma Güler</p>
+              <p className="text-white font-bold">
+                {customerData ? `${customerData.firstName} ${customerData.lastName}` : "Değerli Müşterimiz"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -109,8 +156,8 @@ export default function CustomerDashboardPage() {
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-2 pb-1">
           {[
-            { label: "Bu ay", value: fmt(1240) },
-            { label: "Alışveriş", value: "87" },
+            { label: "Bu ay", value: fmt(pts) },
+            { label: "İşlemler", value: fmt(transactions.length) },
             { label: "Geçerlilik", value: "12 ay" },
           ].map(({ label, value }) => (
             <div key={label} className="text-center p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.1)" }}>
@@ -144,30 +191,36 @@ export default function CustomerDashboardPage() {
             {activeTab === "puan" && (
               <div className="space-y-3">
                 <h2 className="text-slate-800 font-semibold text-sm">İşlem Geçmişi</h2>
-                {TRANSACTIONS.map((tx, i) => {
-                  const t = TX_TYPE[tx.type];
-                  return (
-                    <motion.div key={tx.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-3 p-3.5 rounded-2xl bg-white"
-                      style={{ border: "1px solid #f1f5f9" }}>
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: `${t.color}12` }}>
-                        <Star size={15} style={{ color: t.color }} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-slate-700 text-xs font-semibold">{tx.desc}</p>
-                        <p className="text-slate-400 text-xs">{tx.date}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-bold" style={{ color: t.color }}>
-                          {t.sign}{fmt(Math.abs(tx.pts))}
-                        </p>
-                        <p className="text-slate-400 text-xs">{t.label}</p>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                {transactions.length === 0 ? (
+                  <p className="text-slate-400 text-xs text-center py-8 bg-white rounded-2xl border border-slate-100">Henüz işlem geçmişiniz bulunmuyor.</p>
+                ) : (
+                  transactions.map((tx, i) => {
+                    const t = TX_TYPE[tx.transactionType] || TX_TYPE["earn"];
+                    return (
+                      <motion.div key={tx.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="flex items-center gap-3 p-3.5 rounded-2xl bg-white"
+                        style={{ border: "1px solid #f1f5f9" }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: `${t.color}12` }}>
+                          <Star size={15} style={{ color: t.color }} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-slate-700 text-xs font-semibold">{tx.description || (tx.amount >= 0 ? "Kazanılan Puan" : "Harcanan Puan")}</p>
+                          <p className="text-slate-400 text-xs">
+                            {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-bold" style={{ color: t.color }}>
+                            {tx.amount >= 0 ? "+" : ""}{fmt(Math.floor(tx.amount / 100))}
+                          </p>
+                          <p className="text-slate-400 text-xs">{t.label}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })
+                )}
               </div>
             )}
 
@@ -224,13 +277,17 @@ export default function CustomerDashboardPage() {
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center"
-                      style={{ border: `2px solid ${BRAND}` }}>
-                      <span className="text-xs font-black" style={{ color: BRAND }}>LC</span>
+                       style={{ border: `2px solid ${BRAND}` }}>
+                      <span className="text-xs font-black" style={{ color: BRAND }}>
+                        {customerData ? `${customerData.firstName[0]}${customerData.lastName[0]}`.toUpperCase() : "LC"}
+                      </span>
                     </div>
                   </div>
                 </motion.div>
                 <div className="text-center">
-                  <p className="font-mono font-bold text-lg tracking-widest text-slate-800">KD-001</p>
+                  <p className="font-mono font-bold text-lg tracking-widest text-slate-800">
+                    {customerData ? customerData.id.substring(0, 8).toUpperCase() : "KD-001"}
+                  </p>
                   <p className="text-slate-400 text-xs mt-1">Sadakat Kimlik Numaranız</p>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl w-full"
@@ -246,10 +303,14 @@ export default function CustomerDashboardPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-white" style={{ border: "1px solid #f1f5f9" }}>
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black"
-                    style={{ background: BRAND_LIGHT, color: BRAND }}>FG</div>
+                    style={{ background: BRAND_LIGHT, color: BRAND }}>
+                    {customerData ? `${customerData.firstName[0]}${customerData.lastName[0]}`.toUpperCase() : "LC"}
+                  </div>
                   <div>
-                    <h2 className="text-slate-900 font-bold">Fatma Güler</h2>
-                    <p className="text-slate-400 text-sm">fatma@email.com</p>
+                    <h2 className="text-slate-900 font-bold">
+                      {customerData ? `${customerData.firstName} ${customerData.lastName}` : "İsimsiz Müşteri"}
+                    </h2>
+                    <p className="text-slate-400 text-sm">{customerData ? customerData.email : ""}</p>
                     <div className="flex items-center gap-1.5 mt-1">
                       <Award size={12} style={{ color: ti.color }} />
                       <span className="text-xs font-semibold" style={{ color: ti.color }}>{tier} Üye</span>
@@ -258,10 +319,9 @@ export default function CustomerDashboardPage() {
                 </div>
                 <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #f1f5f9" }}>
                   {[
-                    { label: "Telefon", value: "0532 *** **11" },
-                    { label: "Üye No", value: "KD-001" },
-                    { label: "Üyelik Tarihi", value: "12 Ocak 2024" },
-                    { label: "Toplam Alışveriş", value: "87 kez" },
+                    { label: "Telefon", value: customerData?.phone || "Kayıtlı Değil" },
+                    { label: "Üye No", value: customerData ? customerData.id.substring(0, 8).toUpperCase() : "KD-001" },
+                    { label: "Toplam Puan", value: `${fmt(pts)} pts` },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex items-center justify-between px-4 py-3.5"
                       style={{ borderBottom: "1px solid #f8fafc" }}>
@@ -270,7 +330,7 @@ export default function CustomerDashboardPage() {
                     </div>
                   ))}
                 </div>
-                <button className="w-full py-3 rounded-2xl text-sm font-semibold text-center min-h-[44px]"
+                <button onClick={() => signOut({ redirectUrl: "/" })} className="w-full py-3 rounded-2xl text-sm font-semibold text-center min-h-[44px]"
                   style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>
                   Çıkış Yap
                 </button>
@@ -282,5 +342,3 @@ export default function CustomerDashboardPage() {
     </div>
   );
 }
-
-
