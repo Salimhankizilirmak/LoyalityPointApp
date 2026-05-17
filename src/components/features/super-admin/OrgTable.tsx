@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, ChevronDown, ChevronUp, MoreHorizontal, Eye, ExternalLink, Lock
+  Search, ChevronDown, ChevronUp, MoreHorizontal, Eye, ExternalLink, Lock, Check, Loader2
 } from "lucide-react";
+import { updateBranchLimitAction } from "@/app/admin/actions";
 
 interface Org {
   id: string;
@@ -12,6 +13,7 @@ interface Org {
   slug: string;
   email: string;
   branches: number;
+  branchLimit?: number;
   created: string;
   status: "active" | "inactive";
   customers: number;
@@ -19,14 +21,85 @@ interface Org {
   managerCount?: number;
 }
 
+interface QuotaCellProps {
+  orgId: string;
+  initialLimit: number;
+  onLimitUpdated?: () => void;
+}
+
+function QuotaCell({ orgId, initialLimit, onLimitUpdated }: QuotaCellProps) {
+  const [prevInitialLimit, setPrevInitialLimit] = useState(initialLimit);
+  const [limit, setLimit] = useState(initialLimit);
+  const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  if (initialLimit !== prevInitialLimit) {
+    setPrevInitialLimit(initialLimit);
+    setLimit(initialLimit);
+  }
+
+  const handleSave = async () => {
+    if (limit < 1) return;
+    setLoading(true);
+    try {
+      const res = await updateBranchLimitAction(orgId, limit);
+      if ("error" in res) {
+        alert(res.error);
+      } else {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+        if (onLimitUpdated) onLimitUpdated();
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="number"
+        min="1"
+        value={limit}
+        onChange={(e) => {
+          const val = parseInt(e.target.value);
+          if (!isNaN(val)) setLimit(val);
+        }}
+        className="w-12 px-2 py-1 rounded bg-white/5 border border-white/10 text-white font-mono text-center text-xs focus:border-indigo-500/50 outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      {limit !== initialLimit && (
+        <button
+          onClick={handleSave}
+          disabled={loading}
+          className="w-6 h-6 rounded bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+          title="Kaydet"
+        >
+          {loading ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Check size={12} />
+          )}
+        </button>
+      )}
+      {saved && (
+        <span className="text-[10px] text-emerald-400 font-bold uppercase animate-pulse">Kaydedildi</span>
+      )}
+    </div>
+  );
+}
+
 interface OrgTableProps {
   orgs: Org[];
   onToggle: (id: string, currentStatus: boolean) => void;
+  onLimitUpdated?: () => void;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 
-export function OrgTable({ orgs, onToggle }: OrgTableProps) {
+export function OrgTable({ orgs, onToggle, onLimitUpdated }: OrgTableProps) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<keyof Org>("customers");
   const [sortDir, setSortDir] = useState(-1);
@@ -54,6 +127,7 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
     { label: "Organizasyon", key: "name" as keyof Org },
     { label: "Oluşturulma", key: "created" as keyof Org },
     { label: "Şube", key: "branches" as keyof Org },
+    { label: "Kota Sınırı", key: "branchLimit" as keyof Org },
     { label: "Müşteri", key: "customers" as keyof Org },
     { label: "Patron", key: "email" as keyof Org },
     { label: "Durum", key: "status" as keyof Org },
@@ -107,6 +181,9 @@ export function OrgTable({ orgs, onToggle }: OrgTableProps) {
                 </td>
                 <td className="px-4 py-3.5 text-slate-500 font-mono whitespace-nowrap">{org.created}</td>
                 <td className="px-4 py-3.5"><span className="text-slate-300 font-semibold">{fmt(org.branches)}</span></td>
+                <td className="px-4 py-3.5">
+                  <QuotaCell orgId={org.id} initialLimit={org.branchLimit ?? 2} onLimitUpdated={onLimitUpdated} />
+                </td>
                 <td className="px-4 py-3.5"><span className="text-slate-300 font-semibold">{fmt(org.customers)}</span></td>
                 <td className="px-4 py-3.5"><span className="text-slate-400 font-mono">{org.email}</span></td>
                 <td className="px-4 py-3.5">

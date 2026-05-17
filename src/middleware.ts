@@ -66,9 +66,9 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.redirect(new URL("/admin", req.url));
     }
 
-    // 2. BOSS ROLE CHECK (If no org, go to create-organization)
+    // 2. BOSS ROLE CHECK (If no org, redirect to unauthorized because only superadmin can create orgs)
     if (role === "boss" && !orgId && !orgIdInJwt) {
-      return NextResponse.redirect(new URL("/create-organization", req.url));
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
     // 3. ACTIVE ORG CHECK (Role based redirects)
@@ -95,13 +95,13 @@ export default clerkMiddleware(async (auth, req) => {
 
   // 🛡️ Hardened Gating: /create-organization rotasını koru
   if (pathname.startsWith("/create-organization")) {
-    if (role !== "boss" && role !== "superadmin") {
-      const email = (sessionClaims as unknown as CustomJwtPayload)?.email?.toLowerCase() || "";
-      const isSuper = (process.env.SUPER_ADMIN_EMAILS || "").split(",").includes(email);
-      if (!isSuper) {
-        console.warn(`[Middleware] 🛑 Forbidden access to /create-organization by: ${role || "Guest"}`);
-        return NextResponse.redirect(new URL("/unauthorized", req.url));
-      }
+    const isSuperByRole = role === "super_admin" || role === "superadmin";
+    const email = (sessionClaims as unknown as CustomJwtPayload)?.email?.toLowerCase() || "";
+    const isSuperByEmail = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).includes(email);
+    
+    if (!isSuperByRole && !isSuperByEmail) {
+      console.warn(`[Middleware] 🛑 Gating: Only super admins can access /create-organization. Role: ${role || "Guest"}`);
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }
 

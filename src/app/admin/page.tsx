@@ -47,6 +47,7 @@ export default function SuperAdminDashboard() {
         slug: string;
         bossEmail: string;
         branchCount: number;
+        branchLimit?: number;
         managerCount: number;
         createdAt: Date | null;
         isActive: boolean;
@@ -60,6 +61,7 @@ export default function SuperAdminDashboard() {
         slug: o.slug,
         email: o.bossEmail,
         branches: o.branchCount || 0,
+        branchLimit: o.branchLimit || 2,
         managerCount: o.managerCount || 0,
         created: o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : "---",
         status: o.isActive ? "active" : "inactive",
@@ -167,7 +169,7 @@ export default function SuperAdminDashboard() {
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
               <div className="xl:col-span-2">
-                <OrgTable orgs={orgs} onToggle={handleToggle} />
+                <OrgTable orgs={orgs} onToggle={handleToggle} onLimitUpdated={loadData} />
               </div>
               <div className="space-y-5">
                 <ActivityLog logs={logs} />

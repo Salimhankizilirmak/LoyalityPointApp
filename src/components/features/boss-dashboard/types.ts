@@ -33,4 +33,6 @@ export interface BossInfo {
   name: string;
   email: string;
   orgName: string;
+  branchLimit?: number;
+  currentBranches?: number;
 }

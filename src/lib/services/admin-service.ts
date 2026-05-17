@@ -42,6 +42,14 @@ export class AdminService extends BaseService {
     return { success: true };
   }
 
+  async updateBranchLimit(orgId: string, newLimit: number) {
+    await this.requireRole(["superadmin"]);
+    if (newLimit < 1) throw new Error("Şube kotası en az 1 olmalıdır.");
+    await this.db.update(organizations).set({ branchLimit: newLimit }).where(eq(organizations.id, orgId));
+    revalidatePath("/admin");
+    return { success: true };
+  }
+
   async revokeBossInvitation(invitationId: string) {
     await this.requireRole(["superadmin"]);
     const client = await this.getClerkClient();
@@ -78,6 +86,7 @@ export class AdminService extends BaseService {
       bossEmail: organizations.bossEmail,
       isActive: organizations.isActive,
       createdAt: organizations.createdAt,
+      branchLimit: organizations.branchLimit,
       branchCount: sql<number>`(SELECT COUNT(*) FROM ${staff} WHERE ${staff.orgId} = ${organizations.id})`,
       managerCount: sql<number>`(SELECT COUNT(*) FROM ${staff} WHERE ${staff.orgId} = ${organizations.id} AND ${staff.role} = 'manager')`,
       customerCount: sql<number>`(SELECT COUNT(DISTINCT customer_id) FROM ${pointsTransactions} WHERE ${pointsTransactions.orgId} = ${organizations.id})`,

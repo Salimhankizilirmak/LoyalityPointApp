@@ -1,6 +1,6 @@
 import { BaseService } from "./base-service";
 import { organizations, branches } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export class OrganizationService extends BaseService {
@@ -17,9 +17,10 @@ export class OrganizationService extends BaseService {
 
     if (session.orgId) {
       const client = await this.getClerkClient();
-      const [org, dbOrg] = await Promise.all([
+      const [org, dbOrg, branchCountResult] = await Promise.all([
         client.organizations.getOrganization({ organizationId: session.orgId }),
-        this.db.select().from(organizations).where(eq(organizations.id, session.orgId)).get()
+        this.db.select().from(organizations).where(eq(organizations.id, session.orgId)).get(),
+        this.db.select({ count: sql<number>`COUNT(*)` }).from(branches).where(eq(branches.orgId, session.orgId)).get()
       ]);
 
       orgData = {
@@ -28,6 +29,8 @@ export class OrganizationService extends BaseService {
         slug: org.slug || "",
         pointRate: dbOrg?.pointRate || 10,
         validityMonths: dbOrg?.validityMonths || 12,
+        branchLimit: dbOrg?.branchLimit ?? 2,
+        currentBranches: branchCountResult?.count ?? 0,
       };
     }
 
@@ -74,7 +77,7 @@ export class OrganizationService extends BaseService {
     const orgId = await this.requireOrg();
 
     // 🛡️ AUTO-SYNC: Eğer organizasyon yerel DB'de yoksa Clerk'ten çek ve kaydet
-    const existing = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    let existing = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
     if (!existing) {
       console.log(`[OrganizationService] 🔄 Auto-syncing org: ${orgId}`);
       const client = await this.getClerkClient();
@@ -82,13 +85,28 @@ export class OrganizationService extends BaseService {
       const user = await this.getCurrentUser();
       const email = user.emailAddresses[0]?.emailAddress?.toLowerCase() || "";
 
-      await this.db.insert(organizations).values({
+      const [newOrg] = await this.db.insert(organizations).values({
         id: orgId,
         name: clerkOrg.name,
         slug: clerkOrg.slug || "",
         bossEmail: email,
         isActive: true,
-      });
+        branchLimit: 2,
+      }).returning();
+      existing = newOrg;
+    }
+
+    // 🛡️ Kota Sınırlaması Kontrolü (Branch Quota Gating)
+    const activeBranches = await this.db.select({ count: sql<number>`COUNT(*)` })
+      .from(branches)
+      .where(eq(branches.orgId, orgId))
+      .get();
+    
+    const currentCount = activeBranches?.count ?? 0;
+    const limit = existing.branchLimit;
+
+    if (currentCount >= limit) {
+      throw new Error(`Şube oluşturma limitine ulaştınız (Limit: ${limit}, Mevcut: ${currentCount}). Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.`);
     }
 
     // 🔍 Mükerrer Şube Kontrolü (Aynı Şehir + Aynı İsim)

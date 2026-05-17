@@ -53,10 +53,11 @@ export function BossHeader({
               </span>
             ) : (
               <OrganizationSwitcher
-                afterCreateOrganizationUrl="/boss-dashboard"
                 afterSelectOrganizationUrl="/boss-dashboard"
                 appearance={{
                   elements: {
+                    organizationSwitcherPopoverActionButton__createOrganization: "hidden",
+                    organizationSwitcherPopoverActionButtonIcon__createOrganization: "hidden",
                     rootBox: "flex items-center",
                     organizationSwitcherTrigger: `flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 ${
                       isDarkMode 

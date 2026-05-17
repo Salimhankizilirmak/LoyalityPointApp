@@ -22,6 +22,7 @@ export const organizations = sqliteTable("organizations", {
   logoUrl: text("logo_url"),
   pointRate: integer("point_rate").default(10).notNull(), // Yüzde olarak puan kazanma oranı (örn: 10 = %10)
   validityMonths: integer("validity_months").default(12).notNull(), // Puanların geçerlilik süresi (ay)
+  branchLimit: integer("branch_limit").default(2).notNull(), // Şube kotası sınırlaması (varsayılan 2)
   isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(), // Organizasyonun aktiflik durumu
   isShowcase: integer("is_showcase", { mode: "boolean" }).default(false).notNull(), // Clerk tarafından zorunlu tutulan vitrin şubesi
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),

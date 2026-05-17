@@ -19,7 +19,11 @@ export function ManagerSidebar() {
           <div className="font-label-md text-label-md text-on-surface font-bold">Admin Console</div>
           <div className="font-label-md text-[10px] text-on-surface-variant">
             <OrganizationSwitcher hidePersonal={true} appearance={{
-              elements: { organizationSwitcherTrigger: "p-0 text-on-surface-variant hover:bg-transparent" }
+              elements: { 
+                organizationSwitcherTrigger: "p-0 text-on-surface-variant hover:bg-transparent",
+                organizationSwitcherPopoverActionButton__createOrganization: "hidden",
+                organizationSwitcherPopoverActionButtonIcon__createOrganization: "hidden"
+              }
             }} />
           </div>
         </div>

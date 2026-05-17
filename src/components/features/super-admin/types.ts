@@ -9,6 +9,7 @@ export interface Organization {
   customers: number;
   txVolume: number;
   managerCount?: number;
+  branchLimit?: number;
 }
 
 export interface ActivityLogItem {
