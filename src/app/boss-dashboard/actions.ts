@@ -1,7 +1,7 @@
 "use server";
 
 import { organizationService } from "@/lib/services/organization-service";
-import { memberService } from "@/lib/services/member-service";
+import { staffService as memberService } from "@/lib/services/staff-service";
 import { clerkClient } from "@clerk/nextjs/server";
 
 // Organization Services

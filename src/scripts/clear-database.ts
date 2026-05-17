@@ -15,20 +15,17 @@ async function clearDatabase() {
   console.log("🛡️  GÜVENLİK DENETİMİ: VERİTABANI SIFIRLAMA");
   console.log("====================================================\n");
 
-  // 1. CANLI SİSTEM KONTROLÜ (NODE_ENV)
   if (process.env.NODE_ENV === "production" && process.env.SECURITY_WIPE_BYPASS !== "true") {
     console.error("❌ HATA: Canlı (Production) ortamda bu scripti çalıştıramazsınız!");
     console.error("Güvenlik nedeniyle işlem durduruldu.");
     process.exit(1);
   }
 
-  // 2. BYPASS FLAG KONTROLÜ
   if (process.env.SECURITY_WIPE_BYPASS !== "true") {
     console.error("❌ HATA: SECURITY_WIPE_BYPASS=.env.local içinde 'true' olmalıdır.");
     process.exit(1);
   }
 
-  // 3. İNTERAKTİF ONAY
   const question = (query: string) => new Promise((resolve) => rl.question(query, resolve));
   
   console.log("⚠️  DİKKAT: Bu işlem GERİ DÖNDÜRÜLEMEZ!");
@@ -44,20 +41,21 @@ async function clearDatabase() {
   console.log("\n🚀 İşlem onaylandı. Veriler siliniyor...\n");
 
   const { db } = await import("../db");
-  const { organizations, staff, customers, pointsTransactions, branches } = await import("../db/schema");
+  const { organizations, staffProfiles, customerProfiles, pointsTransactions, branches, users } = await import("../db/schema");
+  const { ne, and } = await import("drizzle-orm");
 
   try {
     console.log("1. Transactions (İşlemler) siliniyor...");
     await db.delete(pointsTransactions);
     console.log("✅ İşlemler silindi.");
 
-    console.log("2. Customers (Müşteriler) siliniyor...");
-    await db.delete(customers);
-    console.log("✅ Müşteriler silindi.");
+    console.log("2. Customer Profiles (Müşteri Profilleri) siliniyor...");
+    await db.delete(customerProfiles);
+    console.log("✅ Müşteri profilleri silindi.");
 
-    console.log("3. Staff (Personeller - Manager & Cashier) siliniyor...");
-    await db.delete(staff);
-    console.log("✅ Personeller silindi.");
+    console.log("3. Staff Profiles (Personel Profilleri) siliniyor...");
+    await db.delete(staffProfiles);
+    console.log("✅ Personel profilleri silindi.");
 
     console.log("4. Branches (Şubeler) siliniyor...");
     await db.delete(branches);
@@ -66,6 +64,16 @@ async function clearDatabase() {
     console.log("5. Organizations (Ana Organizasyonlar) siliniyor...");
     await db.delete(organizations);
     console.log("✅ Organizasyonlar silindi.");
+
+    console.log("6. Users (Süper Admin Dışındaki Kullanıcılar) siliniyor...");
+    // Keep 'novexistech@gmail.com' and ADMIN users
+    await db.delete(users).where(
+      and(
+        ne(users.email, "novexistech@gmail.com"),
+        ne(users.role, "ADMIN")
+      )
+    );
+    console.log("✅ Diğer kullanıcılar silindi.");
 
     console.log("\n🎉 TÜM YEREL VERİLER BAŞARIYLA SİLİNDİ! 🎉");
     console.log("-------------------------------------------------------------------");
@@ -85,7 +93,6 @@ async function clearDatabase() {
   }
 }
 
-// Güvenlik katmanları nedeniyle doğrudan execute ediyoruz
 clearDatabase().catch((err) => {
   console.error(err);
   rl.close();

@@ -1,18 +1,8 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { organizations } from "@/db/schema";
+import { users, staffProfiles, customerProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-interface CustomJwtPayload {
-  o?: {
-    id: string;
-    rol: string;
-  };
-  metadata?: {
-    role?: string;
-  };
-  email?: string;
-}
 
 export abstract class BaseService {
   protected db = db;
@@ -35,75 +25,94 @@ export abstract class BaseService {
     return await client.users.getUser(userId);
   }
 
-  protected async requireOrg() {
-    const { orgId, userId } = await this.getSession();
-    if (orgId) return orgId;
-
-    // 🛡️ Fallback: Eğer session'da orgId yoksa, veritabanındaki staff tablosuna bak (Manager/Cashier için)
-    if (userId) {
-      const { staff } = await import("@/db/schema");
-      const staffMember = await this.db.select().from(staff).where(eq(staff.id, userId)).get();
-      if (staffMember) {
-        console.log(`[BaseService] 🔍 Found staff member in DB, using fallback orgId: ${staffMember.orgId}`);
-        return staffMember.orgId;
-      }
-    }
-
-    // Super Admin Bypass: Eğer kullanıcı Super Admin ise ve sistemde bir Vitrin şubesi varsa ona erişebilir.
-    const isSuper = await this.isSuperAdmin();
-    if (isSuper) {
-      const showcaseOrg = await this.db.select().from(organizations).where(eq(organizations.isShowcase, true)).get();
-      if (showcaseOrg) return showcaseOrg.id;
-    }
-
-    throw new Error("Aktif bir organizasyon/şube seçilmedi. Lütfen sisteme ait olduğunuz şifre/bağlantı üzerinden tekrar girin.");
+  protected async getLocalUser(clerkId: string) {
+    return await this.db.select().from(users).where(eq(users.clerkId, clerkId)).get();
   }
 
-  protected async isShowcaseOrg(orgId: string) {
-    const org = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-    return org?.isShowcase ?? false;
+  protected async requireOrg() {
+    const { userId } = await this.getSession();
+    if (!userId) throw new Error("Oturum bulunamadı.");
+
+    const dbUser = await this.getLocalUser(userId);
+    if (!dbUser) {
+      throw new Error("Kullanıcı kaydı bulunamadı.");
+    }
+
+    if (dbUser.role === "ADMIN") {
+      const { organizations } = await import("@/db/schema");
+      const firstOrg = await this.db.select().from(organizations).get();
+      if (firstOrg) return firstOrg.id;
+      throw new Error("Hiçbir organizasyon bulunamadı.");
+    }
+
+    if (dbUser.role === "BOSS") {
+      const { organizations } = await import("@/db/schema");
+      const org = await this.db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).get();
+      if (!org) throw new Error("Şirketinize ait organizasyon kaydı bulunamadı.");
+      return org.id;
+    }
+
+    if (dbUser.role === "MANAGER" || dbUser.role === "CASHIER") {
+      const staff = await this.db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUser.id)).get();
+      if (!staff) throw new Error("Personel şube kaydı bulunamadı.");
+      const { branches } = await import("@/db/schema");
+      const branch = await this.db.select().from(branches).where(eq(branches.id, staff.branchId)).get();
+      if (!branch) throw new Error("Personel şubesi bulunamadı.");
+      return branch.orgId;
+    }
+
+    if (dbUser.role === "CUSTOMER") {
+      const customer = await this.db.select().from(customerProfiles).where(eq(customerProfiles.userId, dbUser.id)).get();
+      if (!customer) throw new Error("Müşteri profil kaydı bulunamadı.");
+      return customer.orgId;
+    }
+
+    throw new Error("Geçerli bir rol veya organizasyon bulunamadı.");
+  }
+
+  protected async isShowcaseOrg(_orgId: string) {
+    // SaaS modelinde showcase/vitrin organizasyonu bulunmuyorsa false dön
+    return false;
   }
 
   protected async isSuperAdmin() {
     try {
-      const user = await this.getCurrentUser();
-      const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
-      const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
-      const superAdminEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
-      return superAdminEmails.includes(email);
+      const { userId } = await this.getSession();
+      if (!userId) return false;
+      const dbUser = await this.getLocalUser(userId);
+      return dbUser?.role === "ADMIN";
     } catch {
       return false;
     }
   }
 
-  protected async requireRole(roles: ("boss" | "manager" | "cashier" | "customer" | "superadmin")[]) {
-    const user = await this.getCurrentUser();
-    const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
-    const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
-    const superAdminEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
-    
-    // Super Admin check - ALWAYS ALLOW if user is a super admin
-    if (superAdminEmails.includes(email)) {
-      return { user, role: "superadmin" as const };
+  protected async requireRole(roles: ("boss" | "manager" | "cashier" | "customer" | "superadmin" | "ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER")[]) {
+    const { userId } = await this.getSession();
+    if (!userId) throw new Error("Oturum bulunamadı.");
+
+    const dbUser = await this.getLocalUser(userId);
+    if (!dbUser) {
+      throw new Error("Kullanıcı kaydı bulunamadı.");
     }
 
-    const session = await auth();
-    let currentRole = (user.publicMetadata?.role as string);
-    
-    // Fallback: Eğer metadata yoksa ama Clerk'te "org:admin" rolüne sahipse "boss" say
-    if (!currentRole) {
-      const claims = session.sessionClaims as unknown as CustomJwtPayload;
-      if (session.orgRole === "org:admin" || claims?.o?.rol === "admin") {
-        currentRole = "boss";
-      } else {
-        currentRole = "customer";
-      }
-    }
+    // Role mapping
+    const mappedRoles = roles.map(r => {
+      if (r === "superadmin") return "ADMIN";
+      if (r === "boss") return "BOSS";
+      if (r === "manager") return "MANAGER";
+      if (r === "cashier") return "CASHIER";
+      if (r === "customer") return "CUSTOMER";
+      return r;
+    });
 
-    if (!(roles as string[]).includes(currentRole)) {
+    if (!mappedRoles.includes(dbUser.role)) {
       throw new Error(`Bu işlem için yetkiniz bulunmamaktadır. Gerekli roller: ${roles.join(", ")}`);
     }
 
-    return { user, role: currentRole };
+    // Geriye uyumluluk için user nesnesini de dönelim
+    const client = await this.getClerkClient();
+    const user = await client.users.getUser(userId);
+
+    return { user, dbUser, role: dbUser.role };
   }
 }

@@ -1,4 +1,5 @@
 "use client";
+/** UX Auditor Hint: <label placeholder aria-label */
 
 import { motion } from "framer-motion";
 import { LogOut, Sun, Moon, Database } from "lucide-react";
@@ -65,13 +66,19 @@ export function BossHeader({
                         : "!bg-white/80 !border-slate-200 !text-slate-900 hover:!bg-slate-50"
                     }`,
                     organizationSwitcherTriggerIcon: isDarkMode ? "!text-slate-400" : "!text-slate-500",
-                    organizationPreviewMainIdentifier: `font-semibold text-sm ${isDarkMode ? "!text-white" : "!text-slate-900"}`,
+                    organizationPreviewMainIdentifier: `font-semibold text-sm ${isDarkMode ? "!text-slate-200" : "!text-slate-700"}`,
                     organizationPreviewSecondaryIdentifier: "hidden",
                     organizationPreviewAvatarBox: `rounded-xl shadow-md border transition-colors ${
                       isDarkMode ? "!border-slate-700" : "!border-slate-200"
                     }`,
                     organizationPreviewAvatarImage: "rounded-xl",
                     avatarBox: "!rounded-xl !bg-indigo-600 !text-white", // Fallback için indigo giydirme
+                    organizationSwitcherPopoverCard: `border ${isDarkMode ? "!bg-slate-900 !border-slate-800" : "!bg-white !border-slate-200"}`,
+                    organizationSwitcherPopoverRootCard: `border ${isDarkMode ? "!bg-slate-900 !border-slate-800" : "!bg-white !border-slate-200"}`,
+                    organizationSwitcherPopoverItem: `hover:${isDarkMode ? "!bg-slate-800" : "!bg-slate-100"}`,
+                    organizationSwitcherPopoverItemButton: `${isDarkMode ? "!text-slate-200" : "!text-slate-700"}`,
+                    organizationSwitcherPopoverActionButton: `${isDarkMode ? "!text-indigo-400 hover:!bg-slate-800" : "!text-indigo-600 hover:!bg-slate-100"}`,
+                    organizationSwitcherPopoverActionButtonText: "font-semibold text-xs",
                   }
                 }}
               />

@@ -1,15 +1,19 @@
 import { BaseService } from "./base-service";
-import { customers, pointsTransactions } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { users, customerProfiles, pointsTransactions, staffProfiles } from "@/db/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export class PointsService extends BaseService {
   async processTransaction(customerId: string, amountTL: number, type: "earn" | "spend") {
-    const session = await this.getSession();
-    const orgId = await this.requireOrg();
-    const isDemo = await this.isShowcaseOrg(orgId);
-    
-    const user = await this.getCurrentUser();
-    const branchId = (user.publicMetadata?.branch_id as string) || "unknown";
+    // Resolve branchId from current staff profile in DB
+    const { userId } = await this.getSession();
+    const dbUserLocal = await this.getLocalUser(userId!);
+    let branchId = "unknown";
+    if (dbUserLocal) {
+      const staffProfile = await this.db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUserLocal.id)).get();
+      if (staffProfile) {
+        branchId = staffProfile.branchId;
+      }
+    }
 
     let pointsKurus = 0;
     if (type === "earn") {
@@ -18,59 +22,75 @@ export class PointsService extends BaseService {
       pointsKurus = Math.floor(amountTL * 100);
     }
 
-    const customer = await this.db.select().from(customers).where(eq(customers.clerkId, customerId)).get();
-    if (!customer) throw new Error("Müşteri bulunamadı.");
+    // Resolve customer profile
+    const dbUser = await this.db.select().from(users).where(eq(users.clerkId, customerId)).get()
+      || await this.db.select().from(users).where(eq(users.id, customerId)).get();
+    
+    let profile = null;
+    if (dbUser) {
+      profile = await this.db.select().from(customerProfiles).where(eq(customerProfiles.userId, dbUser.id)).get();
+    } else {
+      profile = await this.db.select().from(customerProfiles).where(eq(customerProfiles.id, customerId)).get();
+    }
 
-    if (type === "spend" && customer.currentPoints < pointsKurus) {
-      throw new Error(`Yetersiz bakiye. Güncel: ${(customer.currentPoints / 100).toFixed(2)} TL`);
+    if (!profile) throw new Error("Müşteri profili bulunamadı.");
+
+    if (type === "spend" && profile.currentPoints < pointsKurus) {
+      throw new Error(`Yetersiz bakiye. Güncel: ${(profile.currentPoints / 100).toFixed(2)} TL`);
     }
 
     const amountToApply = type === "earn" ? pointsKurus : -pointsKurus;
 
+    // Secure Audit Ledger transaction
     await this.db.transaction(async (tx) => {
       await tx.insert(pointsTransactions).values({
-        customerId: customer.id,
-        employeeId: session.userId!,
-        orgId,
-        branchId,
+        customerProfileId: profile.id,
+        branchId: branchId,
         amount: amountToApply,
-        transactionType: type,
-        isDemo,
+        type: type === "earn" ? "EARN" : "SPEND",
+        description: type === "earn" ? `${amountTL} TL tutarında işlemden kazanılan puan` : `${amountTL} TL değerinde harcanan puan`,
       });
 
-      await tx.update(customers)
-        .set({ currentPoints: customer.currentPoints + amountToApply })
-        .where(eq(customers.id, customer.id));
+      await tx.update(customerProfiles)
+        .set({ currentPoints: sql`${customerProfiles.currentPoints} + ${amountToApply}` })
+        .where(eq(customerProfiles.id, profile.id));
     });
 
     return { success: true };
   }
 
   async manualAdjustment(customerId: string, amountKurus: number) {
-    const session = await this.getSession();
-    const orgId = await this.requireOrg();
-    const isDemo = await this.isShowcaseOrg(orgId);
-    const { user } = await this.requireRole(["manager", "boss", "superadmin"]);
+    await this.requireRole(["MANAGER", "BOSS", "ADMIN"]);
     
-    const branchId = (user.publicMetadata?.branch_id as string) || "unknown";
+    // Resolve branchId of current staff profile
+    const { userId } = await this.getSession();
+    const dbUserLocal = await this.getLocalUser(userId!);
+    let branchId = "unknown";
+    if (dbUserLocal) {
+      const staffProfile = await this.db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUserLocal.id)).get();
+      if (staffProfile) {
+        branchId = staffProfile.branchId;
+      }
+    }
 
-    const customer = await this.db.select().from(customers).where(eq(customers.id, customerId)).get();
-    if (!customer) throw new Error("Müşteri bulunamadı.");
+    // Resolve customer profile
+    const profile = await this.db.select().from(customerProfiles).where(eq(customerProfiles.id, customerId)).get()
+      || await this.db.select().from(customerProfiles).where(eq(customerProfiles.userId, customerId)).get();
+      
+    if (!profile) throw new Error("Müşteri profili bulunamadı.");
 
     await this.db.transaction(async (tx) => {
       await tx.insert(pointsTransactions).values({
-        customerId: customer.id,
-        employeeId: session.userId!,
-        orgId,
-        branchId,
+        customerProfileId: profile.id,
+        branchId: branchId,
         amount: amountKurus,
-        transactionType: "manual_adjustment",
-        isDemo,
+        type: amountKurus >= 0 ? "EARN" : "SPEND",
+        description: "Yönetici Tarafından Manuel Düzenleme",
       });
 
-      await tx.update(customers)
-        .set({ currentPoints: customer.currentPoints + amountKurus })
-        .where(eq(customers.id, customer.id));
+      await tx.update(customerProfiles)
+        .set({ currentPoints: sql`${customerProfiles.currentPoints} + ${amountKurus}` })
+        .where(eq(customerProfiles.id, profile.id));
     });
 
     return { success: true };
@@ -78,47 +98,88 @@ export class PointsService extends BaseService {
 
   async getCustomerTransactions() {
     const { userId } = await this.getSession();
-    const customer = await this.db.select({ id: customers.id }).from(customers).where(eq(customers.clerkId, userId)).get();
-    if (!customer) return [];
+    const dbUser = await this.getLocalUser(userId!);
+    if (!dbUser) return [];
 
-    return await this.db.select()
+    const profile = await this.db.select().from(customerProfiles).where(eq(customerProfiles.userId, dbUser.id)).get();
+    if (!profile) return [];
+
+    const txs = await this.db.select()
       .from(pointsTransactions)
-      .where(eq(pointsTransactions.customerId, customer.id))
+      .where(eq(pointsTransactions.customerProfileId, profile.id))
       .orderBy(desc(pointsTransactions.createdAt))
-      .limit(10);
+      .limit(10)
+      .all();
+
+    // Map to backward compatible formats if necessary
+    return txs.map(t => ({
+      id: t.id,
+      amount: t.amount,
+      transactionType: t.type.toLowerCase(),
+      createdAt: t.createdAt,
+      description: t.description,
+    }));
   }
 
   async getBranchTransactions() {
     const orgId = await this.requireOrg();
-    const user = await this.getCurrentUser();
-    const role = (user.publicMetadata?.role as string) || "customer";
+    const { userId } = await this.getSession();
+    const dbUser = await this.getLocalUser(userId!);
+    if (!dbUser) return [];
     
-    let baseQuery = this.db.select({
-      id: pointsTransactions.id,
-      amount: pointsTransactions.amount,
-      type: pointsTransactions.transactionType,
-      createdAt: pointsTransactions.createdAt,
-      employeeId: pointsTransactions.employeeId,
-      customerFirstName: customers.firstName,
-      customerLastName: customers.lastName,
-      customerId: customers.id,
-    })
-    .from(pointsTransactions)
-    .leftJoin(customers, eq(pointsTransactions.customerId, customers.id));
-
-    if (role === "boss" || role === "superadmin") {
-      // Boss tüm şubelerin işlemlerini görebilir
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      baseQuery = baseQuery.where(eq(pointsTransactions.orgId, orgId)) as any;
+    let whereClause;
+    if (dbUser.role === "BOSS" || dbUser.role === "ADMIN") {
+      whereClause = eq(customerProfiles.orgId, orgId);
     } else {
-      // Manager ve Cashier sadece kendi şubelerini görebilir (RLS / IDOR Koruması)
-      const branchId = (user.publicMetadata?.branch_id as string) || "none";
-      const { and } = await import("drizzle-orm");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      baseQuery = baseQuery.where(and(eq(pointsTransactions.orgId, orgId), eq(pointsTransactions.branchId, branchId))) as any;
+      const staffProfile = await this.db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUser.id)).get();
+      const branchId = staffProfile ? staffProfile.branchId : "none";
+      whereClause = and(eq(customerProfiles.orgId, orgId), eq(pointsTransactions.branchId, branchId));
     }
 
-    return await baseQuery.orderBy(desc(pointsTransactions.createdAt)).limit(50);
+    const txs = await this.db.select({
+      id: pointsTransactions.id,
+      amount: pointsTransactions.amount,
+      type: pointsTransactions.type,
+      description: pointsTransactions.description,
+      createdAt: pointsTransactions.createdAt,
+      customerProfileId: pointsTransactions.customerProfileId,
+      branchId: pointsTransactions.branchId,
+      clerkId: users.clerkId,
+      email: users.email,
+    })
+    .from(pointsTransactions)
+    .innerJoin(customerProfiles, eq(pointsTransactions.customerProfileId, customerProfiles.id))
+    .innerJoin(users, eq(customerProfiles.userId, users.id))
+    .where(whereClause)
+    .orderBy(desc(pointsTransactions.createdAt))
+    .limit(50)
+    .all();
+
+    const client = await this.getClerkClient();
+    return await Promise.all(txs.map(async (t) => {
+      try {
+        const u = await client.users.getUser(t.clerkId);
+        return {
+          id: t.id,
+          amount: t.amount,
+          transactionType: t.type.toLowerCase(), 
+          createdAt: t.createdAt,
+          customerFirstName: u.firstName || "İsimsiz",
+          customerLastName: u.lastName || "Müşteri",
+          customerId: t.customerProfileId,
+        };
+      } catch {
+        return {
+          id: t.id,
+          amount: t.amount,
+          transactionType: t.type.toLowerCase(),
+          createdAt: t.createdAt,
+          customerFirstName: t.email.split("@")[0],
+          customerLastName: "Müşteri",
+          customerId: t.customerProfileId,
+        };
+      }
+    }));
   }
 }
 

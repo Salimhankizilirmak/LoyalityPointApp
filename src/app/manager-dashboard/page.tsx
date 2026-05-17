@@ -55,10 +55,10 @@ export default function ManagerDashboard() {
       
       setBranchInfo({ name: profile.branchName, orgId: profile.orgId || "" });
       
-      const mappedTxs: Transaction[] = (txs as { id: string; customerFirstName?: string | null; customerLastName?: string | null; type: string; amount: number; createdAt: Date | null }[]).map(t => ({
+      const mappedTxs: Transaction[] = (txs as { id: string; customerFirstName?: string | null; customerLastName?: string | null; transactionType: string; amount: number; createdAt: Date | null }[]).map(t => ({
         id: t.id,
         customer: `${t.customerFirstName || ""} ${t.customerLastName || ""}`.trim() || "Bilinmeyen Müşteri",
-        type: t.type === "earn" ? "earned" : t.type === "spend" ? "spent" : "new",
+        type: t.transactionType === "earn" ? "earned" : t.transactionType === "spend" ? "spent" : "new",
         pts: t.amount,
         amount: t.amount * 2, // Mock amount calculation
         cashier: "Kasiyer", // Placeholder

@@ -1,50 +1,68 @@
 import * as dotenv from "dotenv";
 import { resolve } from "path";
 
-// 🛡️ ÖNCELİKLİ: Env yüklemesini en başta yap
 dotenv.config({ path: resolve(__dirname, "../../.env.local") });
 
 async function listAllData() {
-  // Dinamik import ile db'yi yükle (Env yüklendikten sonra)
   const { db } = await import("../db");
-  const { organizations, staff, customers } = await import("../db/schema");
+  const { organizations, staffProfiles, customerProfiles, users, branches } = await import("../db/schema");
+  const { eq } = await import("drizzle-orm");
 
   console.log("\n🚀 --- SİSTEM VERİ LİSTESİ ---\n");
 
-  // 1. Süper Adminler (Env'den)
-  const superAdmins = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
-  console.log("👑 SÜPER ADMINLER (Config):");
-  if (superAdmins.length === 0) console.log(" - Kayıt yok");
-  superAdmins.forEach(email => console.log(` - ${email}`));
+  // 1. Tüm Kullanıcılar
+  const allUsers = await db.select().from(users).all();
+  console.log("👑 KULLANICILAR (Rol Bazlı):");
+  if (allUsers.length === 0) console.log(" - Kayıt yok");
+  allUsers.forEach(u => {
+    console.log(` - [${u.id}] Email: ${u.email} | Rol: ${u.role} | Clerk: ${u.clerkId}`);
+  });
 
   // 2. Organizasyonlar
   const orgs = await db.select().from(organizations).all();
   console.log("\n🏢 ORGANİZASYONLAR:");
   if (orgs.length === 0) console.log(" - Kayıt yok");
-  orgs.forEach(o => {
-    console.log(` - [${o.id}] ${o.name} (${o.bossEmail}) | Aktif: ${o.isActive} | Vitrin: ${o.isShowcase}`);
-  });
+  for (const o of orgs) {
+    const bossUser = allUsers.find(u => u.id === o.bossId);
+    console.log(` - [${o.id}] ${o.name} | Boss ID: ${o.bossId} (${bossUser?.email || "Bilinmiyor"}) | Aktif: ${o.isActive} | Şube Sınırı: ${o.branchLimit}`);
+  }
 
-  // 3. Bosslar (Organizasyonlardaki boss_email'ler üzerinden)
-  const uniqueBosses = Array.from(new Set(orgs.map(o => o.bossEmail))).filter(Boolean);
-  console.log("\n💼 BOSSLAR (Organizasyon Sahibi):");
-  if (uniqueBosses.length === 0) console.log(" - Kayıt yok");
-  uniqueBosses.forEach(email => console.log(` - ${email}`));
+  // 3. Personeller
+  const staff = await db.select({
+    id: staffProfiles.id,
+    userId: staffProfiles.userId,
+    branchId: staffProfiles.branchId,
+    email: users.email,
+    role: users.role,
+    branchName: branches.name,
+  })
+  .from(staffProfiles)
+  .innerJoin(users, eq(staffProfiles.userId, users.id))
+  .innerJoin(branches, eq(staffProfiles.branchId, branches.id))
+  .all();
 
-  // 4. Personel (Yönetici ve Kasiyer)
-  const allStaff = await db.select().from(staff).all();
   console.log("\n👥 PERSONEL (Yönetici & Kasiyer):");
-  if (allStaff.length === 0) console.log(" - Kayıt yok");
-  allStaff.forEach(s => {
-    console.log(` - [${s.id}] Rol: ${s.role} | Şube ID: ${s.branchId} | Org ID: ${s.orgId} | Aktif: ${s.isActive}`);
+  if (staff.length === 0) console.log(" - Kayıt yok");
+  staff.forEach(s => {
+    console.log(` - [${s.id}] User ID: ${s.userId} (${s.email}) | Rol: ${s.role} | Şube: ${s.branchName} (${s.branchId})`);
   });
 
-  // 5. Müşteriler
-  const allCustomers = await db.select().from(customers).all();
+  // 4. Müşteriler
+  const customers = await db.select({
+    id: customerProfiles.id,
+    userId: customerProfiles.userId,
+    orgId: customerProfiles.orgId,
+    currentPoints: customerProfiles.currentPoints,
+    email: users.email,
+  })
+  .from(customerProfiles)
+  .innerJoin(users, eq(customerProfiles.userId, users.id))
+  .all();
+
   console.log("\n📱 MÜŞTERİLER:");
-  if (allCustomers.length === 0) console.log(" - Kayıt yok");
-  allCustomers.forEach(c => {
-    console.log(` - [${c.id}] ${c.firstName} ${c.lastName} | ${c.phone} | ${c.email} | Puan: ${c.currentPoints}`);
+  if (customers.length === 0) console.log(" - Kayıt yok");
+  customers.forEach(c => {
+    console.log(` - [${c.id}] User ID: ${c.userId} (${c.email}) | Org ID: ${c.orgId} | Puan: ${c.currentPoints}`);
   });
 
   console.log("\n--- LİSTELEME TAMAMLANDI ---\n");

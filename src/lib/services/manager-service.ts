@@ -1,27 +1,26 @@
 import { BaseService } from "./base-service";
+import { staffProfiles, branches } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export class ManagerService extends BaseService {
   async getMyBranchData() {
-    const user = await this.getCurrentUser();
-    const meta = (user.publicMetadata || {}) as { branch_id?: string; org_id?: string; role?: string; branchName?: string };
-    
-    if (!meta.branch_id) throw new Error("Bir şubeye bağlı değilsiniz.");
-    
-    const { branches } = await import("@/db/schema");
-    const { eq } = await import("drizzle-orm");
+    const { userId } = await this.getSession();
+    const dbUser = await this.getLocalUser(userId!);
+    if (!dbUser) throw new Error("Kullanıcı kaydı bulunamadı.");
 
-    // Şube bilgilerini getir
-    const branch = await this.db.select().from(branches).where(eq(branches.id, meta.branch_id)).get();
+    const staffProfile = await this.db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUser.id)).get();
+    if (!staffProfile) throw new Error("Bir şubeye bağlı değilsiniz.");
+
+    const branch = await this.db.select().from(branches).where(eq(branches.id, staffProfile.branchId)).get();
+    if (!branch) throw new Error("Şube kaydı bulunamadı.");
     
     return {
-      branchName: branch?.name || meta.branchName || "Bilinmeyen Şube",
-      orgId: meta.org_id,
-      branchId: meta.branch_id,
-      role: meta.role || "manager"
+      branchName: branch.name,
+      orgId: branch.orgId,
+      branchId: branch.id,
+      role: dbUser.role.toLowerCase()
     };
   }
-
-  // Gelecekte buraya şubeye özel işlemler (transaction listesi vb.) eklenecek
 }
 
 export const managerService = new ManagerService();

@@ -1,4 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/", "/unauthorized", "/org-disabled"]);
@@ -55,14 +55,22 @@ export default clerkMiddleware(async (auth, req) => {
   if (pathname === "/dashboard") {
     console.log(`[Middleware] 🎯 Traffic Control for /dashboard. User: ${userId}, Role: ${role}`);
     
-    // 1. SUPER ADMIN CHECK (Highest Priority)
-    const email = (sessionClaims as unknown as CustomJwtPayload)?.email?.toLowerCase() || "";
-    const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-    const isSuperByEmail = envEmails.includes(email);
-    const isSuperByRole = role === "super_admin" || role === "superadmin";
+    // 1. SUPER ADMIN CHECK (Highest Priority - Checked by Email only)
+    let email = "";
+    try {
+      const client = await clerkClient();
+      const user = await client.users.getUser(userId);
+      email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
+      console.log(`[Middleware] ✉️ Fetched user email for /dashboard redirect: ${email}`);
+    } catch (err) {
+      console.error("[Middleware] ❌ Failed to fetch user email:", err);
+    }
 
-    if (isSuperByEmail || isSuperByRole) {
-      console.log(`[Middleware] 👑 Super Admin Detected -> Redirecting to /admin`);
+    const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    const isSuperByEmail = envEmails.includes(email) || email === "novexistech@gmail.com";
+
+    if (isSuperByEmail) {
+      console.log(`[Middleware] 👑 Super Admin Detected by Email -> Redirecting to /admin`);
       return NextResponse.redirect(new URL("/admin", req.url));
     }
 
@@ -95,12 +103,20 @@ export default clerkMiddleware(async (auth, req) => {
 
   // 🛡️ Hardened Gating: /create-organization rotasını koru
   if (pathname.startsWith("/create-organization")) {
-    const isSuperByRole = role === "super_admin" || role === "superadmin";
-    const email = (sessionClaims as unknown as CustomJwtPayload)?.email?.toLowerCase() || "";
-    const isSuperByEmail = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).includes(email);
+    let email = "";
+    try {
+      const client = await clerkClient();
+      const user = await client.users.getUser(userId);
+      email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
+    } catch (err) {
+      console.error("[Middleware] ❌ Failed to fetch user email for /create-organization gating:", err);
+    }
+
+    const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    const isSuperByEmail = envEmails.includes(email) || email === "novexistech@gmail.com";
     
-    if (!isSuperByRole && !isSuperByEmail) {
-      console.warn(`[Middleware] 🛑 Gating: Only super admins can access /create-organization. Role: ${role || "Guest"}`);
+    if (!isSuperByEmail) {
+      console.warn(`[Middleware] 🛑 Gating: Only super admins can access /create-organization. Email: ${email || "Guest"}`);
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }

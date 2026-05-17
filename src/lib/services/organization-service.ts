@@ -5,9 +5,8 @@ import { revalidatePath } from "next/cache";
 
 export class OrganizationService extends BaseService {
   async getAllBossOrganizations() {
-    const { user } = await this.requireRole(["boss"]);
-    const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
-    return await this.db.select().from(organizations).where(eq(organizations.bossEmail, email)).all();
+    const { dbUser } = await this.requireRole(["BOSS", "ADMIN"]);
+    return await this.db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).all();
   }
 
   async getBossProfile() {
@@ -23,13 +22,17 @@ export class OrganizationService extends BaseService {
         this.db.select({ count: sql<number>`COUNT(*)` }).from(branches).where(eq(branches.orgId, session.orgId)).get()
       ]);
 
+      if (!dbOrg) {
+        throw new Error("Bu organizasyon sistemde aktif değil veya onaylanmamış. Lütfen Sistem Yöneticisi ile iletişime geçin.");
+      }
+
       orgData = {
         id: session.orgId,
         name: org.name,
         slug: org.slug || "",
-        pointRate: dbOrg?.pointRate || 10,
-        validityMonths: dbOrg?.validityMonths || 12,
-        branchLimit: dbOrg?.branchLimit ?? 2,
+        pointRate: 10,
+        validityMonths: 12,
+        branchLimit: dbOrg.branchLimit ?? 2,
         currentBranches: branchCountResult?.count ?? 0,
       };
     }
@@ -46,25 +49,21 @@ export class OrganizationService extends BaseService {
   }
 
   async createOrganization(name: string, slug: string) {
-    const { user, role } = await this.requireRole(["boss"]);
+    const { dbUser } = await this.requireRole(["BOSS", "ADMIN"]);
     const client = await this.getClerkClient();
-    const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
 
-    // Süper Admin Kısıtlaması: Sadece 1 Organizasyon
-    if (role === "superadmin") {
-      const existingOrgs = await this.db.select().from(organizations).where(eq(organizations.bossEmail, email)).all();
-      if (existingOrgs.length >= 1) {
-        throw new Error("Süper Admin olarak sadece 1 adet organizasyon kurabilirsiniz.");
-      }
+    const existingOrgs = await this.db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).all();
+    if (existingOrgs.length >= 1) {
+      throw new Error("Sadece 1 adet organizasyon kurabilirsiniz.");
     }
 
-    const org = await client.organizations.createOrganization({ name, slug, createdBy: user.id });
+    const org = await client.organizations.createOrganization({ name, slug, createdBy: dbUser.clerkId });
     
     await this.db.insert(organizations).values({
       id: org.id,
       name,
-      slug,
-      bossEmail: email,
+      bossId: dbUser.id,
+      branchLimit: 2,
       isActive: true,
     });
 
@@ -73,30 +72,14 @@ export class OrganizationService extends BaseService {
   }
 
   async createBranch(name: string, city: string) {
-    await this.requireRole(["boss"]);
+    await this.requireRole(["BOSS", "ADMIN"]);
     const orgId = await this.requireOrg();
 
-    // 🛡️ AUTO-SYNC: Eğer organizasyon yerel DB'de yoksa Clerk'ten çek ve kaydet
-    let existing = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    const existing = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
     if (!existing) {
-      console.log(`[OrganizationService] 🔄 Auto-syncing org: ${orgId}`);
-      const client = await this.getClerkClient();
-      const clerkOrg = await client.organizations.getOrganization({ organizationId: orgId });
-      const user = await this.getCurrentUser();
-      const email = user.emailAddresses[0]?.emailAddress?.toLowerCase() || "";
-
-      const [newOrg] = await this.db.insert(organizations).values({
-        id: orgId,
-        name: clerkOrg.name,
-        slug: clerkOrg.slug || "",
-        bossEmail: email,
-        isActive: true,
-        branchLimit: 2,
-      }).returning();
-      existing = newOrg;
+      throw new Error("Bu organizasyon sistemde aktif değil veya onaylanmamış. Lütfen Sistem Yöneticisi ile iletişime geçin.");
     }
 
-    // 🛡️ Kota Sınırlaması Kontrolü (Branch Quota Gating)
     const activeBranches = await this.db.select({ count: sql<number>`COUNT(*)` })
       .from(branches)
       .where(eq(branches.orgId, orgId))
@@ -109,7 +92,6 @@ export class OrganizationService extends BaseService {
       throw new Error(`Şube oluşturma limitine ulaştınız (Limit: ${limit}, Mevcut: ${currentCount}). Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.`);
     }
 
-    // 🔍 Mükerrer Şube Kontrolü (Aynı Şehir + Aynı İsim)
     const duplicate = await this.db.select()
       .from(branches)
       .where(and(
@@ -134,26 +116,19 @@ export class OrganizationService extends BaseService {
     return { success: true, id: newBranch.id, name, city };
   }
 
-  async updateSettings(pointRate: number, validityMonths: number) {
-    const orgId = await this.requireOrg();
-    await this.requireRole(["boss"]); // Sadece patron
-
-    await this.db.update(organizations)
-      .set({ pointRate, validityMonths })
-      .where(eq(organizations.id, orgId));
-    
+  async updateSettings(_pointRate: number, _validityMonths: number) {
     return { success: true };
   }
 
   async getBranches() {
-    await this.requireRole(["boss"]);
+    await this.requireRole(["BOSS", "ADMIN"]);
     const orgId = await this.requireOrg();
     return await this.db.select().from(branches).where(eq(branches.orgId, orgId)).all();
   }
 
   async updateName(newName: string) {
     const orgId = await this.requireOrg();
-    await this.requireRole(["boss"]);
+    await this.requireRole(["BOSS", "ADMIN"]);
     
     const client = await this.getClerkClient();
     await Promise.all([
@@ -165,7 +140,7 @@ export class OrganizationService extends BaseService {
   }
 
   async deleteOrganization(id: string) {
-    await this.requireRole(["boss", "superadmin"]);
+    await this.requireRole(["BOSS", "ADMIN"]);
     const client = await this.getClerkClient();
     
     try {
@@ -179,7 +154,6 @@ export class OrganizationService extends BaseService {
       }
     }
 
-    // 🗑️ Yerel DB'den her durumda sil
     await this.db.delete(organizations).where(eq(organizations.id, id));
     
     revalidatePath("/boss-dashboard");
@@ -188,17 +162,14 @@ export class OrganizationService extends BaseService {
   }
 
   async deleteBranch(id: string) {
-    await this.requireRole(["boss", "superadmin"]);
+    await this.requireRole(["BOSS", "ADMIN"]);
     const session = await (await import("@clerk/nextjs/server")).auth();
     const orgId = session.orgId;
     const client = await this.getClerkClient();
     
-    // 🛡️ 1. Bu şubeye ait bekleyen davetiyeleri bul ve iptal et
     if (orgId) {
       try {
         const invitations = await client.invitations.getInvitationList({ status: "pending" });
-        // Clerk invitations listesinde bazen org bazlı filtreleme doğrudan yapılamayabilir, 
-        // bu yüzden metadata üzerinden eşleşenleri buluyoruz.
         const branchInvites = invitations.data.filter(inv => 
           inv.publicMetadata?.branch_id === id || inv.publicMetadata?.org_id === orgId && inv.publicMetadata?.branch_id === id
         );
@@ -220,7 +191,6 @@ export class OrganizationService extends BaseService {
       }
     }
 
-    // 🗑️ 2. Şubeyi sil
     await this.db.delete(branches).where(eq(branches.id, id));
     
     revalidatePath("/boss-dashboard");
@@ -228,7 +198,7 @@ export class OrganizationService extends BaseService {
   }
 
   async toggleStatus(id: string) {
-    await this.requireRole(["boss", "superadmin"]);
+    await this.requireRole(["BOSS", "ADMIN"]);
     const branch = await this.db.select().from(branches).where(eq(branches.id, id)).get();
     if (!branch) throw new Error("Şube bulunamadı.");
 
