@@ -3,6 +3,17 @@ import { db } from "@/db";
 import { organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+interface CustomJwtPayload {
+  o?: {
+    id: string;
+    rol: string;
+  };
+  metadata?: {
+    role?: string;
+  };
+  email?: string;
+}
+
 export abstract class BaseService {
   protected db = db;
 
@@ -81,7 +92,8 @@ export abstract class BaseService {
     
     // Fallback: Eğer metadata yoksa ama Clerk'te "org:admin" rolüne sahipse "boss" say
     if (!currentRole) {
-      if (session.orgRole === "org:admin" || session.sessionClaims?.o?.rol === "admin") {
+      const claims = session.sessionClaims as unknown as CustomJwtPayload;
+      if (session.orgRole === "org:admin" || claims?.o?.rol === "admin") {
         currentRole = "boss";
       } else {
         currentRole = "customer";
