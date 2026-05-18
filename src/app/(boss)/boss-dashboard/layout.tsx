@@ -1,3 +1,4 @@
+import { checkLayoutGuard } from "@/lib/layout-guard";
 import { resolveActiveBranchContext } from "@/lib/branch-context";
 import { BranchSelector } from "@/components/ui/BranchSelector";
 import { ReactNode } from "react";
@@ -11,6 +12,7 @@ interface BossLayoutProps {
  * Kural 2: Tek şube varsa BranchSelector render edilmez, çerez sunucu tarafında peşin mühürlenir.
  */
 export default async function BossLayout({ children }: BossLayoutProps) {
+  await checkLayoutGuard();
   const ctx = await resolveActiveBranchContext();
 
   return (
