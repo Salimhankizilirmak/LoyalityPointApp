@@ -17,18 +17,17 @@ const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/", "
 
 // 🛡️ API & Server Action JSON Çatlama Yaması Helper
 function handleUnauthorized(req: NextRequest, pathname: string) {
-  const isApi = pathname.startsWith("/api");
-  const isServerAction = req.method === "POST" && (
-    req.headers.get("Next-Action") !== null || 
-    req.headers.get("accept")?.includes("text/x-component")
-  );
+  // Sadece doğrudan dış API çağrıları için JSON 403 dönüyoruz
+  const isDirectApi = pathname.startsWith("/api");
 
-  if (isApi || isServerAction) {
+  if (isDirectApi) {
     return NextResponse.json(
       { success: false, error: "Yetkisiz Erişim" },
       { status: 403 }
     );
   }
+
+  // RSC prefetch, Server Action veya sayfa geçişleri dahil diğer tüm durumlarda pürüzsüz yönlendirme
   return NextResponse.redirect(new URL("/unauthorized", req.url));
 }
 

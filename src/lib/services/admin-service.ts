@@ -1,7 +1,9 @@
 import { BaseService } from "./base-service";
-import { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches, pendingInvitations } from "@/db/schema";
+import * as schema from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches } = schema;
 
 export class AdminService extends BaseService {
   async inviteBoss(companyName: string, bossEmail: string, appUrl: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS"; message: string }> {
@@ -88,7 +90,7 @@ export class AdminService extends BaseService {
       });
 
       // 🛡️ [Aşama 8.3] Yerel Davet Senkronizasyon Aynalaması (Mirroring)
-      await this.db.insert(pendingInvitations).values({
+      await this.db.insert(schema.pendingInvitations).values({
         id: clerkInv.id,
         email: emailLower,
         organizationId: clerkOrg.id,
@@ -271,11 +273,11 @@ export class AdminService extends BaseService {
     // 🛡️ [Aşama 8.3] Harici Ağ Çağrıları (Clerk API) Tamamen Temizlendi! Ağ Maliyeti: 0ms
     const [localPendingInvitations, localBosses] = await Promise.all([
       this.db.select({
-        id: pendingInvitations.id,
-        email: pendingInvitations.email,
-        createdAt: pendingInvitations.createdAt,
+        id: schema.pendingInvitations.id,
+        email: schema.pendingInvitations.email,
+        createdAt: schema.pendingInvitations.createdAt,
       })
-      .from(pendingInvitations)
+      .from(schema.pendingInvitations)
       .all(),
       this.db.select({
         id: users.id,

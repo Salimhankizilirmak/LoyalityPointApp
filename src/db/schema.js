@@ -4,7 +4,7 @@ var __makeTemplateObject = (this && this.__makeTemplateObject) || function (cook
     return cooked;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loyaltyTransactionsRelations = exports.loyaltyRulesRelations = exports.customersRelations = exports.organizationsRelations = exports.userBranchesRelations = exports.branchesRelations = exports.usersRelations = exports.loyaltyTransactions = exports.loyaltyRules = exports.customers = exports.userBranches = exports.pointsTransactions = exports.customerProfiles = exports.staffProfiles = exports.branches = exports.organizations = exports.users = void 0;
+exports.pendingInvitations = exports.loyaltyTransactionsRelations = exports.loyaltyRulesRelations = exports.customersRelations = exports.organizationsRelations = exports.userBranchesRelations = exports.branchesRelations = exports.usersRelations = exports.loyaltyTransactions = exports.loyaltyRules = exports.customers = exports.userBranches = exports.pointsTransactions = exports.customerProfiles = exports.staffProfiles = exports.branches = exports.organizations = exports.users = void 0;
 var drizzle_orm_1 = require("drizzle-orm");
 var sqlite_core_1 = require("drizzle-orm/sqlite-core");
 var cuid2_1 = require("@paralleldrive/cuid2");
@@ -173,4 +173,11 @@ exports.loyaltyTransactionsRelations = (0, drizzle_orm_2.relations)(exports.loya
         }),
     });
 });
-var templateObject_1, templateObject_2, templateObject_3, templateObject_4, templateObject_5, templateObject_6, templateObject_7, templateObject_8, templateObject_9, templateObject_10;
+// ─── BEKLEYEN DAVETLER SENKRONİZASYON TABLOSU ──────────────────────────────────
+exports.pendingInvitations = (0, sqlite_core_1.sqliteTable)("pending_invitations", {
+    id: (0, sqlite_core_1.text)("id").primaryKey(), // Clerk invitation ID'si
+    email: (0, sqlite_core_1.text)("email").notNull(), // Normalize küçük harf e-posta adresi
+    organizationId: (0, sqlite_core_1.text)("organization_id"), // Organizasyon bazlı davet ise organizasyon ID'si
+    createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql)(templateObject_11 || (templateObject_11 = __makeTemplateObject(["(strftime('%s', 'now'))"], ["(strftime('%s', 'now'))"])))).notNull(),
+});
+var templateObject_1, templateObject_2, templateObject_3, templateObject_4, templateObject_5, templateObject_6, templateObject_7, templateObject_8, templateObject_9, templateObject_10, templateObject_11;

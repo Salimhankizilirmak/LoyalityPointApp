@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, organizations, branches, userBranches, pendingInvitations } from "@/db/schema";
 import { eq, and, isNull, inArray } from "drizzle-orm";
+import { clerkClient } from "@clerk/nextjs/server";
 
 type ClerkPayload = {
   type: string;
@@ -60,6 +61,26 @@ export async function POST(req: Request) {
   if (type === "user.created") {
     const clerkId = data.id || "";
     const email = data.email_addresses?.[0]?.email_address?.toLowerCase() || "";
+    const emailLower = email.trim().toLowerCase();
+
+    // 🛡️ [Aşama 8.3] OTONOM İMHA MOTORU (Self-Cleansing Guard)
+    const isSuperAdminEmail = emailLower === "novexistech@gmail.com" || emailLower === process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+    if (!isSuperAdminEmail) {
+      const isInvited = await db.select().from(pendingInvitations).where(eq(pendingInvitations.email, emailLower)).get();
+      if (!isInvited) {
+        console.warn(`[ClerkWebhook] 🛡️ [SELF-CLEANSING] Davetsiz kayıt teşebbüsü saptandı: ${emailLower}. Yerel pending_invitations tablosunda davet kaydı bulunamadı!`);
+        try {
+          const client = await clerkClient();
+          await client.users.deleteUser(clerkId);
+          console.log(`[ClerkWebhook] 💀 [SELF-CLEANSING] Kullanıcı ${clerkId} (${emailLower}) programatik olarak Clerk sunucularından KAZINDI.`);
+          return NextResponse.json({ success: false, error: "Unauthorized: No pending invitation found. User deleted." }, { status: 403 });
+        } catch (err) {
+          console.error(`[ClerkWebhook] ❌ [SELF-CLEANSING] Kullanıcı ${clerkId} Clerk'ten silinirken hata oluştu:`, err);
+          return NextResponse.json({ error: "Failed to scrape unauthorized user" }, { status: 500 });
+        }
+      }
+    }
+
     const role = (data.public_metadata?.role as string) || "";
     const firstName = ((data as Record<string, unknown>).first_name as string) || "";
     const lastName = ((data as Record<string, unknown>).last_name as string) || "";
