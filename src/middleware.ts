@@ -40,6 +40,19 @@ export default clerkMiddleware(async (auth, req) => {
 
   // 1. Herkes için açık olan sayfalar
   if (isPublicRoute(req)) {
+    // 🛡️ /sign-up rotasına özel katı Bilet Kontrolü (Ticket Guard)
+    if (pathname.startsWith("/sign-up")) {
+      const hasTicket = 
+        req.nextUrl.searchParams.has("ticket") || 
+        req.nextUrl.searchParams.has("__clerk_ticket") || 
+        req.nextUrl.searchParams.has("__clerk_invitation_token");
+      
+      if (!hasTicket) {
+        console.warn(`[Middleware] 🛑 Gating: Unauthorized Sign-up block! No ticket provided. Redirecting to /unauthorized.`);
+        return NextResponse.redirect(new URL("/unauthorized", req.url));
+      }
+    }
+
     const { userId } = await auth();
     const isSyncRequest = req.nextUrl.searchParams.get("sync") === "true";
     const isClerkTask = pathname.includes("/tasks/") || pathname.includes("/choose-organization");

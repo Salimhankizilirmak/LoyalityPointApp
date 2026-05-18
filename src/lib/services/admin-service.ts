@@ -1,5 +1,5 @@
 import { BaseService } from "./base-service";
-import { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches } from "@/db/schema";
+import { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches, pendingInvitations } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -79,13 +79,23 @@ export class AdminService extends BaseService {
       });
 
       // 3. Kullanıcıya doğrudan kurumsal organizasyon yönetici daveti fırlat
-      await client.organizations.createOrganizationInvitation({
+      const clerkInv = await client.organizations.createOrganizationInvitation({
         organizationId: clerkOrg.id,
         emailAddress: emailLower,
         role: "org:admin",
         redirectUrl: `${appUrl}/sign-up`,
         publicMetadata: { role: "boss" },
       });
+
+      // 🛡️ [Aşama 8.3] Yerel Davet Senkronizasyon Aynalaması (Mirroring)
+      await this.db.insert(pendingInvitations).values({
+        id: clerkInv.id,
+        email: emailLower,
+        organizationId: clerkOrg.id,
+        createdAt: new Date(clerkInv.createdAt),
+      });
+
+      console.log(`[AdminService] 📩 Invitation ${clerkInv.id} mirrored locally for ${emailLower}`);
 
       revalidatePath("/admin");
 
@@ -257,32 +267,45 @@ export class AdminService extends BaseService {
 
   async getInvitedBosses() {
     await this.requireRole(["SUPER_ADMIN"]);
-    const client = await this.getClerkClient();
     
-    const [invitations, usersList] = await Promise.all([
-      client.invitations.getInvitationList({ status: "pending" }),
-      client.users.getUserList({ limit: 100 })
+    // 🛡️ [Aşama 8.3] Harici Ağ Çağrıları (Clerk API) Tamamen Temizlendi! Ağ Maliyeti: 0ms
+    const [localPendingInvitations, localBosses] = await Promise.all([
+      this.db.select({
+        id: pendingInvitations.id,
+        email: pendingInvitations.email,
+        createdAt: pendingInvitations.createdAt,
+      })
+      .from(pendingInvitations)
+      .all(),
+      this.db.select({
+        id: users.id,
+        clerkId: users.clerkId,
+        email: users.email,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.role, "BOSS"))
+      .all()
     ]);
 
-    const bossUsers = usersList.data.filter(u => (u.publicMetadata as { role?: string })?.role === "boss");
+    const activeEmails = new Set(localBosses.map(u => u.email.trim().toLowerCase()));
 
-    const activeEmails = new Set(bossUsers.map(u => u.emailAddresses[0]?.emailAddress).filter(Boolean));
-
-    const pending = invitations.data
-      .filter(inv => !activeEmails.has(inv.emailAddress)) 
-      .map(inv => ({
-        id: inv.id,
-        email: inv.emailAddress,
+    // Idempotent Filtreleme: Aktif BOSS listesinde olan e-postaları bekleyen listesinden eliyoruz
+    const pending = localPendingInvitations
+      .filter(p => !activeEmails.has(p.email.trim().toLowerCase()))
+      .map(p => ({
+        id: p.id,
+        email: p.email,
         status: "pending" as const,
-        createdAt: inv.createdAt,
+        createdAt: new Date(p.createdAt).getTime(),
       }));
 
-    const active = bossUsers.map(u => ({
+    const active = localBosses.map(u => ({
       id: u.id,
-      email: u.emailAddresses[0]?.emailAddress || "",
+      email: u.email,
       status: "accepted" as const,
-      createdAt: u.createdAt,
-      lastSignIn: u.lastSignInAt,
+      createdAt: u.createdAt ? new Date(u.createdAt).getTime() : Date.now(),
+      lastSignIn: Date.now(),
     }));
 
     return [...pending, ...active].sort((a, b) => b.createdAt - a.createdAt);

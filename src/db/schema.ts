@@ -166,3 +166,13 @@ export const loyaltyTransactionsRelations = relations(loyaltyTransactions, ({ on
   }),
 }));
 
+// ─── BEKLEYEN DAVETLER SENKRONİZASYON TABLOSU ──────────────────────────────────
+
+export const pendingInvitations = sqliteTable("pending_invitations", {
+  id: text("id").primaryKey(), // Clerk invitation ID'si
+  email: text("email").notNull(), // Normalize küçük harf e-posta adresi
+  organizationId: text("organization_id"), // Organizasyon bazlı davet ise organizasyon ID'si
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`).notNull(),
+});
+
+

@@ -2,7 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, branches, userBranches } from "@/db/schema";
+import { users, organizations, branches, userBranches, pendingInvitations } from "@/db/schema";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 
 type ClerkPayload = {
@@ -105,6 +105,10 @@ export async function POST(req: Request) {
           } else {
             console.log(`[ClerkWebhook] ⚠️ No pending organization found for email: ${email}`);
           }
+
+          // 🛡️ [Aşama 8.3] Asenkron Yerel Temizlik (Delete pending_invitations)
+          await tx.delete(pendingInvitations).where(eq(pendingInvitations.email, email));
+          console.log(`[ClerkWebhook] 🧹 Cleared pending_invitations for ${email}`);
         });
 
         return NextResponse.json({ success: true, message: "User synced and organization linked successfully." });
@@ -182,6 +186,12 @@ export async function POST(req: Request) {
             console.warn(`[ClerkWebhook] ⚠️ No local boss found for org ${orgId}`);
           }
         }
+
+        // 🛡️ [Aşama 8.3] Asenkron Yerel Temizlik (Delete pending_invitations)
+        if (email) {
+          await db.delete(pendingInvitations).where(eq(pendingInvitations.email, email.toLowerCase()));
+          console.log(`[ClerkWebhook] 🧹 Cleared pending_invitations for staff ${email}`);
+        }
       } catch (err) {
         console.error("[ClerkWebhook] ❌ Staff sync failed:", err);
         return NextResponse.json({ error: "Staff sync failed" }, { status: 500 });
@@ -226,6 +236,43 @@ export async function POST(req: Request) {
       } catch (err) {
         console.error("[ClerkWebhook] ❌ Staff cleanup failed:", err);
         return NextResponse.json({ error: "Staff cleanup failed" }, { status: 500 });
+      }
+    }
+  }
+
+  // 🛡️ [Aşama 8.3] Revoke (İptal) veya Accept (Kabul) olaylarında Yerel Temizlik Korumaları
+  if (type === "invitation.revoked" || type === "invitation.accepted") {
+    const email = ((data as Record<string, unknown>).email_address as string | undefined)?.toLowerCase() || "";
+    const invId = data.id || "";
+    if (email || invId) {
+      try {
+        const conditions = [];
+        if (email) conditions.push(eq(pendingInvitations.email, email));
+        if (invId) conditions.push(eq(pendingInvitations.id, invId));
+        
+        const { or } = await import("drizzle-orm");
+        await db.delete(pendingInvitations).where(or(...conditions));
+        console.log(`[ClerkWebhook] 🧹 Revoked/Accepted pending_invitations cleared for email=${email}, id=${invId}`);
+      } catch (err) {
+        console.error("[ClerkWebhook] ❌ Failed to clear revoked/accepted invitation:", err);
+      }
+    }
+  }
+
+  if (type === "organizationInvitation.revoked" || type === "organizationInvitation.accepted") {
+    const email = ((data as Record<string, unknown>).email_address as string | undefined)?.toLowerCase() || "";
+    const invId = data.id || "";
+    if (email || invId) {
+      try {
+        const conditions = [];
+        if (email) conditions.push(eq(pendingInvitations.email, email));
+        if (invId) conditions.push(eq(pendingInvitations.id, invId));
+        
+        const { or } = await import("drizzle-orm");
+        await db.delete(pendingInvitations).where(or(...conditions));
+        console.log(`[ClerkWebhook] 🧹 Org Invitation Revoked/Accepted pending_invitations cleared for email=${email}, id=${invId}`);
+      } catch (err) {
+        console.error("[ClerkWebhook] ❌ Failed to clear revoked/accepted org invitation:", err);
       }
     }
   }

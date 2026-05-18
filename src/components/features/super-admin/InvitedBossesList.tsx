@@ -67,16 +67,16 @@ export function InvitedBossesList({ bosses, isDarkMode, onRevoke }: InvitedBosse
               <div className="flex flex-col items-end gap-1.5">
                 <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter ${
                   boss.status === "accepted" 
-                    ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" 
-                    : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(52,211,153,0.2)]" 
+                    : "bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
                 }`}>
                   {boss.status === "accepted" ? (
                     <>
-                      <CheckCircle2 size={10} /> Kabul Edildi
+                      <CheckCircle2 size={10} className="text-emerald-400 animate-pulse" /> AKTİF
                     </>
                   ) : (
                     <>
-                      <Clock size={10} /> Bekliyor
+                      <Clock size={10} className="text-amber-400 animate-pulse" /> DAVET EDİLDİ / ONAY BEKLİYOR
                     </>
                   )}
                 </div>
