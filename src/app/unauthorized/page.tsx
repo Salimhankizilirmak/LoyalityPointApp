@@ -11,12 +11,12 @@ export default async function UnauthorizedPage() {
     const { userId } = await auth();
 
     if (userId) {
-      // 1. Clerk üzerinden kullanıcının e-postasını sorgula
+      // 1. Clerk üzerinden kullanıcının bilgilerini sorgula
       const client = await clerkClient();
       const clerkUser = await client.users.getUser(userId);
       const email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase().trim() || "";
       
-      // Super Admin koruması (Novexis ekibi ve env dosyasında tanımlı olanlar kazınmasın)
+      // Super Admin koruması (Novexis ekibi ve env dosyasında tanımlı olanlar kesinlikle silinmez)
       const isSuperAdminEmail = email === "novexistech@gmail.com" || (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).includes(email);
 
       if (!isSuperAdminEmail) {
@@ -27,15 +27,15 @@ export default async function UnauthorizedPage() {
         const isInvited = await db.select().from(pendingInvitations).where(eq(pendingInvitations.email, email)).get();
 
         if (isInvited) {
-          // Daveti var fakat henüz webhook/senkronizasyon tamamlanmamış (yarış durumu / webhook gecikmesi)
-          // Bu kullanıcı meşrudur, KESİNLİKLE SİLİNMEYECEKTİR!
+          // Daveti var fakat henüz webhook/senkronizasyon tamamlanmamış (webhook gecikmesi)
+          // Bu kullanıcı meşrudur, silinmez ve bekletilir.
           isPending = true;
           console.log(`[Server-Cleansing] ⏳ Meşru kullanıcı bekletiliyor: ${email} (${userId}). Davetiye mevcut fakat yerel users kaydı henüz tamamlanmamış.`);
         } else if (!dbUser || !dbUser.role) {
-          // Ne davetiyesi var ne de veritabanında kaydı/rolü var -> %100 KAÇAK KULLANICI!
+          // Hem davetiyesi yok hem de veritabanında aktif bir rolü yok -> %100 KAÇAK KULLANICI!
           console.warn(`[Server-Cleansing] 💀 Otonom İmha: Kaçak kullanıcı saptandı: ${email} (${userId}). Clerk'ten tamamen kazınıyor!`);
           await client.users.deleteUser(userId);
-          console.log(`[Server-Cleansing] 💀 Otonom İmha: ${userId} hesabı Clerk'ten o saniye silindi.`);
+          console.log(`[Server-Cleansing] 💀 Otonom İmha: ${userId} hesabı hem buluttan hem lokalden o saniye silindi.`);
         }
       }
     }

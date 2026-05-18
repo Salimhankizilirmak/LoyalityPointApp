@@ -85,7 +85,7 @@ function clearDatabase() {
                     _b = _c.sent(), ne = _b.ne, and = _b.and;
                     _c.label = 5;
                 case 5:
-                    _c.trys.push([5, 12, 13, 14]);
+                    _c.trys.push([5, 13, 14, 15]);
                     console.log("1. Transactions (İşlemler) siliniyor...");
                     return [4 /*yield*/, db.delete(pointsTransactions)];
                 case 6:
@@ -111,10 +111,15 @@ function clearDatabase() {
                 case 10:
                     _c.sent();
                     console.log("✅ Organizasyonlar silindi.");
+                    console.log("6. Patronlar siliniyor...");
+                    return [4 /*yield*/, db.delete(users)];
+                case 11:
+                    _c.sent();
+                    console.log("✅ Patronlar silindi.");
                     console.log("6. Users (Süper Admin Dışındaki Kullanıcılar) siliniyor...");
                     // Keep 'novexistech@gmail.com' and ADMIN users
                     return [4 /*yield*/, db.delete(users).where(and(ne(users.email, "novexistech@gmail.com"), ne(users.role, "SUPER_ADMIN")))];
-                case 11:
+                case 12:
                     // Keep 'novexistech@gmail.com' and ADMIN users
                     _c.sent();
                     console.log("✅ Diğer kullanıcılar silindi.");
@@ -127,16 +132,16 @@ function clearDatabase() {
                     console.log("-> Clerk Dashboard > Organizations > [Org Seç] > Invitations");
                     console.log("-------------------------------------------------------------------");
                     console.log("Sistemde şu an sadece .env.local dosyasındaki Süper Adminler bulunmaktadır.");
-                    return [3 /*break*/, 14];
-                case 12:
+                    return [3 /*break*/, 15];
+                case 13:
                     error_1 = _c.sent();
                     console.error("\n❌ Veri silme işlemi sırasında bir hata oluştu:", error_1);
                     console.log("Hata detayı:", error_1 instanceof Error ? error_1.message : String(error_1));
-                    return [3 /*break*/, 14];
-                case 13:
+                    return [3 /*break*/, 15];
+                case 14:
                     rl.close();
                     return [7 /*endfinally*/];
-                case 14: return [2 /*return*/];
+                case 15: return [2 /*return*/];
             }
         });
     });

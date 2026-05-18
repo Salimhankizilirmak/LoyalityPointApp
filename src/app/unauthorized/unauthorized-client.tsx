@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldAlert, Home, ArrowLeft, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useClerk } from "@clerk/nextjs";
 
 interface UnauthorizedClientProps {
   isPending?: boolean;
@@ -11,7 +12,26 @@ interface UnauthorizedClientProps {
 
 export function UnauthorizedClient({ isPending = false }: UnauthorizedClientProps) {
   const router = useRouter();
+  const { signOut } = useClerk();
   const [countdown, setCountdown] = useState(5);
+
+  // Kaçak kullanıcılar için tarayıcı tarafında çerez/JWT temizleme garantisi (Ghost Token imhası)
+  useEffect(() => {
+    if (!isPending) {
+      signOut().catch((err) => {
+        console.error("[UnauthorizedClient] ❌ Oturum kapatılamadı:", err);
+      });
+    }
+  }, [isPending, signOut]);
+
+  // Sayaç sıfıra ulaştığında güvenli yönlendirme yan etkisi
+  useEffect(() => {
+    if (isPending) return;
+    
+    if (countdown <= 0) {
+      router.push("/");
+    }
+  }, [countdown, isPending, router]);
 
   useEffect(() => {
     // Eğer hesap hazırlık aşamasındaysa 3 saniyede bir dashboard'a girmeyi deneyebilir (webhook tamamlanmış olabilir)
@@ -26,7 +46,6 @@ export function UnauthorizedClient({ isPending = false }: UnauthorizedClientProp
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          router.push("/");
           return 0;
         }
         return prev - 1;
@@ -34,7 +53,7 @@ export function UnauthorizedClient({ isPending = false }: UnauthorizedClientProp
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [router, isPending]);
+  }, [isPending, router]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4 relative overflow-hidden font-sans">
@@ -108,7 +127,7 @@ export function UnauthorizedClient({ isPending = false }: UnauthorizedClientProp
         }`}>
           <span className={`w-2 h-2 rounded-full animate-pulse ${isPending ? "bg-indigo-500" : "bg-red-500"}`} />
           <span className="text-xs font-bold tracking-wider uppercase">
-            {isPending ? "DURUM: AKTİVASYON BEKLENİYOR" : "Hata Kodu: 403 / UNAUTHORIZED"}
+            {isPending ? "DURUM: AKTİVASYON BEKLENİYOR" : "ERİŞİM TALEBİ REDDEDİLDİ / PLATFORM YALNIZCA DAVETLİ KULLANICILARA AÇIKTIR"}
           </span>
         </div>
 

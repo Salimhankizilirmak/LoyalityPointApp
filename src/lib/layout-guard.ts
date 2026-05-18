@@ -25,9 +25,15 @@ export async function checkLayoutGuard() {
   }
 
   // 2. Kullanıcı veritabanında yoksa veya rolü boşsa, e-postasını sorgula
-  const client = await clerkClient();
-  const clerkUser = await client.users.getUser(userId);
-  const email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase().trim() || "";
+  let email = "";
+  try {
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(userId);
+    email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase().trim() || "";
+  } catch (error) {
+    console.error("[LayoutGuard] 🚨 Clerk API Hatası (Kullanıcı muhtemelen silinmiş veya bulunamadı):", error);
+    redirect("/unauthorized");
+  }
 
   // Super Admin koruması (Novexis ekibi ve env dosyasında tanımlı olanlar kaçak değildir)
   const isSuperAdminEmail = email === "novexistech@gmail.com" || (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).includes(email);
