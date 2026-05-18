@@ -60,7 +60,7 @@ export class PointsService extends BaseService {
   }
 
   async manualAdjustment(customerId: string, amountKurus: number) {
-    await this.requireRole(["MANAGER", "BOSS", "ADMIN"]);
+    await this.requireRole(["MANAGER", "BOSS", "SUPER_ADMIN"]);
     
     // Resolve branchId of current staff profile
     const { userId } = await this.getSession();
@@ -128,7 +128,7 @@ export class PointsService extends BaseService {
     if (!dbUser) return [];
     
     let whereClause;
-    if (dbUser.role === "BOSS" || dbUser.role === "ADMIN") {
+    if (dbUser.role === "BOSS" || dbUser.role === "SUPER_ADMIN") {
       whereClause = eq(customerProfiles.orgId, orgId);
     } else {
       const staffProfile = await this.db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUser.id)).get();

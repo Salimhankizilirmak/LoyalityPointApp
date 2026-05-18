@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, X, CheckCircle, Send, AlertCircle } from "lucide-react";
+import { Mail, X, CheckCircle, Send, AlertCircle, Building2 } from "lucide-react";
 import { inviteBossAction } from "@/app/admin/actions";
 
 interface InviteBossModalProps {
@@ -11,13 +11,20 @@ interface InviteBossModalProps {
 }
 
 export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
+  const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [successScenario, setSuccessScenario] = useState<"NEW_BOSS" | "EXISTING_BOSS" | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!companyName.trim()) {
+      setError("Lütfen şirket adını girin.");
+      return;
+    }
     if (!email || !email.includes("@")) {
       setError("Lütfen geçerli bir e-posta adresi girin.");
       return;
@@ -26,12 +33,14 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
     setSending(true);
     setError("");
     
-    const result = await inviteBossAction(email);
+    const result = await inviteBossAction(companyName, email);
     
-    if (result && typeof result === 'object' && 'success' in result && result.success) {
+    if (result && result.success) {
+      setSuccessScenario(result.scenario || "NEW_BOSS");
+      setSuccessMessage(result.message || "");
       setSent(true);
     } else {
-      setError((result && typeof result === 'object' && 'error' in result ? (result as { error: string }).error : null) || "Bir hata oluştu.");
+      setError(result.error || "Bir hata oluştu.");
       setSending(false);
     }
   };
@@ -53,8 +62,8 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
               <Send size={18} className="text-cyan-500" />
             </div>
             <div>
-              <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>Patron Davet Et</h3>
-              <p className={`text-[10px] font-medium ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Uygulama düzeyinde yeni patron atayın</p>
+              <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>Yeni Şirket ve Patron Tanımla</h3>
+              <p className={`text-[10px] font-medium ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Uygulama düzeyinde yeni patron ve şirket atayın</p>
             </div>
           </div>
           <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors ${
@@ -70,9 +79,14 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
               <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={32} className="text-emerald-500" />
               </div>
-              <p className={`font-bold mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>Davet Gönderildi!</p>
-              <p className={`text-xs px-8 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                {email} adresine sisteme giriş daveti başarıyla iletildi.
+              <p className={`font-bold mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>İşlem Başarılı!</p>
+              <p className={`text-xs px-4 font-semibold ${isDarkMode ? "text-emerald-400" : "text-emerald-600"} mb-3`}>
+                {successScenario === "EXISTING_BOSS" ? "Mevcut Patron Eşleşmesi" : "Yeni Davet Gönderimi"}
+              </p>
+              <p className={`text-xs px-6 leading-relaxed ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                {successMessage || (successScenario === "EXISTING_BOSS" 
+                  ? "Mevcut patrona yeni şirket başarıyla tanımlandı, davet mailine gerek kalmadı."
+                  : "Yeni şirket aktif olabilmesi için patronun gönderilen e-postasını onaylaması gerekiyor.")}
               </p>
               <button onClick={onClose} className={`mt-8 w-full py-3 rounded-2xl text-sm font-bold shadow-lg transition-all active:scale-95 ${
                 isDarkMode ? "bg-white text-slate-900 hover:bg-slate-100" : "bg-slate-900 text-white hover:bg-slate-800"
@@ -85,6 +99,28 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
                   <AlertCircle size={14} /> {error}
                 </div>
               )}
+
+              <div>
+                <label htmlFor="companyName" className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Şirket / Organizasyon Adı *
+                </label>
+                <div className="relative">
+                  <Building2 size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
+                  <input 
+                    id="companyName"
+                    type="text"
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    placeholder="Ör. Aura Teknoloji A.Ş."
+                    required
+                    className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${
+                      isDarkMode 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900" 
+                        : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
+                    }`}
+                  />
+                </div>
+              </div>
 
               <div>
                 <label htmlFor="bossEmail" className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
@@ -110,7 +146,7 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
 
               <div className="bg-cyan-500/5 rounded-2xl p-4 border border-cyan-500/10">
                 <p className={`text-[11px] leading-relaxed ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                  <span className="font-bold text-cyan-500">Not:</span> Davet edilen patron, e-postasını onayladıktan sonra kendi şifresini belirleyecek ve sisteme giriş yaptığında kendi organizasyonunu kuracaktır.
+                  <span className="font-bold text-cyan-500">Not:</span> Sistem, e-postayı kontrol ederek patronun kaydını otomatik tespit eder. Kayıt yoksa e-posta onayıyla yeni kiracı oluşturulur; varsa Clerk üzerinden doğrudan şirket ataması yapılır.
                 </p>
               </div>
 
@@ -123,7 +159,7 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
                     : "bg-slate-300 cursor-not-allowed opacity-50"
                 }`}
               >
-                {sending ? "Davet Gönderiliyor..." : "Patron Davet Et"}
+                {sending ? "Tanımlama Yapılıyor..." : "Patron ve Şirket Tanımla"}
               </button>
             </form>
           )}

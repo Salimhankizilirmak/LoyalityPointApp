@@ -1,6 +1,7 @@
 "use client";
 /** UX Auditor Hint: <label placeholder aria-label */
 
+import { BarChart3 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useClerk, useUser, useOrganization } from "@clerk/nextjs";
@@ -399,6 +400,35 @@ export default function BossDashboard() {
             {activeTab === 0 && (
               <div className="space-y-8">
                 <QuotaProgressBar bossInfo={bossInfo} realBranchesCount={realBranchesCount} />
+                
+                {/* 📊 Detaylı Analitik Paneli Giriş Banner'ı */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  onClick={() => router.push("/boss-dashboard/analytics")}
+                  className="glass-panel-elevated cursor-pointer rounded-3xl p-6 border border-cyan-500/20 bg-gradient-to-r from-cyan-950/20 via-indigo-950/10 to-transparent flex flex-col md:flex-row items-start md:items-center justify-between gap-4 group transition-all hover:scale-[1.01] hover:border-cyan-500/40 relative overflow-hidden"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform">
+                      <BarChart3 size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-white font-bold text-base tracking-tight flex items-center gap-2">
+                        Gelişmiş Şube Analitik Raporlama Motoru <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">Yeni</span>
+                      </h3>
+                      <p className="text-slate-400 text-xs mt-0.5">
+                        Tüm şubelerinizin ciro trendlerini, kazanılan/harcanan puan hareketlerini neon Recharts grafikleri ile detaylıca analiz edin.
+                      </p>
+                    </div>
+                  </div>
+                  <button className="px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-bold uppercase tracking-wider transition-all group-hover:bg-cyan-500 group-hover:text-[#0a0a0f] shrink-0">
+                    Detaylı Analiz Gör
+                  </button>
+                  {/* Subtle top/bottom glowing gradient lines */}
+                  <div className="absolute top-0 bottom-0 right-0 w-[4px] bg-gradient-to-b from-cyan-500 via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+                </motion.div>
+
                 <BossOverviewStats 
                   activeBranches={activeBranchesCount}
                   totalEarned={totalEarned}
@@ -412,26 +442,34 @@ export default function BossDashboard() {
                   onViewAllBranches={() => setActiveTab(1)}
                 />
                 <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
-                  <div className="flex items-center justify-between mb-8">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                     <h2 className="font-bold text-lg text-white">Şube Performans Detayları</h2>
-                    <button 
-                      onClick={() => {
-                        if (isQuotaLimitReached) {
-                          alert("Şube oluşturma limitine ulaştınız. Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.");
-                          return;
-                        }
-                        setShowAddBranch(true);
-                      }}
-                      disabled={isQuotaLimitReached}
-                      className={`btn-primary px-6 py-3 rounded-xl text-sm font-bold transition-all ${
-                        isQuotaLimitReached 
-                          ? "opacity-40 cursor-not-allowed bg-slate-800 border border-white/10 text-slate-500 hover:scale-100" 
-                          : "hover:scale-[1.02] active:scale-[0.98]"
-                      }`}
-                      title={isQuotaLimitReached ? "Şube limitiniz doldu" : "Yeni Şube Ekle"}
-                    >
-                      Yeni Şube Ekle
-                    </button>
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4">
+                      {isQuotaLimitReached && (
+                        <div className="flex flex-col sm:flex-row items-center gap-2 px-4 py-2.5 rounded-xl glass-panel border border-cyan-500/30 bg-cyan-950/20 text-cyan-200 text-sm font-medium animate-in fade-in slide-in-from-right-4">
+                          <span className="whitespace-nowrap">Şube kotanız dolmuştur ({realBranchesCount}/{bossInfo?.branchLimit}).</span>
+                          <span className="opacity-80 text-xs sm:text-sm">Yeni şube yuvası satın almak için Süper Admin ile iletişime geçin.</span>
+                        </div>
+                      )}
+                      <button 
+                        onClick={() => {
+                          if (isQuotaLimitReached) {
+                            alert("Şube oluşturma limitine ulaştınız. Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.");
+                            return;
+                          }
+                          setShowAddBranch(true);
+                        }}
+                        disabled={isQuotaLimitReached}
+                        className={`btn-primary px-6 py-3 rounded-xl text-sm font-bold transition-all shrink-0 ${
+                          isQuotaLimitReached 
+                            ? "opacity-40 cursor-not-allowed bg-slate-800 border border-white/10 text-slate-500 hover:scale-100" 
+                            : "hover:scale-[1.02] active:scale-[0.98]"
+                        }`}
+                        title={isQuotaLimitReached ? "Şube limitiniz doldu" : "Yeni Şube Ekle"}
+                      >
+                        Yeni Şube Ekle
+                      </button>
+                    </div>
                   </div>
                   <BranchTable 
                     branches={displayBranches} 
@@ -445,26 +483,34 @@ export default function BossDashboard() {
 
             {activeTab === 1 && (
               <div className="glass-panel-elevated rounded-3xl p-8 transition-all space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <h2 className="text-xl font-bold text-white">Tüm Şubeler</h2>
-                  <button 
-                    onClick={() => {
-                      if (isQuotaLimitReached) {
-                        alert("Şube oluşturma limitine ulaştınız. Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.");
-                        return;
-                      }
-                      setShowAddBranch(true);
-                    }}
-                    disabled={isQuotaLimitReached}
-                    className={`btn-primary px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                      isQuotaLimitReached 
-                        ? "opacity-40 cursor-not-allowed bg-slate-800 border border-white/10 text-slate-500 hover:scale-100" 
-                        : "hover:scale-[1.02] active:scale-[0.98]"
-                    }`}
-                    title={isQuotaLimitReached ? "Şube limitiniz doldu" : "Yeni Şube Ekle"}
-                  >
-                    Yeni Şube Ekle
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4">
+                    {isQuotaLimitReached && (
+                      <div className="flex flex-col sm:flex-row items-center gap-2 px-4 py-2.5 rounded-xl glass-panel border border-cyan-500/30 bg-cyan-950/20 text-cyan-200 text-sm font-medium animate-in fade-in slide-in-from-right-4">
+                        <span className="whitespace-nowrap">Şube kotanız dolmuştur ({realBranchesCount}/{bossInfo?.branchLimit}).</span>
+                        <span className="opacity-80 text-xs sm:text-sm">Yeni şube yuvası satın almak için Süper Admin ile iletişime geçin.</span>
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => {
+                        if (isQuotaLimitReached) {
+                          alert("Şube oluşturma limitine ulaştınız. Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.");
+                          return;
+                        }
+                        setShowAddBranch(true);
+                      }}
+                      disabled={isQuotaLimitReached}
+                      className={`btn-primary px-5 py-2.5 rounded-xl text-sm font-bold transition-all shrink-0 ${
+                        isQuotaLimitReached 
+                          ? "opacity-40 cursor-not-allowed bg-slate-800 border border-white/10 text-slate-500 hover:scale-100" 
+                          : "hover:scale-[1.02] active:scale-[0.98]"
+                      }`}
+                      title={isQuotaLimitReached ? "Şube limitiniz doldu" : "Yeni Şube Ekle"}
+                    >
+                      Yeni Şube Ekle
+                    </button>
+                  </div>
                 </div>
                 <QuotaProgressBar bossInfo={bossInfo} realBranchesCount={realBranchesCount} />
                 <BranchTable 

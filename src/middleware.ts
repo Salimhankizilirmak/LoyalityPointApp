@@ -1,7 +1,36 @@
-import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, NextRequest } from "next/server";
+
+// 1. Modül Düzeyinde Strongly-Typed Custom JWT Payload Arayüzü (Garbage Collection & Scope Optimizasyonu)
+interface CustomJwtPayload {
+  o?: {
+    id: string;
+    rol: string;
+  };
+  metadata?: {
+    role?: string;
+  };
+  email?: string;
+}
 
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/", "/unauthorized", "/org-disabled"]);
+
+// 🛡️ API & Server Action JSON Çatlama Yaması Helper
+function handleUnauthorized(req: NextRequest, pathname: string) {
+  const isApi = pathname.startsWith("/api");
+  const isServerAction = req.method === "POST" && (
+    req.headers.get("Next-Action") !== null || 
+    req.headers.get("accept")?.includes("text/x-component")
+  );
+
+  if (isApi || isServerAction) {
+    return NextResponse.json(
+      { success: false, error: "Yetkisiz Erişim" },
+      { status: 403 }
+    );
+  }
+  return NextResponse.redirect(new URL("/unauthorized", req.url));
+}
 
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
@@ -31,93 +60,95 @@ export default clerkMiddleware(async (auth, req) => {
     return redirectToSignIn({ returnBackUrl: pathname });
   }
 
-  interface CustomJwtPayload {
-    o?: {
-      id: string;
-      rol: string;
-    };
-    metadata?: {
-      role?: string;
-    };
-    email?: string;
-  }
-
   console.log(`[Middleware] 🧩 Raw SessionClaims: ${JSON.stringify(sessionClaims)}`);
   const claims = sessionClaims as unknown as CustomJwtPayload;
   
-  // Önce organizasyon rolüne, yoksa metadata rolüne bak
-  const role = claims.o?.rol || claims.metadata?.role || "";
-  const orgIdInJwt = claims.o?.id || "";
+  // ⚡ Canlı Oturum Önceliklendirmesi (Live Session Ground Truth)
+  let role = "";
+  if (orgId && orgRole) {
+    if (orgRole === "org:admin") {
+      role = "boss";
+    } else {
+      role = claims.metadata?.role || claims.o?.rol || "";
+    }
+  } else {
+    role = claims.metadata?.role || claims.o?.rol || "";
+  }
+
+  const activeOrgId = orgId || claims.o?.id || "";
+  const userEmail = claims.email?.toLowerCase() || "";
   
-  console.log(`[Middleware] 🎭 Resolved Role: ${role}, OrgId: ${orgIdInJwt}`);
+  console.log(`[Middleware] 🎭 Resolved Role: ${role}, OrgId: ${activeOrgId}, Email: ${userEmail}`);
+
+  // Super Admin tespiti
+  const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+  const isSuperByEmail = envEmails.includes(userEmail) || userEmail === "novexistech@gmail.com";
+  const isSuperByRole = role === "super_admin" || role === "superadmin";
+  const isSuperAdmin = isSuperByRole || isSuperByEmail;
+
+  // 🛡️ Route Guard 1: Super Admin /admin
+  if (pathname.startsWith("/admin")) {
+    if (!isSuperAdmin) {
+      console.warn(`[Middleware] 🛑 Gating: Only super admins can access /admin. User: ${userId}`);
+      return handleUnauthorized(req, pathname);
+    }
+  }
+
+  // 🛡️ Route Guard 2: Boss Dashboard & API Koruması
+  if (pathname.startsWith("/boss-dashboard") || pathname.startsWith("/api/boss")) {
+    const isBoss = role === "boss" || orgRole === "org:admin";
+    if (!isBoss && !isSuperAdmin) {
+      console.warn(`[Middleware] 🛑 Gating: Unauthorized access to Boss routes (${pathname}). Role: ${role}`);
+      return handleUnauthorized(req, pathname);
+    }
+  }
+
+  // 🛡️ Route Guard 3: Manager Dashboard & API Koruması
+  if (pathname.startsWith("/manager-dashboard") || pathname.startsWith("/api/manager")) {
+    if (role !== "manager" && !isSuperAdmin) {
+      console.warn(`[Middleware] 🛑 Gating: Unauthorized access to Manager routes (${pathname}). Role: ${role}`);
+      return handleUnauthorized(req, pathname);
+    }
+  }
+
+  // 🛡️ Route Guard 4: Cashier Dashboard & API Koruması
+  if (pathname.startsWith("/cashier-dashboard") || pathname.startsWith("/api/cashier")) {
+    if (role !== "cashier" && !isSuperAdmin) {
+      console.warn(`[Middleware] 🛑 Gating: Unauthorized access to Cashier routes (${pathname}). Role: ${role}`);
+      return handleUnauthorized(req, pathname);
+    }
+  }
 
   // 🚀 SMART REDIRECTION: /dashboard üzerinden doğrudan yönlendirme
   if (pathname === "/dashboard") {
-    console.log(`[Middleware] 🎯 Traffic Control for /dashboard. User: ${userId}, Role: ${role}`);
+    console.log(`[Middleware] 🎯 Traffic Control for /dashboard. User: ${userId}, Role: ${role}, Org: ${activeOrgId}`);
     
-    // 1. SUPER ADMIN CHECK (Highest Priority - Checked by Email only)
-    let email = "";
-    try {
-      const client = await clerkClient();
-      const user = await client.users.getUser(userId);
-      email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
-      console.log(`[Middleware] ✉️ Fetched user email for /dashboard redirect: ${email}`);
-    } catch (err) {
-      console.error("[Middleware] ❌ Failed to fetch user email:", err);
-    }
-
-    const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-    const isSuperByEmail = envEmails.includes(email) || email === "novexistech@gmail.com";
-
-    if (isSuperByEmail) {
-      console.log(`[Middleware] 👑 Super Admin Detected by Email -> Redirecting to /admin`);
+    if (isSuperAdmin) {
+      console.log(`[Middleware] 👑 Super Admin Detected -> Redirecting to /admin`);
       return NextResponse.redirect(new URL("/admin", req.url));
     }
 
-    // 2. BOSS ROLE CHECK (If no org, redirect to unauthorized because only superadmin can create orgs)
-    if (role === "boss" && !orgId && !orgIdInJwt) {
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
+    if (role === "boss" && !activeOrgId) {
+      return handleUnauthorized(req, pathname);
     }
 
-    // 3. ACTIVE ORG CHECK (Role based redirects)
-    if (orgId || orgIdInJwt) {
-      if (orgRole === "org:admin") return NextResponse.redirect(new URL("/boss-dashboard", req.url));
-      if (role === "manager") return NextResponse.redirect(new URL("/manager-dashboard", req.url));
-      if (role === "cashier") return NextResponse.redirect(new URL("/cashier-dashboard", req.url));
-      if (role === "customer") return NextResponse.redirect(new URL("/customer-dashboard", req.url));
-    }
-
-    // 4. ZERO-SELECTION / JWT ORGID CHECK
-    if (orgIdInJwt) {
+    if (activeOrgId) {
+      if (orgRole === "org:admin" || role === "boss") return NextResponse.redirect(new URL("/boss-dashboard", req.url));
       if (role === "manager") return NextResponse.redirect(new URL("/manager-dashboard", req.url));
       if (role === "cashier") return NextResponse.redirect(new URL("/cashier-dashboard", req.url));
       if (role === "customer") return NextResponse.redirect(new URL("/customer-dashboard", req.url));
     }
     
-    // 5. CUSTOMER FALLBACK
     if (role === "customer") return NextResponse.redirect(new URL("/customer-dashboard", req.url));
 
-    // Fallback for new or unauthorized users
-    console.log("[Middleware] ⚠️ Role/Org unknown, falling back to /dashboard logic");
+    console.log("[Middleware] ⚠️ Role/Org unknown, falling back");
   }
 
-  // 🛡️ Hardened Gating: /create-organization rotasını koru
+  // 🛡️ Hardened Gating: /create-organization
   if (pathname.startsWith("/create-organization")) {
-    let email = "";
-    try {
-      const client = await clerkClient();
-      const user = await client.users.getUser(userId);
-      email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
-    } catch (err) {
-      console.error("[Middleware] ❌ Failed to fetch user email for /create-organization gating:", err);
-    }
-
-    const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-    const isSuperByEmail = envEmails.includes(email) || email === "novexistech@gmail.com";
-    
-    if (!isSuperByEmail) {
-      console.warn(`[Middleware] 🛑 Gating: Only super admins can access /create-organization. Email: ${email || "Guest"}`);
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
+    if (!isSuperAdmin) {
+      console.warn(`[Middleware] 🛑 Gating: Only super admins can access /create-organization. Email: ${userEmail}`);
+      return handleUnauthorized(req, pathname);
     }
   }
 

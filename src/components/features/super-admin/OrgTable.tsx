@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, ChevronDown, ChevronUp, MoreHorizontal, Eye, ExternalLink, Lock, Check, Loader2
+  Search, ChevronDown, ChevronUp, MoreHorizontal, Eye, ExternalLink, Lock, Settings2
 } from "lucide-react";
-import { updateBranchLimitAction } from "@/app/admin/actions";
+import { UpdateQuotaModal } from "./UpdateQuotaModal";
 
 interface Org {
   id: string;
@@ -21,75 +21,7 @@ interface Org {
   managerCount?: number;
 }
 
-interface QuotaCellProps {
-  orgId: string;
-  initialLimit: number;
-  onLimitUpdated?: () => void;
-}
 
-function QuotaCell({ orgId, initialLimit, onLimitUpdated }: QuotaCellProps) {
-  const [prevInitialLimit, setPrevInitialLimit] = useState(initialLimit);
-  const [limit, setLimit] = useState(initialLimit);
-  const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  if (initialLimit !== prevInitialLimit) {
-    setPrevInitialLimit(initialLimit);
-    setLimit(initialLimit);
-  }
-
-  const handleSave = async () => {
-    if (limit < 1) return;
-    setLoading(true);
-    try {
-      const res = await updateBranchLimitAction(orgId, limit);
-      if ("error" in res) {
-        alert(res.error);
-      } else {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-        if (onLimitUpdated) onLimitUpdated();
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Hata oluştu.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <input
-        type="number"
-        min="1"
-        value={limit}
-        onChange={(e) => {
-          const val = parseInt(e.target.value);
-          if (!isNaN(val)) setLimit(val);
-        }}
-        className="w-12 px-2 py-1 rounded bg-white/5 border border-white/10 text-white font-mono text-center text-xs focus:border-indigo-500/50 outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-      />
-      {limit !== initialLimit && (
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="w-6 h-6 rounded bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-          title="Kaydet"
-        >
-          {loading ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Check size={12} />
-          )}
-        </button>
-      )}
-      {saved && (
-        <span className="text-[10px] text-emerald-400 font-bold uppercase animate-pulse">Kaydedildi</span>
-      )}
-    </div>
-  );
-}
 
 interface OrgTableProps {
   orgs: Org[];
@@ -104,6 +36,7 @@ export function OrgTable({ orgs, onToggle, onLimitUpdated }: OrgTableProps) {
   const [sortKey, setSortKey] = useState<keyof Org>("customers");
   const [sortDir, setSortDir] = useState(-1);
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [editingQuotaOrg, setEditingQuotaOrg] = useState<Org | null>(null);
 
   const sorted = orgs
     .filter(o => o.name.toLowerCase().includes(search.toLowerCase()) || o.slug.includes(search.toLowerCase()))
@@ -182,7 +115,18 @@ export function OrgTable({ orgs, onToggle, onLimitUpdated }: OrgTableProps) {
                 <td className="px-4 py-3.5 text-slate-500 font-mono whitespace-nowrap">{org.created}</td>
                 <td className="px-4 py-3.5"><span className="text-slate-300 font-semibold">{fmt(org.branches)}</span></td>
                 <td className="px-4 py-3.5">
-                  <QuotaCell orgId={org.id} initialLimit={org.branchLimit ?? 2} onLimitUpdated={onLimitUpdated} />
+                  <div className="flex items-center gap-2">
+                    <div className="bg-white/5 border border-white/10 text-white font-mono text-xs px-2 py-1 rounded">
+                      {org.branchLimit ?? 1}
+                    </div>
+                    <button
+                      onClick={() => setEditingQuotaOrg(org)}
+                      className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/5 hover:bg-cyan-500/10 text-slate-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/20 transition-all active:scale-95"
+                      title="Kotayı Düzenle"
+                    >
+                      <Settings2 size={16} />
+                    </button>
+                  </div>
                 </td>
                 <td className="px-4 py-3.5"><span className="text-slate-300 font-semibold">{fmt(org.customers)}</span></td>
                 <td className="px-4 py-3.5"><span className="text-slate-400 font-mono">{org.email}</span></td>
@@ -234,6 +178,22 @@ export function OrgTable({ orgs, onToggle, onLimitUpdated }: OrgTableProps) {
           </tbody>
         </table>
       </div>
+
+      <AnimatePresence>
+        {editingQuotaOrg && (
+          <UpdateQuotaModal
+            orgId={editingQuotaOrg.id}
+            orgName={editingQuotaOrg.name}
+            currentLimit={editingQuotaOrg.branchLimit ?? 1}
+            activeBranches={editingQuotaOrg.branches}
+            onClose={() => setEditingQuotaOrg(null)}
+            onSuccess={() => {
+              setEditingQuotaOrg(null);
+              if (onLimitUpdated) onLimitUpdated();
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

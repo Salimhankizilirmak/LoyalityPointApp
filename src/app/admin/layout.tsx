@@ -16,10 +16,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const envEmails = process.env.SUPER_ADMIN_EMAILS || "";
   const allowedEmails = envEmails.split(",").map(e => e.trim().toLowerCase());
 
-  if (!allowedEmails.includes(email)) {
+  if (!allowedEmails.includes(email) && email !== "novexistech@gmail.com") {
     // Süper admin değilse genel dashboard'a yolla (oradan da yetkisine göre paneline düşer)
     redirect("/dashboard");
   }
+
+  // 🔄 Süper Admin'i Yerel Veritabanı ile Senkronize Et (Yoksa oluşturur)
+  const { getDashboardRedirectPath } = await import("@/lib/auth-utils");
+  await getDashboardRedirectPath(userId, null, null);
 
   return <>{children}</>;
 }

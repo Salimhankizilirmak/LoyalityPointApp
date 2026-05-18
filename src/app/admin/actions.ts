@@ -2,17 +2,32 @@
 
 import { adminService } from "@/lib/services/admin-service";
 import { headers } from "next/headers";
+import { auth } from "@clerk/nextjs/server";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
-export async function inviteBossAction(email: string) {
-  const headerList = await headers();
-  const host = headerList.get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  const appUrl = `${protocol}://${host}`;
-
+export async function inviteBossAction(companyName: string, email: string): Promise<{ success: boolean; scenario?: "NEW_BOSS" | "EXISTING_BOSS"; message?: string; error?: string }> {
   try {
-    return await adminService.inviteBoss(email, appUrl);
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Oturum bulunamadı. Lütfen giriş yapın." };
+    }
+
+    // Action katmanında SUPER_ADMIN rol kontrolü guard'ı
+    const dbUser = await db.select().from(users).where(eq(users.clerkId, userId)).get();
+    if (!dbUser || dbUser.role !== "SUPER_ADMIN") {
+      return { success: false, error: "Bu işlem için yetkiniz bulunmamaktadır." };
+    }
+
+    const headerList = await headers();
+    const host = headerList.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const appUrl = `${protocol}://${host}`;
+
+    return await adminService.inviteBoss(companyName, email, appUrl);
   } catch (error: unknown) {
-    return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
+    return { success: false, error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }
 

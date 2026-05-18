@@ -78,3 +78,67 @@ export async function updateBossName(firstName: string, lastName: string) {
   await client.users.updateUser(userId, { firstName, lastName });
   return { success: true };
 }
+
+// Yeni: Aşama 3.3 Metadata Tabanlı Davet Pipeline'ı
+export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGER", branchIds: string[]) {
+  try {
+    const { userId } = await (await import("@clerk/nextjs/server")).auth();
+    if (!userId) throw new Error("Oturum bulunamadı");
+    
+    // 1. Boss Authorization Guard
+    const { db } = await import("@/db");
+    const { users, organizations, branches } = await import("@/db/schema");
+    const { eq, inArray } = await import("drizzle-orm");
+    
+    const boss = await db.select().from(users).where(eq(users.clerkId, userId)).get();
+    if (!boss || boss.role !== "BOSS") {
+      throw new Error("Sadece yetkili patronlar personel davet edebilir.");
+    }
+    
+    const org = await db.select().from(organizations).where(eq(organizations.bossId, boss.id)).get();
+    if (!org) {
+      throw new Error("Organizasyon bulunamadı.");
+    }
+    
+    if (branchIds.length > 0) {
+      const targetBranches = await db.select().from(branches).where(inArray(branches.id, branchIds)).all();
+      if (targetBranches.length !== branchIds.length) {
+        throw new Error("Bazı şubeler bulunamadı.");
+      }
+      for (const branch of targetBranches) {
+        if (branch.orgId !== org.id) {
+          throw new Error("Güvenlik İhlali: Farklı bir organizasyona ait şubeye personel davet edilemez.");
+        }
+      }
+    } else {
+      throw new Error("Personelin atanacağı en az bir şube seçilmelidir.");
+    }
+    
+    const client = await clerkClient();
+    const envEmails = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    if (envEmails.includes(email.toLowerCase().trim())) {
+      throw new Error("Bu e-posta adresi sisteme davet edilemez.");
+    }
+    
+    // 2. Clerk Org Invitation
+    await client.organizations.createOrganizationInvitation({
+      organizationId: org.id,
+      emailAddress: email,
+      inviterUserId: userId,
+      role: "org:member",
+      publicMetadata: {
+        role: role,
+        targetBranchIds: branchIds
+      },
+      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
+    });
+    
+    return { success: true };
+  } catch (error: unknown) {
+    const err = error as { errors?: { message: string }[]; message?: string };
+    const message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
+    console.error("[InviteStaffAction Error]:", message, error);
+    throw new Error(message);
+  }
+}
+

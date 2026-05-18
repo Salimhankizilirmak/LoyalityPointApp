@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { GlassPanel } from "@/components/ui/GlassPanel";
 import { GlassInput } from "@/components/ui/GlassInput";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
-import { inviteCustomerAction } from "@/app/cashier-dashboard/actions";
+import { inviteCustomerAction } from "@/app/(cashier)/cashier-dashboard/actions";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 

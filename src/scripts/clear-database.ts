@@ -70,7 +70,7 @@ async function clearDatabase() {
     await db.delete(users).where(
       and(
         ne(users.email, "novexistech@gmail.com"),
-        ne(users.role, "ADMIN")
+        ne(users.role, "SUPER_ADMIN")
       )
     );
     console.log("✅ Diğer kullanıcılar silindi.");

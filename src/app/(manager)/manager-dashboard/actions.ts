@@ -56,7 +56,7 @@ import {
   getOrgMembers as getOrgMembersAction, 
   updateMemberName as updateMemberNameAction, 
   removeMember as removeMemberAction 
-} from "../boss-dashboard/actions";
+} from "@/app/(boss)/boss-dashboard/actions";
 
 export async function getOrgMembers() {
   return await getOrgMembersAction();

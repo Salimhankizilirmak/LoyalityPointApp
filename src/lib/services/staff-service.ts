@@ -1,6 +1,6 @@
 import { BaseService } from "./base-service";
-import { users, staffProfiles, branches, organizations } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { users, staffProfiles, branches, organizations, userBranches } from "@/db/schema";
+import { eq, and, sql, inArray } from "drizzle-orm";
 
 export class StaffService extends BaseService {
   async getOrgMembers() {
@@ -156,7 +156,7 @@ export class StaffService extends BaseService {
         requestingUserId: session.userId!,
       });
     } else {
-      if (dbUser && dbUser.role === "ADMIN") {
+      if (dbUser && dbUser.role === "SUPER_ADMIN") {
         throw new Error("Süper Admin sistemden silinemez.");
       }
 
@@ -177,11 +177,11 @@ export class StaffService extends BaseService {
   }
 
   async reassignManager(memberId: string, newBranchName: string, newOrgId: string) {
-    await this.requireRole(["BOSS", "ADMIN"]);
+    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     
     const dbUser = await this.db.select().from(users).where(eq(users.id, memberId)).get();
     if (!dbUser) throw new Error("Kullanıcı bulunamadı.");
-    if (dbUser.role === "ADMIN") throw new Error("Süper Admin şubesi değiştirilemez.");
+    if (dbUser.role === "SUPER_ADMIN") throw new Error("Süper Admin şubesi değiştirilemez.");
 
     const targetBranch = await this.db.select().from(branches).where(and(eq(branches.name, newBranchName), eq(branches.orgId, newOrgId))).get();
     if (!targetBranch) throw new Error("Şube bulunamadı.");
@@ -201,10 +201,115 @@ export class StaffService extends BaseService {
   async updateMemberName(memberId: string, firstName: string, lastName: string) {
     const dbUser = await this.db.select().from(users).where(eq(users.id, memberId)).get();
     if (!dbUser) throw new Error("Kullanıcı bulunamadı.");
-    if (dbUser.role === "ADMIN") throw new Error("Süper Admin bilgileri güncellenemez.");
+    if (dbUser.role === "SUPER_ADMIN") throw new Error("Süper Admin bilgileri güncellenemez.");
 
     const client = await this.getClerkClient();
     await client.users.updateUser(dbUser.clerkId, { firstName, lastName });
+    return { success: true };
+  }
+
+  /**
+   * HİYERARŞİK VERİ İZOLASYONU MUHAFIZI
+   */
+  async requireBranchAccess(userId: string, userRole: string, branchId: string) {
+    if (userRole === "SUPER_ADMIN") {
+      return true;
+    }
+
+    if (userRole === "BOSS") {
+      const branch = await this.db.select().from(branches).where(eq(branches.id, branchId)).get();
+      if (!branch) throw new Error("Şube bulunamadı.");
+
+      const org = await this.db.select().from(organizations).where(eq(organizations.bossId, userId)).get();
+      if (!org) throw new Error("Organizasyon bulunamadı.");
+
+      if (branch.orgId !== org.id) {
+        throw new Error("UnauthorizedError: Bu şubenin verilerine erişim yetkiniz bulunmamaktadır.");
+      }
+      return true;
+    }
+
+    if (userRole === "MANAGER" || userRole === "CASHIER") {
+      const assignment = await this.db.select()
+        .from(userBranches)
+        .where(
+          and(
+            eq(userBranches.userId, userId),
+            eq(userBranches.branchId, branchId)
+          )
+        ).get();
+      
+      if (!assignment) {
+        throw new Error("UnauthorizedError: Bu şubenin verilerine erişim yetkiniz bulunmamaktadır.");
+      }
+      return true;
+    }
+
+    throw new Error("Geçersiz rol yetkisi.");
+  }
+
+  /**
+   * SENSİTİV TOPLU GÜNCELLEME VE GÜVENLİ SİLME
+   */
+  async assignStaffToBranches(bossUserId: string, bossOrgId: string, staffUserId: string, branchIds: string[]) {
+    // 1. Cross-Tenant Assignment Guard
+    if (branchIds.length > 0) {
+      const targetBranches = await this.db.select().from(branches).where(inArray(branches.id, branchIds));
+      if (targetBranches.length !== branchIds.length) {
+        throw new Error("Güvenlik İhlali: Bazı şubeler bulunamadı.");
+      }
+
+      for (const branch of targetBranches) {
+        if (branch.orgId !== bossOrgId) {
+          throw new Error("Güvenlik İhlali: Farklı bir organizasyona ait şubeye personel ataması yapılamaz.");
+        }
+      }
+    }
+
+    // Boss'a ait tüm şubelerin ID'lerini al
+    const bossBranches = await this.db.select({ id: branches.id }).from(branches).where(eq(branches.orgId, bossOrgId));
+    const bossBranchIds = bossBranches.map(b => b.id);
+
+    // 2. ACID Transaction Bloklama & Scoped Bulk Delete
+    await this.db.transaction(async (tx) => {
+      // Scoped delete: Sadece bu boss'un şubelerindeki yetkileri sil (Kör silme engellendi)
+      if (bossBranchIds.length > 0) {
+        await tx.delete(userBranches)
+          .where(
+            and(
+              eq(userBranches.userId, staffUserId),
+              inArray(userBranches.branchId, bossBranchIds)
+            )
+          );
+      }
+
+      // Yeni atamaları yap
+      if (branchIds.length > 0) {
+        await tx.insert(userBranches).values(
+          branchIds.map(id => ({
+            userId: staffUserId,
+            branchId: id
+          }))
+        );
+      }
+    });
+
+    // 3. CLERK ORGANİZASYON ÜYELİĞİ SENKRONİZASYONU
+    try {
+      const staffUser = await this.db.select().from(users).where(eq(users.id, staffUserId)).get();
+      if (staffUser?.clerkId) {
+        const client = await this.getClerkClient();
+        await client.organizations.createOrganizationMembership({
+          organizationId: bossOrgId,
+          userId: staffUser.clerkId,
+          role: "org:member"
+        });
+      }
+    } catch (err: unknown) {
+      // Zaten üyeyse veya başka bir Clerk hatası olursa bypass et
+      console.log("Clerk organizasyon üyeliği eşitleme atlandı:", err instanceof Error ? err.message : err);
+    }
+
     return { success: true };
   }
 }

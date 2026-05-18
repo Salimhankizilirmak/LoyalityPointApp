@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   QrCode, Star, CheckCircle, XCircle, User, Gift,
   Zap, ArrowLeft, ScanLine, Wifi, Plus, AlertTriangle, Lock
 } from "lucide-react";
-import { findCustomerById, processTransactionAction, inviteCustomerAction, getBranchStatus } from "./actions";
+import { searchCustomerAction, earnPointsAction, burnPointsAction, registerCustomerAction, getBranchStatus } from "./actions";
 import { AddCustomerModal } from "@/components/features/manager-dashboard/AddCustomerModal";
+import { RecentTransactions } from "@/components/features/cashier-dashboard/RecentTransactions";
 
 const INDIGO = "#4f46e5";
 const LIGHT = "#eef2ff";
@@ -22,7 +24,7 @@ interface CustomerData {
   avatar: string;
 }
 
-type TxType = "earn" | "spend" | null;
+type TxType = "EARN" | "BURN" | null;
 
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
   Bronze: { bg: "#fef3c7", color: "#b45309" },
@@ -34,6 +36,8 @@ const TIER_COLORS: Record<string, { bg: string; color: string }> = {
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 
 export default function CashierDashboardPage() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [customer, setCustomer] = useState<CustomerData | null>(null);
   const [scanInput, setScanInput] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -62,23 +66,30 @@ export default function CashierDashboardPage() {
   }, []);
 
   const baseAmount = Number(amount) || 0;
-  const ptsPreview = (!amount || !txType) ? 0 : (txType === "earn" ? Math.floor(baseAmount / 10) * 10 : Math.min(baseAmount, customer?.pts ?? 0));
+  const ptsPreview = (!amount || !txType) ? 0 : (
+    txType === "EARN"
+      ? Math.floor((baseAmount * 10) / 100)  // varsayılan %10 oran
+      : Math.min(baseAmount, customer?.pts ?? 0)
+  );
 
-  const handleScan = async (id: string) => {
-    if (!id) return;
+  const handleScan = async (phone: string) => {
+    if (!phone) return;
     setScanning(true);
     setTxError("");
     try {
-      const found = await findCustomerById(id);
-      if (found) {
+      const result = await searchCustomerAction(phone);
+      if ("error" in result) {
+        setTxError(result.error ?? "Arama hatası");
+      } else if (result.found && result.customer) {
+        const c = result.customer;
         setCustomer({
-          id: found.id,
-          name: `${found.firstName} ${found.lastName}`,
-          phone: found.phone,
-          pts: found.currentPoints,
-          tier: "Bronze", // Calculated tier could be added to service
-          totalTx: 0, // Transaction count from DB
-          avatar: found.firstName[0]
+          id: c.id,
+          name: c.name,
+          phone: c.phoneNumber,
+          pts: c.totalPoints,
+          tier: "Bronze",
+          totalTx: 0,
+          avatar: c.name?.[0] ?? "?",
         });
         setScanInput("");
       } else {
@@ -93,38 +104,72 @@ export default function CashierDashboardPage() {
 
   const handleTx = async () => {
     if (!customer || !txType || !amount) return;
-    setScanning(true);
-    try {
-      const result = await processTransactionAction(customer.id, amount, txType);
-      if ("error" in result) {
-        setTxError(result.error || "İşlem başarısız");
-      } else {
-        setTxSuccess(true);
-        setStats(s => ({ ...s, totalTxToday: s.totalTxToday + 1, ptsGivenToday: s.ptsGivenToday + (txType === "earn" ? ptsPreview : 0) }));
-        setTimeout(() => {
-          setCustomer(prev => prev ? { ...prev, pts: txType === "earn" ? prev.pts + ptsPreview : prev.pts - ptsPreview } : null);
-          setTxSuccess(false); setTxType(null); setAmount("");
-        }, 2000);
+    setTxError("");
+    startTransition(async () => {
+      try {
+        let result;
+        if (txType === "EARN") {
+          const amountSpentInKurus = Math.round(Number(amount) * 100);
+          result = await earnPointsAction(customer.id, amountSpentInKurus);
+        } else {
+          const pointsToBurn = Math.round(Number(amount));
+          result = await burnPointsAction(customer.id, pointsToBurn);
+        }
+
+        if ("error" in result && result.error) {
+          setTxError(result.error || "İşlem başarısız");
+        } else if ("success" in result && result.success) {
+          const newTotal = "newTotal" in result ? (result as { newTotal: number }).newTotal : customer.pts;
+          setStats(s => ({ ...s, totalTxToday: s.totalTxToday + 1, ptsGivenToday: s.ptsGivenToday + (txType === "EARN" ? ptsPreview : 0) }));
+          
+          // Sunucu yenilenene kadar arayüz durumunu bozmayın
+          router.refresh();
+
+          // Form ve inputları temizle
+          setAmount("");
+          setCustomer(prev => prev ? { ...prev, pts: newTotal } : null);
+          setTxType(null);
+          setTxSuccess(false);
+        }
+      } catch {
+        setTxError("İşlem sırasında hata oluştu");
       }
-    } catch {
-      setTxError("İşlem sırasında hata oluştu");
-    } finally {
-      setScanning(false);
-    }
+    });
   };
 
   const handleAddCustomer = async (data: { firstName: string, lastName: string, phone: string }) => {
-    const formData = new FormData();
-    formData.append("firstName", data.firstName);
-    formData.append("lastName", data.lastName);
-    formData.append("phone", data.phone);
-    formData.append("email", `${data.phone}@system.local`); // Default email for system registration
-
-    const res = await inviteCustomerAction(formData);
-    if ("error" in res) {
-      throw new Error(res.error || "Kayıt hatası");
-    }
-    setStats(s => ({ ...s, newMembersToday: s.newMembersToday + 1 }));
+    return new Promise<void>((resolve, reject) => {
+      startTransition(async () => {
+        try {
+          const res = await registerCustomerAction(
+            `${data.firstName} ${data.lastName}`.trim(),
+            data.phone
+          );
+          if ("error" in res && res.error) {
+            reject(new Error((res as { error: string }).error || "Kayıt hatası"));
+            return;
+          }
+          if (res.success && res.customer) {
+            const c = res.customer;
+            setCustomer({
+              id: c.id,
+              name: c.name,
+              phone: c.phoneNumber,
+              pts: c.totalPoints,
+              tier: "Bronze",
+              totalTx: 0,
+              avatar: c.name?.[0] ?? "?",
+            });
+            setScanInput("");
+            setShowAddCustomer(false);
+          }
+          setStats(s => ({ ...s, newMembersToday: s.newMembersToday + 1 }));
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
   };
 
   const reset = () => { setCustomer(null); setTxType(null); setAmount(""); setTxSuccess(false); setTxError(""); };
@@ -170,7 +215,7 @@ export default function CashierDashboardPage() {
       </AnimatePresence>
 
       <div className="bg-white sticky top-0 z-20" style={{ borderBottom: "1px solid #f1f5f9" }}>
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: INDIGO }}>
               <ScanLine size={15} className="text-white" />
@@ -190,7 +235,8 @@ export default function CashierDashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+      <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-5">
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Bugün İşlem", value: String(stats.totalTxToday), icon: Zap, color: INDIGO },
@@ -283,13 +329,13 @@ export default function CashierDashboardPage() {
                     <CheckCircle size={36} className="text-emerald-500" />
                   </div>
                   <h3 className="text-slate-900 font-bold text-lg mb-1">İşlem Başarılı!</h3>
-                  <p className="text-slate-500 text-sm">{txType === "earn" ? `+${fmt(ptsPreview)} puan eklendi` : `-${fmt(ptsPreview)} puan kullanıldı`}</p>
+                  <p className="text-slate-500 text-sm">{txType === "EARN" ? `+${fmt(ptsPreview)} puan eklendi` : `-${fmt(ptsPreview)} puan kullanıldı`}</p>
                 </motion.div>
               ) : (
                 <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #f1f5f9" }}>
                   <h3 className="text-slate-800 font-semibold text-sm mb-4">Puan İşlemi</h3>
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    {([["earn", "Puan Yükle", Star, "#059669", "rgba(5,150,105,0.08)"], ["spend", "Puan Harca", Gift, "#d97706", "rgba(217,119,6,0.08)"]] as const).map(([type, label, Icon, color, bg]) => (
+                    {([["EARN", "Puan Yükle", Star, "#059669", "rgba(5,150,105,0.08)"], ["BURN", "Puan Harca", Gift, "#d97706", "rgba(217,119,6,0.08)"]] as const).map(([type, label, Icon, color, bg]) => (
                       <button key={type} onClick={() => setTxType(type)}
                         className="p-4 rounded-2xl text-left transition-all"
                         style={{
@@ -306,29 +352,29 @@ export default function CashierDashboardPage() {
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-3 overflow-hidden">
                         <div>
                           <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">
-                            {txType === "earn" ? "Alışveriş Tutarı (₺)" : "Harcanacak Puan"}
+                            {txType === "EARN" ? "Alışveriş Tutarı (₺)" : "Harcanacak Puan"}
                           </label>
                           <input 
                             type="number" value={amount} onChange={e => setAmount(e.target.value)}
-                            placeholder={txType === "earn" ? "Tutar giriniz..." : `Max: ${customer.pts}`}
+                            placeholder={txType === "EARN" ? "Tutar giriniz..." : `Max: ${customer.pts}`}
                             className="w-full px-4 py-3 rounded-xl text-base font-bold text-slate-800 outline-none min-h-[44px]"
                             style={{ background: "#f8fafc", border: `2px solid ${amount ? "#c7d2fe" : "#e2e8f0"}` }} />
                         </div>
                         {ptsPreview > 0 && (
                           <div className="flex items-center justify-between p-3.5 rounded-xl"
-                            style={{ background: txType === "earn" ? "rgba(5,150,105,0.06)" : "rgba(217,119,6,0.06)", border: `1px solid ${txType === "earn" ? "rgba(5,150,105,0.15)" : "rgba(217,119,6,0.15)"}` }}>
-                            <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: txType === "earn" ? "#059669" : "#d97706" }}>
-                              {txType === "earn" ? "Kazanılacak" : "Harcanacak"}
+                            style={{ background: txType === "EARN" ? "rgba(5,150,105,0.06)" : "rgba(217,119,6,0.06)", border: `1px solid ${txType === "EARN" ? "rgba(5,150,105,0.15)" : "rgba(217,119,6,0.15)"}` }}>
+                            <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: txType === "EARN" ? "#059669" : "#d97706" }}>
+                              {txType === "EARN" ? "Kazanılacak" : "Harcanacak"}
                             </span>
-                            <span className="text-xl font-bold" style={{ color: txType === "earn" ? "#059669" : "#d97706" }}>
-                              {txType === "earn" ? "+" : "-"}{fmt(ptsPreview)}
+                            <span className="text-xl font-bold" style={{ color: txType === "EARN" ? "#059669" : "#d97706" }}>
+                              {txType === "EARN" ? "+" : "-"}{fmt(ptsPreview)}
                             </span>
                           </div>
                         )}
-                        <button onClick={handleTx} disabled={!amount || ptsPreview <= 0 || scanning}
+                        <button onClick={handleTx} disabled={!amount || ptsPreview <= 0 || scanning || isPending}
                           className="w-full py-4 rounded-2xl font-bold text-sm text-white transition-all shadow-lg min-h-[44px]"
                           style={{ background: amount && ptsPreview > 0 ? INDIGO : "#cbd5e1", boxShadow: amount && ptsPreview > 0 ? "0 4px 20px rgba(79,70,229,0.2)" : "none" }}>
-                          {scanning ? "İşleniyor..." : "İşlemi Tamamla"}
+                          {scanning || isPending ? "İşleniyor..." : "İşlemi Tamamla"}
                         </button>
                       </motion.div>
                     )}
@@ -338,6 +384,10 @@ export default function CashierDashboardPage() {
             </motion.div>
           </AnimatePresence>
         )}
+        </div>
+        <div className="lg:col-span-1">
+          <RecentTransactions refreshTrigger={stats.totalTxToday} />
+        </div>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 export class OrganizationService extends BaseService {
   async getAllBossOrganizations() {
-    const { dbUser } = await this.requireRole(["BOSS", "ADMIN"]);
+    const { dbUser } = await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     return await this.db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).all();
   }
 
@@ -49,7 +49,7 @@ export class OrganizationService extends BaseService {
   }
 
   async createOrganization(name: string, slug: string) {
-    const { dbUser } = await this.requireRole(["BOSS", "ADMIN"]);
+    const { dbUser } = await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const client = await this.getClerkClient();
 
     const existingOrgs = await this.db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).all();
@@ -72,48 +72,50 @@ export class OrganizationService extends BaseService {
   }
 
   async createBranch(name: string, city: string) {
-    await this.requireRole(["BOSS", "ADMIN"]);
+    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const orgId = await this.requireOrg();
 
-    const existing = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-    if (!existing) {
-      throw new Error("Bu organizasyon sistemde aktif değil veya onaylanmamış. Lütfen Sistem Yöneticisi ile iletişime geçin.");
-    }
+    return await this.db.transaction(async (tx) => {
+      const existing = await tx.select().from(organizations).where(eq(organizations.id, orgId)).get();
+      if (!existing) {
+        throw new Error("Bu organizasyon sistemde aktif değil veya onaylanmamış. Lütfen Sistem Yöneticisi ile iletişime geçin.");
+      }
 
-    const activeBranches = await this.db.select({ count: sql<number>`COUNT(*)` })
-      .from(branches)
-      .where(eq(branches.orgId, orgId))
-      .get();
-    
-    const currentCount = activeBranches?.count ?? 0;
-    const limit = existing.branchLimit;
+      const activeBranches = await tx.select({ count: sql<number>`COUNT(*)` })
+        .from(branches)
+        .where(eq(branches.orgId, orgId))
+        .get();
+      
+      const currentCount = activeBranches?.count ?? 0;
+      const limit = existing.branchLimit;
 
-    if (currentCount >= limit) {
-      throw new Error(`Şube oluşturma limitine ulaştınız (Limit: ${limit}, Mevcut: ${currentCount}). Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.`);
-    }
+      if (currentCount >= limit) {
+        throw new Error(`Şube oluşturma limitine ulaştınız (Limit: ${limit}, Mevcut: ${currentCount}). Daha fazla şube eklemek için lütfen yöneticinizle iletişime geçin.`);
+      }
 
-    const duplicate = await this.db.select()
-      .from(branches)
-      .where(and(
-        eq(branches.orgId, orgId),
-        eq(branches.name, name),
-        eq(branches.city, city)
-      ))
-      .get();
-    
-    if (duplicate) {
-      throw new Error(`Bu şehirde (${city}) "${name}" isimli bir şube zaten mevcut.`);
-    }
+      const duplicate = await tx.select()
+        .from(branches)
+        .where(and(
+          eq(branches.orgId, orgId),
+          eq(branches.name, name),
+          eq(branches.city, city)
+        ))
+        .get();
+      
+      if (duplicate) {
+        throw new Error(`Bu şehirde (${city}) "${name}" isimli bir şube zaten mevcut.`);
+      }
 
-    const [newBranch] = await this.db.insert(branches).values({
-      orgId,
-      name,
-      city,
-      isActive: true,
-    }).returning();
+      const [newBranch] = await tx.insert(branches).values({
+        orgId,
+        name,
+        city,
+        isActive: true,
+      }).returning();
 
-    revalidatePath("/boss-dashboard");
-    return { success: true, id: newBranch.id, name, city };
+      revalidatePath("/boss-dashboard");
+      return { success: true, id: newBranch.id, name, city };
+    });
   }
 
   async updateSettings(_pointRate: number, _validityMonths: number) {
@@ -121,14 +123,14 @@ export class OrganizationService extends BaseService {
   }
 
   async getBranches() {
-    await this.requireRole(["BOSS", "ADMIN"]);
+    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const orgId = await this.requireOrg();
     return await this.db.select().from(branches).where(eq(branches.orgId, orgId)).all();
   }
 
   async updateName(newName: string) {
     const orgId = await this.requireOrg();
-    await this.requireRole(["BOSS", "ADMIN"]);
+    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     
     const client = await this.getClerkClient();
     await Promise.all([
@@ -140,7 +142,7 @@ export class OrganizationService extends BaseService {
   }
 
   async deleteOrganization(id: string) {
-    await this.requireRole(["BOSS", "ADMIN"]);
+    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const client = await this.getClerkClient();
     
     try {
@@ -162,7 +164,7 @@ export class OrganizationService extends BaseService {
   }
 
   async deleteBranch(id: string) {
-    await this.requireRole(["BOSS", "ADMIN"]);
+    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const session = await (await import("@clerk/nextjs/server")).auth();
     const orgId = session.orgId;
     const client = await this.getClerkClient();
@@ -198,7 +200,7 @@ export class OrganizationService extends BaseService {
   }
 
   async toggleStatus(id: string) {
-    await this.requireRole(["BOSS", "ADMIN"]);
+    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const branch = await this.db.select().from(branches).where(eq(branches.id, id)).get();
     if (!branch) throw new Error("Şube bulunamadı.");
 

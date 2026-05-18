@@ -38,7 +38,7 @@ export abstract class BaseService {
       throw new Error("Kullanıcı kaydı bulunamadı.");
     }
 
-    if (dbUser.role === "ADMIN") {
+    if (dbUser.role === "SUPER_ADMIN") {
       const { organizations } = await import("@/db/schema");
       const firstOrg = await this.db.select().from(organizations).get();
       if (firstOrg) return firstOrg.id;
@@ -80,13 +80,13 @@ export abstract class BaseService {
       const { userId } = await this.getSession();
       if (!userId) return false;
       const dbUser = await this.getLocalUser(userId);
-      return dbUser?.role === "ADMIN";
+      return dbUser?.role === "SUPER_ADMIN";
     } catch {
       return false;
     }
   }
 
-  protected async requireRole(roles: ("boss" | "manager" | "cashier" | "customer" | "superadmin" | "ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER")[]) {
+  protected async requireRole(roles: ("boss" | "manager" | "cashier" | "customer" | "superadmin" | "SUPER_ADMIN" | "ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER")[]) {
     const { userId } = await this.getSession();
     if (!userId) throw new Error("Oturum bulunamadı.");
 
@@ -97,7 +97,7 @@ export abstract class BaseService {
 
     // Role mapping
     const mappedRoles = roles.map(r => {
-      if (r === "superadmin") return "ADMIN";
+      if (r === "superadmin" || r === "ADMIN") return "SUPER_ADMIN";
       if (r === "boss") return "BOSS";
       if (r === "manager") return "MANAGER";
       if (r === "cashier") return "CASHIER";

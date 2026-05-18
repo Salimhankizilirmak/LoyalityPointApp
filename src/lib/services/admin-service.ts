@@ -4,50 +4,132 @@ import { eq, sql, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export class AdminService extends BaseService {
-  async inviteBoss(email: string, appUrl: string) {
-    await this.requireRole(["ADMIN"]);
+  async inviteBoss(companyName: string, bossEmail: string, appUrl: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS"; message: string }> {
+    await this.requireRole(["SUPER_ADMIN"]);
+
+    if (!companyName?.trim()) {
+      throw new Error("Şirket adı boş olamaz.");
+    }
+    if (!bossEmail?.trim() || !bossEmail.includes("@")) {
+      throw new Error("Geçerli bir e-posta adresi girilmelidir.");
+    }
+
+    const emailLower = bossEmail.trim().toLowerCase();
     const client = await this.getClerkClient();
 
-    try {
-      const existingUsers = await client.users.getUserList({ emailAddress: [email] });
-      if (existingUsers.data.some(u => (u.publicMetadata as { role?: string })?.role === "boss")) {
-        throw new Error("Bu e-posta adresiyle zaten sisteme kayıtlı bir patron var.");
+    // 1. Yerel veritabanında kullanıcıyı sorgula
+    const existingUser = await this.db.select().from(users).where(eq(users.email, emailLower)).get();
+
+    if (existingUser) {
+      // No Admin as Boss
+      if (existingUser.role === "SUPER_ADMIN") {
+        throw new Error("Süper Admin bir şirkete patron olarak atanamaz.");
+      }
+      // Role Collision Check
+      if (existingUser.role !== "BOSS") {
+        throw new Error("Bu e-posta adresi platformda farklı bir rol ile kayıtlıdır.");
       }
 
-      await client.invitations.createInvitation({
-        emailAddress: email,
-        publicMetadata: { role: "boss" },
-        redirectUrl: `${appUrl}/sign-up`,
+      // SENARYO B (Mevcut Patron - Doğrudan Senkronizasyon)
+      try {
+        // Clerk üzerinde organizasyonu programatik olarak yarat
+        const clerkOrg = await client.organizations.createOrganization({
+          name: companyName,
+          createdBy: existingUser.clerkId,
+        });
+
+        // Yerel organizasyon tablosuna kaydı mühürle
+        await this.db.insert(organizations).values({
+          id: clerkOrg.id,
+          name: companyName,
+          bossId: existingUser.id,
+          bossEmail: null,
+          branchLimit: 1,
+          isActive: true,
+        });
+
+        revalidatePath("/admin");
+
+        return {
+          success: true,
+          scenario: "EXISTING_BOSS",
+          message: "Mevcut patrona yeni şirket başarıyla tanımlandı, davet mailine gerek kalmadı.",
+        };
+      } catch (error: unknown) {
+        console.error("[AdminService] Scenario B failed:", error);
+        throw new Error(error instanceof Error ? error.message : "Mevcut patrona organizasyon tanımlanırken bir hata oluştu.");
+      }
+    }
+
+    // SENARYO A (Yeni Patron - Simetrik Kiracı Kurulumu)
+    try {
+      // 1. Clerk üzerinde organizasyonu peşin olarak oluştur
+      const clerkOrg = await client.organizations.createOrganization({
+        name: companyName,
       });
+
+      // 2. Askıda organizasyon kaydını veritabanında oluştur (bossId = null)
+      await this.db.insert(organizations).values({
+        id: clerkOrg.id,
+        name: companyName,
+        bossId: null as unknown as string,
+        bossEmail: emailLower,
+        branchLimit: 1,
+        isActive: true,
+      });
+
+      // 3. Kullanıcıya doğrudan kurumsal organizasyon yönetici daveti fırlat
+      await client.organizations.createOrganizationInvitation({
+        organizationId: clerkOrg.id,
+        emailAddress: emailLower,
+        role: "org:admin",
+        redirectUrl: `${appUrl}/sign-up`,
+        publicMetadata: { role: "boss" },
+      });
+
       revalidatePath("/admin");
 
-      return { success: true, message: `${email} adresine Patron daveti gönderildi!` };
+      return {
+        success: true,
+        scenario: "NEW_BOSS",
+        message: "Yeni şirket aktif olabilmesi için patronun gönderilen e-postasını onaylaması gerekiyor.",
+      };
     } catch (error: unknown) {
-      const clerkError = error as { errors?: { code: string }[] };
-      if (clerkError.errors?.[0]?.code === "duplicate_record") {
-        throw new Error("Bu e-posta adresine zaten aktif bir davet gönderilmiş.");
-      }
-      throw error;
+      console.error("[AdminService] Scenario A failed:", error);
+      throw new Error(error instanceof Error ? error.message : "Yeni patron daveti gönderilirken bir hata oluştu.");
     }
   }
 
   async toggleOrgStatus(orgId: string, currentStatus: boolean) {
-    await this.requireRole(["ADMIN"]);
+    await this.requireRole(["SUPER_ADMIN"]);
     await this.db.update(organizations).set({ isActive: !currentStatus }).where(eq(organizations.id, orgId));
     revalidatePath("/admin");
     return { success: true };
   }
 
   async updateBranchLimit(orgId: string, newLimit: number) {
-    await this.requireRole(["ADMIN"]);
-    if (newLimit < 1) throw new Error("Şube kotası en az 1 olmalıdır.");
+    await this.requireRole(["SUPER_ADMIN"]);
+    if (newLimit < 1) throw new Error("Şube limiti 1'den küçük olamaz.");
+
+    // Aktif şube sayısını al
+    const activeBranches = await this.db.select({ count: sql<number>`COUNT(*)` })
+      .from(branches)
+      .where(eq(branches.orgId, orgId))
+      .get();
+    
+    const currentCount = activeBranches?.count ?? 0;
+
+    if (newLimit < currentCount) {
+      throw new Error(`Yeni limit, mevcut aktif şube sayısından (${currentCount}) daha az olamaz.`);
+    }
+
     await this.db.update(organizations).set({ branchLimit: newLimit }).where(eq(organizations.id, orgId));
     revalidatePath("/admin");
     return { success: true };
   }
 
   async revokeBossInvitation(invitationId: string) {
-    await this.requireRole(["ADMIN"]);
+    await this.requireRole(["SUPER_ADMIN"]);
     const client = await this.getClerkClient();
     await client.invitations.revokeInvitation(invitationId);
     revalidatePath("/admin");
@@ -55,7 +137,7 @@ export class AdminService extends BaseService {
   }
 
   async getAllOrganizations() {
-    await this.requireRole(["ADMIN"]);
+    await this.requireRole(["SUPER_ADMIN"]);
     const client = await this.getClerkClient();
     
     const clerkOrgs = await client.organizations.getOrganizationList({ limit: 100 });
@@ -98,7 +180,7 @@ export class AdminService extends BaseService {
     return orgs.map(o => ({
       id: o.id,
       name: o.name,
-      bossEmail: bossesMap.get(o.bossId) || "Bilinmiyor",
+      bossEmail: (o.bossId && bossesMap.get(o.bossId)) || "Bilinmiyor",
       isActive: o.isActive,
       createdAt: o.createdAt,
       branchLimit: o.branchLimit,
@@ -110,7 +192,7 @@ export class AdminService extends BaseService {
   }
 
   async getGlobalAnalytics() {
-    await this.requireRole(["ADMIN"]);
+    await this.requireRole(["SUPER_ADMIN"]);
 
     const [stats] = await this.db.select({
       totalOrgs: sql<number>`COUNT(DISTINCT ${organizations.id})`,
@@ -174,7 +256,7 @@ export class AdminService extends BaseService {
   }
 
   async getInvitedBosses() {
-    await this.requireRole(["ADMIN"]);
+    await this.requireRole(["SUPER_ADMIN"]);
     const client = await this.getClerkClient();
     
     const [invitations, usersList] = await Promise.all([

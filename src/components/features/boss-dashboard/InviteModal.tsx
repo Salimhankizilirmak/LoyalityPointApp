@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { UserPlus, X, CheckCircle, AlertCircle, Mail, ShieldAlert } from "lucide-react";
-import { inviteEmployee } from "@/app/boss-dashboard/actions";
+import { inviteEmployee } from "@/app/(boss)/boss-dashboard/actions";
 import { useUser } from "@clerk/nextjs";
 
 interface InviteModalProps {

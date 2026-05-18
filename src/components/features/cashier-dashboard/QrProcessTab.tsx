@@ -4,17 +4,16 @@ import React, { useState } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { GlassPanel } from "@/components/ui/GlassPanel";
 import { GlassInput } from "@/components/ui/GlassInput";
-
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
-import { findCustomerById, processTransactionAction } from "@/app/cashier-dashboard/actions";
+import { searchCustomerAction, earnPointsAction, burnPointsAction } from "@/app/(cashier)/cashier-dashboard/actions";
 import { CheckCircle2, AlertCircle, Search, QrCode } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface CustomerInfo {
   id: string;
-  firstName: string;
-  lastName: string;
-  currentPoints: number;
+  name: string;
+  phoneNumber: string;
+  totalPoints: number;
 }
 
 export function QrProcessTab() {
@@ -24,14 +23,16 @@ export function QrProcessTab() {
   const [amount, setAmount] = useState("");
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const fetchCustomer = async (id: string) => {
-    if (!id) return;
+  const fetchCustomer = async (phone: string) => {
+    if (!phone) return;
     setLoading(true);
     setMsg(null);
     setCustomerInfo(null);
-    const data = await findCustomerById(id);
-    if (data) {
-      setCustomerInfo(data);
+    const data = await searchCustomerAction(phone);
+    if ("error" in data) {
+      setMsg({ type: "error", text: data.error! });
+    } else if (data.found && data.customer) {
+      setCustomerInfo(data.customer as CustomerInfo);
     } else {
       setMsg({ type: "error", text: "Müşteri bulunamadı veya henüz sisteme giriş yapmamış." });
     }
@@ -45,19 +46,32 @@ export function QrProcessTab() {
     }
   };
 
-  const processTx = async (type: "earn" | "spend") => {
+  const processTx = async (type: "EARN" | "BURN") => {
+    if (!customerInfo) return;
     setLoading(true);
     setMsg(null);
-    const res = await processTransactionAction(customerId, amount, type);
-    if (res.error) {
-      setMsg({ type: "error", text: res.error });
+
+    let res;
+    if (type === "EARN") {
+      const amountSpentInKurus = Math.round(Number(amount) * 100);
+      res = await earnPointsAction(customerInfo.id, amountSpentInKurus);
     } else {
-      setMsg({ type: "success", text: res.message! });
+      const pointsToBurn = Math.round(Number(amount));
+      res = await burnPointsAction(customerInfo.id, pointsToBurn);
+    }
+
+    if ("error" in res && res.error) {
+      setMsg({ type: "error", text: res.error });
+    } else if ("success" in res) {
+      setMsg({ type: "success", text: (res as { message?: string }).message ?? "İşlem başarılı!" });
       setAmount("");
-      fetchCustomer(customerId);
+      if ("newTotal" in res) {
+        setCustomerInfo(prev => prev ? { ...prev, totalPoints: res.newTotal as number } : null);
+      }
     }
     setLoading(false);
   };
+
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
@@ -110,7 +124,7 @@ export function QrProcessTab() {
             <div>
               <p className="font-label-sm text-label-sm text-primary uppercase tracking-wider mb-1">Active Customer</p>
               <h3 className="font-headline-md text-headline-md text-on-surface m-0 leading-none">
-                {customerInfo ? `${customerInfo.firstName} ${customerInfo.lastName}` : 'No Customer'}
+                {customerInfo ? customerInfo.name : 'Müşteri Seçilmedi'}
               </h3>
             </div>
           </div>
@@ -119,7 +133,7 @@ export function QrProcessTab() {
             <div className="flex justify-between items-baseline">
               <span className="font-body-md text-on-surface-variant">Available Balance</span>
               <span className="font-display text-display text-primary tracking-tight text-3xl">
-                {customerInfo ? (customerInfo.currentPoints / 100).toFixed(2) : "0.00"} <span className="text-lg text-primary/70">TL</span>
+                {customerInfo ? customerInfo.totalPoints.toLocaleString("tr-TR") : "0"} <span className="text-lg text-primary/70">Puan</span>
               </span>
             </div>
           </div>
@@ -133,8 +147,9 @@ export function QrProcessTab() {
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  min="1"
                   className="w-full input-glass rounded-xl py-4 pl-10 pr-4 font-headline-md text-headline-md text-right focus:ring-0 tracking-wider" 
-                  placeholder="0.00" 
+                  placeholder="0" 
                 />
               </div>
             </div>
@@ -148,18 +163,18 @@ export function QrProcessTab() {
 
             <div className="flex gap-4 pt-2">
               <button 
-                onClick={() => processTx("earn")} 
+                onClick={() => processTx("EARN")} 
                 disabled={loading || !amount || !customerInfo}
-                className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-label-md text-label-md py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-label-md text-label-md py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
               >
-                Earn (10%)
+                Puan Yükle
               </button>
               <button 
-                onClick={() => processTx("spend")} 
+                onClick={() => processTx("BURN")} 
                 disabled={loading || !amount || !customerInfo}
-                className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 font-label-md text-label-md py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 font-label-md text-label-md py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
               >
-                Redeem
+                Puan Harca
               </button>
             </div>
           </div>

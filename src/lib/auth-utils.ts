@@ -24,9 +24,9 @@ export async function getDashboardRedirectPath(
   const isSuperByEmail = envEmails.includes(email) || email === "novexistech@gmail.com";
   const isSuperByRole = role === "super_admin" || role === "superadmin";
 
-  let dbRole: "ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER" = "CUSTOMER";
+  let dbRole: "SUPER_ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER" = "CUSTOMER";
   if (isSuperByEmail || isSuperByRole) {
-    dbRole = "ADMIN";
+    dbRole = "SUPER_ADMIN";
   } else if (role === "boss" || orgRole === "org:admin") {
     dbRole = "BOSS";
   } else if (role === "manager") {
@@ -54,7 +54,7 @@ export async function getDashboardRedirectPath(
   }
 
   // 👑 2. Süper Admin Yönlendirmesi
-  if (dbUser.role === "ADMIN") {
+  if (dbUser.role === "SUPER_ADMIN") {
     console.log("[AuthUtils] 👑 Global Super Admin detected, redirecting to /admin");
     return "/admin";
   }
