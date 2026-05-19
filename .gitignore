@@ -39,7 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
+src/scripts/verify-and-ship.ts
 .agent/
 docs/
 drizzle/
