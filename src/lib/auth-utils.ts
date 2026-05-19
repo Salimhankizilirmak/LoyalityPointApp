@@ -109,7 +109,7 @@ export async function getDashboardRedirectPath(
     const staffProfile = await db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUser.id)).get();
     if (!staffProfile) {
       console.warn(`[AuthUtils] Staff member ${userId} has no branch profile.`);
-      return "/unauthorized";
+      return "/sign-in";
     }
 
     const branch = await db.select().from(branches).where(eq(branches.id, staffProfile.branchId)).get();
@@ -140,5 +140,5 @@ export async function getDashboardRedirectPath(
   }
 
   console.log(`[AuthUtils] Access Denied for ${email}. Role: ${dbUser.role}`);
-  return "/unauthorized";
+  return "/sign-in";
 }

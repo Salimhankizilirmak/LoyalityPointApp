@@ -7,7 +7,7 @@ import { InvitedBoss } from "./types";
 interface InvitedBossesListProps {
   bosses: InvitedBoss[];
   isDarkMode: boolean;
-  onRevoke?: (id: string) => Promise<void>;
+  onRevoke?: (id: string, organizationId?: string) => Promise<void>;
 }
 
 export function InvitedBossesList({ bosses, isDarkMode, onRevoke }: InvitedBossesListProps) {
@@ -82,7 +82,7 @@ export function InvitedBossesList({ bosses, isDarkMode, onRevoke }: InvitedBosse
                 </div>
                 {boss.status === "pending" && onRevoke && (
                   <button 
-                    onClick={() => onRevoke(boss.id)}
+                    onClick={() => onRevoke(boss.id, boss.organizationId)}
                     className="text-[10px] font-bold text-rose-500 hover:text-white hover:bg-rose-500 px-2 py-1 rounded transition-colors"
                   >
                     İptal Et

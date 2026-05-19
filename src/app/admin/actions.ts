@@ -6,6 +6,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 
 export async function inviteBossAction(companyName: string, email: string): Promise<{ success: boolean; scenario?: "NEW_BOSS" | "EXISTING_BOSS"; message?: string; error?: string }> {
   try {
@@ -25,7 +26,11 @@ export async function inviteBossAction(companyName: string, email: string): Prom
     const protocol = host.includes("localhost") ? "http" : "https";
     const appUrl = `${protocol}://${host}`;
 
-    return await adminService.inviteBoss(companyName, email, appUrl);
+    const res = await adminService.inviteBoss(companyName, email, appUrl);
+    if (res.success) {
+      revalidatePath("/admin");
+    }
+    return res;
   } catch (error: unknown) {
     return { success: false, error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
@@ -33,7 +38,9 @@ export async function inviteBossAction(companyName: string, email: string): Prom
 
 export async function toggleOrgStatus(orgId: string, currentStatus: boolean) {
   try {
-    return await adminService.toggleOrgStatus(orgId, currentStatus);
+    const res = await adminService.toggleOrgStatus(orgId, currentStatus);
+    revalidatePath("/admin");
+    return res;
   } catch (error: unknown) {
     return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
@@ -41,15 +48,19 @@ export async function toggleOrgStatus(orgId: string, currentStatus: boolean) {
 
 export async function updateBranchLimitAction(orgId: string, newLimit: number) {
   try {
-    return await adminService.updateBranchLimit(orgId, newLimit);
+    const res = await adminService.updateBranchLimit(orgId, newLimit);
+    revalidatePath("/admin");
+    return res;
   } catch (error: unknown) {
     return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
 }
 
-export async function revokeBossInvitation(invitationId: string) {
+export async function revokeBossInvitation(invitationId: string, organizationId?: string) {
   try {
-    return await adminService.revokeBossInvitation(invitationId);
+    const res = await adminService.revokeBossInvitation(invitationId, organizationId);
+    revalidatePath("/admin");
+    return res;
   } catch (error: unknown) {
     return { error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
   }
@@ -79,3 +90,4 @@ export async function getGlobalAnalytics() {
     return null;
   }
 }
+

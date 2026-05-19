@@ -23,24 +23,20 @@ export class AdminService extends BaseService {
     const existingUser = await this.db.select().from(users).where(eq(users.email, emailLower)).get();
 
     if (existingUser) {
-      // No Admin as Boss
       if (existingUser.role === "SUPER_ADMIN") {
         throw new Error("Süper Admin bir şirkete patron olarak atanamaz.");
       }
-      // Role Collision Check
       if (existingUser.role !== "BOSS") {
         throw new Error("Bu e-posta adresi platformda farklı bir rol ile kayıtlıdır.");
       }
 
       // SENARYO B (Mevcut Patron - Doğrudan Senkronizasyon)
       try {
-        // Clerk üzerinde organizasyonu programatik olarak yarat
         const clerkOrg = await client.organizations.createOrganization({
           name: companyName,
           createdBy: existingUser.clerkId,
         });
 
-        // Yerel organizasyon tablosuna kaydı mühürle
         await this.db.insert(organizations).values({
           id: clerkOrg.id,
           name: companyName,
@@ -89,15 +85,7 @@ export class AdminService extends BaseService {
         publicMetadata: { role: "boss" },
       });
 
-      // 🛡️ [Aşama 8.3] Yerel Davet Senkronizasyon Aynalaması (Mirroring)
-      await this.db.insert(schema.pendingInvitations).values({
-        id: clerkInv.id,
-        email: emailLower,
-        organizationId: clerkOrg.id,
-        createdAt: new Date(clerkInv.createdAt),
-      });
-
-      console.log(`[AdminService] 📩 Invitation ${clerkInv.id} mirrored locally for ${emailLower}`);
+      console.log(`[AdminService] 📩 Invitation ${clerkInv.id} created successfully for ${emailLower}`);
 
       revalidatePath("/admin");
 
@@ -123,7 +111,6 @@ export class AdminService extends BaseService {
     await this.requireRole(["SUPER_ADMIN"]);
     if (newLimit < 1) throw new Error("Şube limiti 1'den küçük olamaz.");
 
-    // Aktif şube sayısını al
     const activeBranches = await this.db.select({ count: sql<number>`COUNT(*)` })
       .from(branches)
       .where(eq(branches.orgId, orgId))
@@ -140,10 +127,21 @@ export class AdminService extends BaseService {
     return { success: true };
   }
 
-  async revokeBossInvitation(invitationId: string) {
+  async revokeBossInvitation(invitationId: string, organizationId?: string) {
     await this.requireRole(["SUPER_ADMIN"]);
     const client = await this.getClerkClient();
-    await client.invitations.revokeInvitation(invitationId);
+    
+    if (organizationId) {
+      console.log(`[AdminService] Revoking organization invitation: InvId=${invitationId}, OrgId=${organizationId}`);
+      await client.organizations.revokeOrganizationInvitation({
+        organizationId,
+        invitationId,
+      });
+    } else {
+      console.log(`[AdminService] Revoking global user invitation: InvId=${invitationId}`);
+      await client.invitations.revokeInvitation(invitationId);
+    }
+    
     revalidatePath("/admin");
     return { success: true };
   }
@@ -269,38 +267,48 @@ export class AdminService extends BaseService {
 
   async getInvitedBosses() {
     await this.requireRole(["SUPER_ADMIN"]);
+    const client = await this.getClerkClient();
     
-    // 🛡️ [Aşama 8.3] Harici Ağ Çağrıları (Clerk API) Tamamen Temizlendi! Ağ Maliyeti: 0ms
-    const [localPendingInvitations, localBosses] = await Promise.all([
-      this.db.select({
-        id: schema.pendingInvitations.id,
-        email: schema.pendingInvitations.email,
-        createdAt: schema.pendingInvitations.createdAt,
-      })
-      .from(schema.pendingInvitations)
-      .all(),
-      this.db.select({
-        id: users.id,
-        clerkId: users.clerkId,
-        email: users.email,
-        createdAt: users.createdAt,
-      })
-      .from(users)
-      .where(eq(users.role, "BOSS"))
-      .all()
-    ]);
+    // 1. Yerel aktif BOSS'ları çek
+    const localBosses = await this.db.select({
+      id: users.id,
+      clerkId: users.clerkId,
+      email: users.email,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(eq(users.role, "BOSS"))
+    .all();
 
-    const activeEmails = new Set(localBosses.map(u => u.email.trim().toLowerCase()));
+    // 2. Yerel organizasyonları çek
+    const localOrgs = await this.db.select({ id: organizations.id }).from(organizations).all();
 
-    // Idempotent Filtreleme: Aktif BOSS listesinde olan e-postaları bekleyen listesinden eliyoruz
-    const pending = localPendingInvitations
-      .filter(p => !activeEmails.has(p.email.trim().toLowerCase()))
-      .map(p => ({
-        id: p.id,
-        email: p.email,
-        status: "pending" as const,
-        createdAt: new Date(p.createdAt).getTime(),
-      }));
+    // 3. Her organizasyon için bekleyen Clerk davetiyelerini paralel çek
+    const pendingPromises = localOrgs.map(org =>
+      client.organizations.getOrganizationInvitationList({
+        organizationId: org.id,
+        status: ["pending"]
+      }).catch((err) => {
+        console.error(`[AdminService] Davetiyeler çekilirken hata (Org: ${org.id}):`, err);
+        return { data: [] };
+      })
+    );
+
+    const pendingResults = await Promise.all(pendingPromises);
+    const pending: Array<{ id: string; email: string; status: "pending"; createdAt: number; organizationId?: string }> = [];
+
+    localOrgs.forEach((org, idx) => {
+      const res = pendingResults[idx];
+      res.data.forEach(inv => {
+        pending.push({
+          id: inv.id,
+          email: inv.emailAddress.toLowerCase(),
+          status: "pending",
+          createdAt: new Date(inv.createdAt).getTime(),
+          organizationId: org.id,
+        });
+      });
+    });
 
     const active = localBosses.map(u => ({
       id: u.id,

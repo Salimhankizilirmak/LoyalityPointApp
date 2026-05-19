@@ -25,4 +25,5 @@ export interface InvitedBoss {
   status: "pending" | "accepted";
   createdAt: number;
   lastSignIn?: number | null;
+  organizationId?: string;
 }

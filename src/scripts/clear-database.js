@@ -47,101 +47,100 @@ var rl = readline.createInterface({
 });
 function clearDatabase() {
     return __awaiter(this, void 0, void 0, function () {
-        var question, confirmation, db, _a, organizations, staffProfiles, customerProfiles, pointsTransactions, branches, users, _b, ne, and, error_1;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        var question, confirmation, db, _a, pointsTransactions, loyaltyTransactions, userBranches, customerProfiles, staffProfiles, customers, loyaltyRules, branches, organizations, users, error_1;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
                     console.log("\n====================================================");
-                    console.log("🛡️  GÜVENLİK DENETİMİ: VERİTABANI SIFIRLAMA");
+                    console.log("🛡️  GÜVENLİK DENETİMİ: TÜM VERİTABANINI TEMİZLEME");
                     console.log("====================================================\n");
                     if (process.env.NODE_ENV === "production" && process.env.SECURITY_WIPE_BYPASS !== "true") {
                         console.error("❌ HATA: Canlı (Production) ortamda bu scripti çalıştıramazsınız!");
                         console.error("Güvenlik nedeniyle işlem durduruldu.");
                         process.exit(1);
                     }
-                    if (process.env.SECURITY_WIPE_BYPASS !== "true") {
-                        console.error("❌ HATA: SECURITY_WIPE_BYPASS=.env.local içinde 'true' olmalıdır.");
-                        process.exit(1);
-                    }
                     question = function (query) { return new Promise(function (resolve) { return rl.question(query, resolve); }); };
-                    console.log("⚠️  DİKKAT: Bu işlem GERİ DÖNDÜRÜLEMEZ!");
-                    console.log("Tüm şubeler, müşteriler, puanlar ve işlemler silinecektir.\n");
-                    return [4 /*yield*/, question("Devam etmek için 'SISTEMI_SIFIRLA' yazın: ")];
+                    console.log("⚠️  ÇOK KRİTİK UYARI: Bu işlem GERİ DÖNDÜRÜLEMEZ!");
+                    console.log("Veritabanındaki TÜM TABLOLAR (kullanıcılar, organizasyonlar, şubeler, işlemler, kurallar) tamamen silinecektir.\n");
+                    return [4 /*yield*/, question("Devam etmek için 'VERILERI_TAMAMEN_SIL' yazın: ")];
                 case 1:
-                    confirmation = _c.sent();
-                    if (confirmation !== "SISTEMI_SIFIRLA") {
-                        console.log("\n❌ İşlem iptal edildi. Hatalı onay kodu.");
+                    confirmation = _b.sent();
+                    if (confirmation !== "VERILERI_TAMAMEN_SIL") {
+                        console.log("\n❌ İşlem iptal edildi. Onay kodu eşleşmedi.");
                         process.exit(0);
                     }
-                    console.log("\n🚀 İşlem onaylandı. Veriler siliniyor...\n");
+                    console.log("\n🚀 İşlem onaylandı. Tüm tablolar sırayla temizleniyor...\n");
                     return [4 /*yield*/, Promise.resolve().then(function () { return require("../db"); })];
                 case 2:
-                    db = (_c.sent()).db;
+                    db = (_b.sent()).db;
                     return [4 /*yield*/, Promise.resolve().then(function () { return require("../db/schema"); })];
                 case 3:
-                    _a = _c.sent(), organizations = _a.organizations, staffProfiles = _a.staffProfiles, customerProfiles = _a.customerProfiles, pointsTransactions = _a.pointsTransactions, branches = _a.branches, users = _a.users;
-                    return [4 /*yield*/, Promise.resolve().then(function () { return require("drizzle-orm"); })];
+                    _a = _b.sent(), pointsTransactions = _a.pointsTransactions, loyaltyTransactions = _a.loyaltyTransactions, userBranches = _a.userBranches, customerProfiles = _a.customerProfiles, staffProfiles = _a.staffProfiles, customers = _a.customers, loyaltyRules = _a.loyaltyRules, branches = _a.branches, organizations = _a.organizations, users = _a.users;
+                    _b.label = 4;
                 case 4:
-                    _b = _c.sent(), ne = _b.ne, and = _b.and;
-                    _c.label = 5;
-                case 5:
-                    _c.trys.push([5, 13, 14, 15]);
-                    console.log("1. Transactions (İşlemler) siliniyor...");
+                    _b.trys.push([4, 15, 16, 17]);
+                    console.log("1. Points Transactions (Sadakat Puan İşlemleri) siliniyor...");
                     return [4 /*yield*/, db.delete(pointsTransactions)];
+                case 5:
+                    _b.sent();
+                    console.log("✅ Puan işlemleri silindi.");
+                    console.log("2. Loyalty Transactions (Genel Sadakat İşlemleri) siliniyor...");
+                    return [4 /*yield*/, db.delete(loyaltyTransactions)];
                 case 6:
-                    _c.sent();
-                    console.log("✅ İşlemler silindi.");
-                    console.log("2. Customer Profiles (Müşteri Profilleri) siliniyor...");
-                    return [4 /*yield*/, db.delete(customerProfiles)];
+                    _b.sent();
+                    console.log("✅ Sadakat işlemleri silindi.");
+                    console.log("3. User Branches (Kullanıcı Şube İlişkileri) siliniyor...");
+                    return [4 /*yield*/, db.delete(userBranches)];
                 case 7:
-                    _c.sent();
-                    console.log("✅ Müşteri profilleri silindi.");
-                    console.log("3. Staff Profiles (Personel Profilleri) siliniyor...");
-                    return [4 /*yield*/, db.delete(staffProfiles)];
+                    _b.sent();
+                    console.log("✅ Kullanıcı şube ilişkileri silindi.");
+                    console.log("4. Customer Profiles (Müşteri Profilleri) siliniyor...");
+                    return [4 /*yield*/, db.delete(customerProfiles)];
                 case 8:
-                    _c.sent();
-                    console.log("✅ Personel profilleri silindi.");
-                    console.log("4. Branches (Şubeler) siliniyor...");
-                    return [4 /*yield*/, db.delete(branches)];
+                    _b.sent();
+                    console.log("✅ Müşteri profilleri silindi.");
+                    console.log("5. Staff Profiles (Personel Profilleri) siliniyor...");
+                    return [4 /*yield*/, db.delete(staffProfiles)];
                 case 9:
-                    _c.sent();
-                    console.log("✅ Şubeler silindi.");
-                    console.log("5. Organizations (Ana Organizasyonlar) siliniyor...");
-                    return [4 /*yield*/, db.delete(organizations)];
+                    _b.sent();
+                    console.log("✅ Personel profilleri silindi.");
+                    console.log("6. Customers (Müşteriler) siliniyor...");
+                    return [4 /*yield*/, db.delete(customers)];
                 case 10:
-                    _c.sent();
-                    console.log("✅ Organizasyonlar silindi.");
-                    console.log("6. Patronlar siliniyor...");
-                    return [4 /*yield*/, db.delete(users)];
+                    _b.sent();
+                    console.log("✅ Müşteriler silindi.");
+                    console.log("7. Loyalty Rules (Sadakat Kuralları) siliniyor...");
+                    return [4 /*yield*/, db.delete(loyaltyRules)];
                 case 11:
-                    _c.sent();
-                    console.log("✅ Patronlar silindi.");
-                    console.log("6. Users (Süper Admin Dışındaki Kullanıcılar) siliniyor...");
-                    // Keep 'novexistech@gmail.com' and ADMIN users
-                    return [4 /*yield*/, db.delete(users).where(and(ne(users.email, "novexistech@gmail.com"), ne(users.role, "SUPER_ADMIN")))];
+                    _b.sent();
+                    console.log("✅ Sadakat kuralları silindi.");
+                    console.log("8. Branches (Şubeler) siliniyor...");
+                    return [4 /*yield*/, db.delete(branches)];
                 case 12:
-                    // Keep 'novexistech@gmail.com' and ADMIN users
-                    _c.sent();
-                    console.log("✅ Diğer kullanıcılar silindi.");
-                    console.log("\n🎉 TÜM YEREL VERİLER BAŞARIYLA SİLİNDİ! 🎉");
-                    console.log("-------------------------------------------------------------------");
-                    console.log("🔴 KRİTİK GÜVENLİK NOTU:");
-                    console.log("Bu işlem SADECE yerel Turso veritabanını temizlemiştir.");
-                    console.log("Clerk üzerindeki 'Bekleyen Davetler' (Invitations) hala AKTİFTİR.");
-                    console.log("Güvenlik için Clerk Dashboard üzerinden davetleri manuel silmelisiniz:");
-                    console.log("-> Clerk Dashboard > Organizations > [Org Seç] > Invitations");
-                    console.log("-------------------------------------------------------------------");
-                    console.log("Sistemde şu an sadece .env.local dosyasındaki Süper Adminler bulunmaktadır.");
-                    return [3 /*break*/, 15];
+                    _b.sent();
+                    console.log("✅ Şubeler silindi.");
+                    console.log("9. Organizations (Organizasyonlar) siliniyor...");
+                    return [4 /*yield*/, db.delete(organizations)];
                 case 13:
-                    error_1 = _c.sent();
+                    _b.sent();
+                    console.log("✅ Organizasyonlar silindi.");
+                    console.log("10. Users (Tüm Kullanıcılar) siliniyor...");
+                    return [4 /*yield*/, db.delete(users)];
+                case 14:
+                    _b.sent();
+                    console.log("✅ Tüm kullanıcılar silindi.");
+                    console.log("\n🎉 TEBRİKLER: VERİTABANINDAKİ TÜM VERİLER BAŞARIYLA TEMİZLENDİ! 🎉");
+                    console.log("Sistem tamamen sıfır durumundadır. Artık yeni kayıtları kabul etmeye hazırdır.");
+                    return [3 /*break*/, 17];
+                case 15:
+                    error_1 = _b.sent();
                     console.error("\n❌ Veri silme işlemi sırasında bir hata oluştu:", error_1);
                     console.log("Hata detayı:", error_1 instanceof Error ? error_1.message : String(error_1));
-                    return [3 /*break*/, 15];
-                case 14:
+                    return [3 /*break*/, 17];
+                case 16:
                     rl.close();
                     return [7 /*endfinally*/];
-                case 15: return [2 /*return*/];
+                case 17: return [2 /*return*/];
             }
         });
     });

@@ -2,9 +2,8 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, branches, userBranches, pendingInvitations } from "@/db/schema";
+import { users, organizations, branches, userBranches } from "@/db/schema";
 import { eq, and, isNull, inArray } from "drizzle-orm";
-import { clerkClient } from "@clerk/nextjs/server";
 
 type ClerkPayload = {
   type: string;
@@ -28,7 +27,7 @@ export async function POST(req: Request) {
     const body = await req.text();
 
     if (WEBHOOK_SECRET) {
-      // 🔒 Prod Ortamı: Svix ile İmza Doğrulaması
+      // 🔒 Svix ile İmza Doğrulaması
       const headerPayload = await headers();
       const svix_id = headerPayload.get("svix-id");
       const svix_timestamp = headerPayload.get("svix-timestamp");
@@ -46,7 +45,7 @@ export async function POST(req: Request) {
         "svix-signature": svix_signature,
       }) as ClerkPayload;
     } else {
-      // 🧪 Geliştirme Ortamı: Doğrulamasız Doğrudan İşleme (Mock Webhook veya Local Test için)
+      // ⚠️ Geliştirme Ortamı: Doğrulamasız Doğrudan İşleme
       console.warn("[ClerkWebhook] ⚠️ CLERK_WEBHOOK_SECRET is not configured. Processing without verification.");
       payload = JSON.parse(body) as ClerkPayload;
     }
@@ -61,36 +60,31 @@ export async function POST(req: Request) {
   if (type === "user.created") {
     const clerkId = data.id || "";
     const email = data.email_addresses?.[0]?.email_address?.toLowerCase() || "";
-    const emailLower = email.trim().toLowerCase();
-
-    // 🛡️ [Aşama 8.3] OTONOM İMHA MOTORU (Self-Cleansing Guard)
-    const isSuperAdminEmail = emailLower === "novexistech@gmail.com" || emailLower === process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase();
-    if (!isSuperAdminEmail) {
-      const isInvited = await db.select().from(pendingInvitations).where(eq(pendingInvitations.email, emailLower)).get();
-      if (!isInvited) {
-        console.warn(`[ClerkWebhook] 🛡️ [SELF-CLEANSING] Davetsiz kayıt teşebbüsü saptandı: ${emailLower}. Yerel pending_invitations tablosunda davet kaydı bulunamadı!`);
-        try {
-          const client = await clerkClient();
-          await client.users.deleteUser(clerkId);
-          console.log(`[ClerkWebhook] 💀 [SELF-CLEANSING] Kullanıcı ${clerkId} (${emailLower}) programatik olarak Clerk sunucularından KAZINDI.`);
-          return NextResponse.json({ success: false, error: "Unauthorized: No pending invitation found. User deleted." }, { status: 403 });
-        } catch (err) {
-          console.error(`[ClerkWebhook] ❌ [SELF-CLEANSING] Kullanıcı ${clerkId} Clerk'ten silinirken hata oluştu:`, err);
-          return NextResponse.json({ error: "Failed to scrape unauthorized user" }, { status: 500 });
-        }
-      }
-    }
-
-    const role = (data.public_metadata?.role as string) || "";
+    let role = (data.public_metadata?.role as string) || "";
     const firstName = ((data as Record<string, unknown>).first_name as string) || "";
     const lastName = ((data as Record<string, unknown>).last_name as string) || "";
     const name = `${firstName} ${lastName}`.trim() || null;
 
     console.log(`[ClerkWebhook] 👤 New user created event details: ClerkId=${clerkId}, Email=${email}, MetadataRole=${role}, Name=${name}`);
 
+    // ⚡ AKILLI BOSS TESPİTİ: Eğer public_metadata boşsa veya "boss" değilse bile, 
+    // yerel veritabanında bu e-postaya ait askıda bekleyen bir organizasyon daveti varsa
+    // bu kullanıcının meşru bir BOSS olduğunu tescille!
+    if (role !== "boss" && email) {
+      const pendingOrgCheck = await db.select()
+        .from(organizations)
+        .where(and(eq(organizations.bossEmail, email), isNull(organizations.bossId)))
+        .get();
+
+      if (pendingOrgCheck) {
+        console.log(`[ClerkWebhook] 👑 Detected legitimate BOSS via pending organization email match for: ${email}`);
+        role = "boss";
+      }
+    }
+
     if (role === "boss") {
       try {
-        // 🔄 Drizzle Transaction ile Kullanıcı ve Askıdaki Organizasyon Birleştirilmesi
+        // 🔄 BOSS ve Askıdaki Organizasyon Birleştirilmesi
         await db.transaction(async (tx) => {
           // 1. Yerel veritabanında kullanıcıyı BOSS olarak kaydet
           let dbUser = await tx.select().from(users).where(eq(users.clerkId, clerkId)).get();
@@ -126,10 +120,6 @@ export async function POST(req: Request) {
           } else {
             console.log(`[ClerkWebhook] ⚠️ No pending organization found for email: ${email}`);
           }
-
-          // 🛡️ [Aşama 8.3] Asenkron Yerel Temizlik (Delete pending_invitations)
-          await tx.delete(pendingInvitations).where(eq(pendingInvitations.email, email));
-          console.log(`[ClerkWebhook] 🧹 Cleared pending_invitations for ${email}`);
         });
 
         return NextResponse.json({ success: true, message: "User synced and organization linked successfully." });
@@ -149,7 +139,9 @@ export async function POST(req: Request) {
     const orgId = anyData.organization?.id as string;
     
     const metadata = anyData.public_metadata || {};
-    const role = ((metadata.role as string) || "CASHIER") as "CASHIER" | "MANAGER";
+    const orgRole = (anyData as Record<string, unknown>).role as string || "";
+    const isBossMember = orgRole === "org:admin" || orgRole === "admin" || metadata.role === "boss";
+
     const targetBranchIds = metadata.targetBranchIds as string[];
     
     const rawPublicUser = (anyData.public_user_data as Record<string, unknown>) || {};
@@ -165,9 +157,55 @@ export async function POST(req: Request) {
       rawData.first_name !== undefined || 
       rawData.last_name !== undefined;
 
-    console.log(`[ClerkWebhook] 🏢 Organization Membership Synced: ClerkId=${clerkUserId}, Email=${email}, Role=${role}, Branches=${targetBranchIds}, Name=${name}, HasName=${hasNameInPayload}`);
+    console.log(`[ClerkWebhook] 🏢 Organization Membership Synced: ClerkId=${clerkUserId}, Email=${email}, OrgRole=${orgRole}, IsBoss=${isBossMember}, Branches=${targetBranchIds}, Name=${name}`);
 
-    if (clerkUserId && role && (role === "MANAGER" || role === "CASHIER")) {
+    if (clerkUserId && isBossMember) {
+      try {
+        await db.transaction(async (tx) => {
+          // 1. Yerel veritabanında kullanıcıyı BOSS olarak kaydet / güncelle
+          let dbUser = await tx.select().from(users).where(eq(users.clerkId, clerkUserId)).get();
+          if (!dbUser) {
+            const inserted = await tx.insert(users).values({
+              clerkId: clerkUserId,
+              email: email,
+              role: "BOSS",
+              name: name || null,
+            }).returning();
+            dbUser = inserted[0];
+            console.log(`[ClerkWebhook] 👤 Created local BOSS user via membership event: ${dbUser.id}`);
+          } else {
+            await tx.update(users).set({ role: "BOSS", name: name || dbUser.name }).where(eq(users.id, dbUser.id));
+            console.log(`[ClerkWebhook] 👤 Updated local user to BOSS via membership event: ${dbUser.id}`);
+          }
+
+          // 2. Askıdaki organizasyonu e-posta veya organizasyon kimliği üzerinden bul ve bağla
+          const pendingOrg = await tx.select()
+            .from(organizations)
+            .where(eq(organizations.id, orgId))
+            .get();
+
+          if (pendingOrg && (!pendingOrg.bossId || pendingOrg.bossId === "null" || pendingOrg.bossId === "")) {
+            console.log(`[ClerkWebhook] 🏢 Pending organization found for BOSS membership bind: ${pendingOrg.name}`);
+            await tx.update(organizations)
+              .set({
+                bossId: dbUser.id,
+                bossEmail: null,
+              })
+              .where(eq(organizations.id, orgId));
+            console.log(`[ClerkWebhook] ⛓️ Linked BOSS ${dbUser.id} to organization ${orgId}`);
+          }
+        });
+
+        return NextResponse.json({ success: true, message: "BOSS membership synced and linked successfully." });
+      } catch (err) {
+        console.error("[ClerkWebhook] ❌ BOSS membership sync failed:", err);
+        return NextResponse.json({ error: "BOSS membership sync failed" }, { status: 500 });
+      }
+    }
+
+    const staffRole = ((metadata.role as string) || "CASHIER") as "CASHIER" | "MANAGER";
+
+    if (clerkUserId && staffRole && (staffRole === "MANAGER" || staffRole === "CASHIER")) {
       try {
         let dbUserId = "";
         
@@ -178,13 +216,13 @@ export async function POST(req: Request) {
             const inserted = await tx.insert(users).values({
               clerkId: clerkUserId,
               email: email,
-              role: role,
+              role: staffRole,
               name: name || null,
             }).returning();
             dbUser = inserted[0];
             console.log(`[ClerkWebhook] 👤 Created local staff user: ${dbUser.id}`);
           } else {
-            const updateFields: { role: "CASHIER" | "MANAGER"; name?: string | null } = { role: role };
+            const updateFields: { role: "CASHIER" | "MANAGER"; name?: string | null } = { role: staffRole };
             if (hasNameInPayload) {
               updateFields.name = name || null;
             }
@@ -200,18 +238,11 @@ export async function POST(req: Request) {
           const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
           
           if (org && org.bossId) {
-            // Arka planda programatik olarak staffService tetiklenir
             await staffService.assignStaffToBranches(org.bossId, org.id, dbUserId, targetBranchIds);
             console.log(`[ClerkWebhook] ⛓️ Staff assigned to branches successfully.`);
           } else {
             console.warn(`[ClerkWebhook] ⚠️ No local boss found for org ${orgId}`);
           }
-        }
-
-        // 🛡️ [Aşama 8.3] Asenkron Yerel Temizlik (Delete pending_invitations)
-        if (email) {
-          await db.delete(pendingInvitations).where(eq(pendingInvitations.email, email.toLowerCase()));
-          console.log(`[ClerkWebhook] 🧹 Cleared pending_invitations for staff ${email}`);
         }
       } catch (err) {
         console.error("[ClerkWebhook] ❌ Staff sync failed:", err);
@@ -233,7 +264,6 @@ export async function POST(req: Request) {
           const dbUser = await tx.select().from(users).where(eq(users.clerkId, clerkUserId)).get();
           if (!dbUser) return;
 
-          // Delete userBranches using subquery for the specific org
           const deletedJunctions = await tx.delete(userBranches).where(
             and(
               eq(userBranches.userId, dbUser.id),
@@ -249,7 +279,6 @@ export async function POST(req: Request) {
           // Ghost Staff Prevention
           const remainingBranches = await tx.select().from(userBranches).where(eq(userBranches.userId, dbUser.id)).limit(1).get();
           if (!remainingBranches) {
-            // Delete the user record completely if they have no remaining branches
             await tx.delete(users).where(eq(users.id, dbUser.id));
             console.log(`[ClerkWebhook] 👻 User ${dbUser.id} has no remaining branches. User record deleted (Ghost Staff prevention).`);
           }
@@ -257,43 +286,6 @@ export async function POST(req: Request) {
       } catch (err) {
         console.error("[ClerkWebhook] ❌ Staff cleanup failed:", err);
         return NextResponse.json({ error: "Staff cleanup failed" }, { status: 500 });
-      }
-    }
-  }
-
-  // 🛡️ [Aşama 8.3] Revoke (İptal) veya Accept (Kabul) olaylarında Yerel Temizlik Korumaları
-  if (type === "invitation.revoked" || type === "invitation.accepted") {
-    const email = ((data as Record<string, unknown>).email_address as string | undefined)?.toLowerCase() || "";
-    const invId = data.id || "";
-    if (email || invId) {
-      try {
-        const conditions = [];
-        if (email) conditions.push(eq(pendingInvitations.email, email));
-        if (invId) conditions.push(eq(pendingInvitations.id, invId));
-        
-        const { or } = await import("drizzle-orm");
-        await db.delete(pendingInvitations).where(or(...conditions));
-        console.log(`[ClerkWebhook] 🧹 Revoked/Accepted pending_invitations cleared for email=${email}, id=${invId}`);
-      } catch (err) {
-        console.error("[ClerkWebhook] ❌ Failed to clear revoked/accepted invitation:", err);
-      }
-    }
-  }
-
-  if (type === "organizationInvitation.revoked" || type === "organizationInvitation.accepted") {
-    const email = ((data as Record<string, unknown>).email_address as string | undefined)?.toLowerCase() || "";
-    const invId = data.id || "";
-    if (email || invId) {
-      try {
-        const conditions = [];
-        if (email) conditions.push(eq(pendingInvitations.email, email));
-        if (invId) conditions.push(eq(pendingInvitations.id, invId));
-        
-        const { or } = await import("drizzle-orm");
-        await db.delete(pendingInvitations).where(or(...conditions));
-        console.log(`[ClerkWebhook] 🧹 Org Invitation Revoked/Accepted pending_invitations cleared for email=${email}, id=${invId}`);
-      } catch (err) {
-        console.error("[ClerkWebhook] ❌ Failed to clear revoked/accepted org invitation:", err);
       }
     }
   }

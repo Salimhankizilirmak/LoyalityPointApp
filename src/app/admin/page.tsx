@@ -89,9 +89,9 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleRevokeBoss = async (id: string) => {
+  const handleRevokeBoss = async (id: string, organizationId?: string) => {
     if (!confirm("Bu daveti iptal etmek istediğinize emin misiniz?")) return;
-    const result = await revokeBossInvitation(id);
+    const result = await revokeBossInvitation(id, organizationId);
     if ("error" in result) {
       alert(result.error);
     } else {
@@ -118,6 +118,7 @@ export default function SuperAdminDashboard() {
         {showInvite && (
           <InviteBossModal 
             onClose={() => setShowInvite(false)} 
+            onSuccess={loadData}
             isDarkMode={isDarkMode}
           />
         )}

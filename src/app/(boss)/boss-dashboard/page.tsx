@@ -139,8 +139,8 @@ export default function BossDashboard() {
 
       // 🛡️ Yetki koruması: Boss olmayanları engelle
       if (role !== "boss") {
-        console.log("[BossDashboard] ❌ Unauthorized access -> Redirecting to /unauthorized");
-        router.replace("/unauthorized");
+        console.log("[BossDashboard] ❌ Unauthorized access -> Redirecting to /");
+        router.replace("/");
         return;
       }
 
@@ -542,6 +542,7 @@ export default function BossDashboard() {
                 onDelete={async () => {}} // Placeholder
                 onAdd={handleAddCustomer}
                 loadingId={null}
+                hideAddButton={true}
               />
             )}
 

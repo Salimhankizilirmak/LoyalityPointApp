@@ -17,7 +17,7 @@ export default function CreateOrganizationPage() {
   if (isLoaded && user) {
     const role = (user.publicMetadata?.role as string) || "customer";
     if (role !== "boss" && role !== "superadmin") {
-      router.replace("/unauthorized");
+      router.replace("/");
       return null;
     }
   }

@@ -11,8 +11,9 @@ interface CustomerManagementProps {
   isDarkMode: boolean;
   onUpdate: (id: string, data: Partial<Customer>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onAdd: (data: { firstName: string; lastName: string; phone: string }) => Promise<void>;
+  onAdd?: (data: { firstName: string; lastName: string; phone: string }) => Promise<void>;
   loadingId: string | null;
+  hideAddButton?: boolean;
 }
 
 export function CustomerManagement({
@@ -21,7 +22,8 @@ export function CustomerManagement({
   onUpdate,
   onDelete,
   onAdd,
-  loadingId
+  loadingId,
+  hideAddButton = false
 }: CustomerManagementProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Customer>>({});
@@ -46,7 +48,7 @@ export function CustomerManagement({
   return (
     <div className="space-y-6">
       <AnimatePresence>
-        {showAdd && (
+        {showAdd && onAdd && (
           <AddCustomerModal 
             onClose={() => setShowAdd(false)} 
             onAdd={onAdd}
@@ -61,12 +63,14 @@ export function CustomerManagement({
           <p className="text-slate-500 text-sm mt-1">Sistemdeki müşterileri yönetin.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all min-h-[44px]"
-          >
-            <UserPlus size={16} /> Yeni Müşteri
-          </button>
+          {!hideAddButton && onAdd && (
+            <button 
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all min-h-[44px]"
+            >
+              <UserPlus size={16} /> Yeni Müşteri
+            </button>
+          )}
           <div className="relative">
             <label htmlFor="customerSearch" className="sr-only">Müşteri Ara</label>
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

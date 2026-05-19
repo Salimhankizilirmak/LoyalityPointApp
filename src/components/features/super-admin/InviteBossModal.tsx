@@ -7,10 +7,11 @@ import { inviteBossAction } from "@/app/admin/actions";
 
 interface InviteBossModalProps {
   onClose: () => void;
+  onSuccess?: () => void;
   isDarkMode: boolean;
 }
 
-export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
+export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossModalProps) {
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -39,6 +40,9 @@ export function InviteBossModal({ onClose, isDarkMode }: InviteBossModalProps) {
       setSuccessScenario(result.scenario || "NEW_BOSS");
       setSuccessMessage(result.message || "");
       setSent(true);
+      if (onSuccess) {
+        onSuccess();
+      }
     } else {
       setError(result.error || "Bir hata oluştu.");
       setSending(false);
