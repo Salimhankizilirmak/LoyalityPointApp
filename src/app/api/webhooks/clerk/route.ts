@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, organizations, branches, userBranches } from "@/db/schema";
 import { eq, and, isNull, inArray } from "drizzle-orm";
+import { clerkClient } from "@clerk/nextjs/server";
 
 type ClerkPayload = {
   type: string;
@@ -84,6 +85,10 @@ export async function POST(req: Request) {
 
     if (role === "boss") {
       try {
+        const client = await clerkClient();
+        const orgId = (data.public_metadata?.orgId as string) || "";
+        console.log(`[ClerkWebhook] 🏢 BOSS flow triggered. Metadata OrgId: ${orgId}`);
+
         // 🔄 BOSS ve Askıdaki Organizasyon Birleştirilmesi
         await db.transaction(async (tx) => {
           // 1. Yerel veritabanında kullanıcıyı BOSS olarak kaydet
@@ -102,11 +107,20 @@ export async function POST(req: Request) {
             console.log(`[ClerkWebhook] 👤 Local BOSS user already exists and was updated: ${dbUser.id}`);
           }
 
-          // 2. Askıdaki organizasyonu e-posta üzerinden bul ve bağla
-          const pendingOrg = await tx.select()
-            .from(organizations)
-            .where(and(eq(organizations.bossEmail, email), isNull(organizations.bossId)))
-            .get();
+          // 2. Askıdaki organizasyonu e-posta veya orgId üzerinden bul ve bağla
+          let pendingOrg = null;
+          if (orgId) {
+            pendingOrg = await tx.select()
+              .from(organizations)
+              .where(eq(organizations.id, orgId))
+              .get();
+          }
+          if (!pendingOrg && email) {
+            pendingOrg = await tx.select()
+              .from(organizations)
+              .where(and(eq(organizations.bossEmail, email), isNull(organizations.bossId)))
+              .get();
+          }
 
           if (pendingOrg) {
             console.log(`[ClerkWebhook] 🏢 Pending organization found: ${pendingOrg.name} (${pendingOrg.id})`);
@@ -117,8 +131,20 @@ export async function POST(req: Request) {
               })
               .where(eq(organizations.id, pendingOrg.id));
             console.log(`[ClerkWebhook] ⛓️ Linked BOSS ${dbUser.id} to organization ${pendingOrg.id}`);
+
+            // 3. Clerk üzerinde de organizasyona üyelik oluştur (BOSS org:admin olmalı)
+            try {
+              await client.organizations.createOrganizationMembership({
+                organizationId: pendingOrg.id,
+                userId: clerkId,
+                role: "org:admin",
+              });
+              console.log(`[ClerkWebhook] 🏢 Created Clerk organization membership for BOSS: ${clerkId} in Org: ${pendingOrg.id}`);
+            } catch (clerkMemErr) {
+              console.warn(`[ClerkWebhook] ⚠️ Clerk organization membership creation warning:`, clerkMemErr);
+            }
           } else {
-            console.log(`[ClerkWebhook] ⚠️ No pending organization found for email: ${email}`);
+            console.log(`[ClerkWebhook] ⚠️ No pending organization found for email: ${email} or orgId: ${orgId}`);
           }
         });
 

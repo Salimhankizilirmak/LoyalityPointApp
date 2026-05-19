@@ -1,7 +1,7 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { organizations, users, staffProfiles, customerProfiles, branches } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 
 export async function getDashboardRedirectPath(
   userId: string,
@@ -61,30 +61,69 @@ export async function getDashboardRedirectPath(
 
   // 🏢 3. Boss / Şirket Sahibi Kontrolü
   if (dbUser.role === "BOSS") {
-    if (orgId) {
-      // Organizasyon kaydını veritabanında oluştur/güncelle
-      let dbOrg = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-      if (!dbOrg) {
-        const clerkOrg = await client.organizations.getOrganization({ organizationId: orgId });
-        const insertedOrg = await db.insert(organizations).values({
-          id: orgId,
-          name: clerkOrg.name,
-          bossId: dbUser.id,
-          branchLimit: 2,
-          isActive: true,
-        }).returning();
-        dbOrg = insertedOrg[0];
-        console.log(`[AuthUtils] Synchronized new boss organization: ${dbOrg.name}`);
-      }
+    // 1. Öncelikle yerel veritabanında bu BOSS'a bağlı bir organizasyon var mı bak
+    let dbOrg = await db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).get();
+    
+    // 2. Eğer yerel veritabanında yoksa ama Clerk session'da orgId varsa, veritabanına senkronize et
+    if (!dbOrg && orgId) {
+      const clerkOrg = await client.organizations.getOrganization({ organizationId: orgId });
+      const insertedOrg = await db.insert(organizations).values({
+        id: orgId,
+        name: clerkOrg.name,
+        bossId: dbUser.id,
+        branchLimit: 2,
+        isActive: true,
+      }).returning();
+      dbOrg = insertedOrg[0];
+      console.log(`[AuthUtils] Synchronized new boss organization: ${dbOrg.name}`);
+    }
 
+    // 3. Eğer yerel veritabanında organizasyon varsa, aktifliğini kontrol et ve dashboard'a yönlendir
+    if (dbOrg) {
       if (!dbOrg.isActive) {
         return "/org-disabled";
       }
-
       return "/boss-dashboard";
     }
 
-    return "/create-organization";
+    // 4. Hiçbir yerde organizasyon bulunamadıysa ama BOSS rolünde ise, yerel DB'de askıda bekleyen organizasyonu bağla (Self-healing fallback)
+    if (email) {
+      const pendingOrg = await db.select()
+        .from(organizations)
+        .where(and(eq(organizations.bossEmail, email), isNull(organizations.bossId)))
+        .get();
+      
+      if (pendingOrg) {
+        await db.update(organizations)
+          .set({ bossId: dbUser.id, bossEmail: null })
+          .where(eq(organizations.id, pendingOrg.id));
+        
+        // Clerk tarafında da senkronizasyon yapmayı dene
+        try {
+          await client.users.updateUserMetadata(userId, {
+            publicMetadata: {
+              role: "boss",
+              orgId: pendingOrg.id,
+            }
+          });
+          
+          await client.organizations.createOrganizationMembership({
+            organizationId: pendingOrg.id,
+            userId: userId,
+            role: "org:admin",
+          });
+        } catch (clerkErr) {
+          console.warn(`[AuthUtils] Clerk metadata/membership sync skipped:`, clerkErr);
+        }
+
+        console.log(`[AuthUtils] Self-healing sync linked BOSS ${dbUser.id} to organization ${pendingOrg.id} via email match`);
+        return "/boss-dashboard";
+      }
+    }
+
+    // Organizasyon bulunamadı
+    console.warn(`[AuthUtils] BOSS user ${dbUser.id} has no linked organization!`);
+    return "/org-disabled";
   }
 
   // 🏢 4. Personel (MANAGER, CASHIER) Kontrolü

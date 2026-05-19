@@ -2,6 +2,7 @@ import { BaseService } from "./base-service";
 import * as schema from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { emailService } from "./email-service";
 
 const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches } = schema;
 
@@ -55,14 +56,35 @@ export class AdminService extends BaseService {
         };
       } catch (error: unknown) {
         console.error("[AdminService] Scenario B failed:", error);
-        throw new Error(error instanceof Error ? error.message : "Mevcut patrona organizasyon tanımlanırken bir hata oluştu.");
+
+        // Check for organization_creator_not_found error (manual user deletion in Clerk)
+        const isCreatorNotFound =
+          (error && typeof error === "object" && "errors" in error && Array.isArray((error as Record<string, unknown>).errors) && ((error as Record<string, unknown>).errors as Record<string, unknown>[]).some((e) => e?.code === "organization_creator_not_found")) ||
+          JSON.stringify(error).includes("organization_creator_not_found") ||
+          (error instanceof Error && error.message.includes("organization_creator_not_found"));
+
+        if (isCreatorNotFound) {
+          console.warn(`[AdminService] Stale user detected in DB (Clerk user not found). Self-healing fallback triggered for user clerkId: ${existingUser.clerkId}`);
+
+          // Delete stale user from local database
+          await this.db.delete(users).where(eq(users.clerkId, existingUser.clerkId));
+          console.log(`[AdminService] Stale user ${existingUser.clerkId} removed from local DB.`);
+
+          // Fall through to Scenario A (since we don't throw or return)
+        } else {
+          throw new Error(error instanceof Error ? error.message : "Mevcut patrona organizasyon tanımlanırken bir hata oluştu.");
+        }
       }
     }
 
     // SENARYO A (Yeni Patron - Simetrik Kiracı Kurulumu)
+    let clerkOrg: { id: string } | null = null;
+    let localOrgCreated = false;
+    let clerkInv: { id: string; url?: string } | null = null;
+
     try {
       // 1. Clerk üzerinde organizasyonu peşin olarak oluştur
-      const clerkOrg = await client.organizations.createOrganization({
+      clerkOrg = await client.organizations.createOrganization({
         name: companyName,
       });
 
@@ -75,17 +97,29 @@ export class AdminService extends BaseService {
         branchLimit: 1,
         isActive: true,
       });
+      localOrgCreated = true;
 
-      // 3. Kullanıcıya doğrudan kurumsal organizasyon yönetici daveti fırlat
-      const clerkInv = await client.organizations.createOrganizationInvitation({
-        organizationId: clerkOrg.id,
+      // 3. Kullanıcıya doğrudan kurumsal organizasyon yönetici daveti yerine genel davet oluştur
+      clerkInv = await client.invitations.createInvitation({
         emailAddress: emailLower,
-        role: "org:admin",
         redirectUrl: `${appUrl}/sign-up`,
-        publicMetadata: { role: "boss" },
+        // @ts-expect-error - Clerk SDK typings might not show skipEmailDelivery
+        skipEmailDelivery: true,
+        notify: false,
+        publicMetadata: {
+          orgId: clerkOrg.id,
+          role: "boss",
+        },
       });
 
-      console.log(`[AdminService] 📩 Invitation ${clerkInv.id} created successfully for ${emailLower}`);
+      if (!clerkInv.url) {
+        throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
+      }
+
+      // 4. Nodemailer ile e-posta gönder
+      await emailService.sendBossInvitationEmail(emailLower, clerkInv.url);
+
+      console.log(`[AdminService] 📩 Invitation ${clerkInv.id} created and sent successfully to ${emailLower}`);
 
       revalidatePath("/admin");
 
@@ -95,7 +129,38 @@ export class AdminService extends BaseService {
         message: "Yeni şirket aktif olabilmesi için patronun gönderilen e-postasını onaylaması gerekiyor.",
       };
     } catch (error: unknown) {
-      console.error("[AdminService] Scenario A failed:", error);
+      console.error("[AdminService] Scenario A failed, performing rollback:", error);
+
+      // Rollback Clerk invitation
+      if (clerkInv && clerkInv.id) {
+        try {
+          await client.invitations.revokeInvitation(clerkInv.id);
+          console.log(`[AdminService] 🔄 Rolled back Clerk invitation: ${clerkInv.id}`);
+        } catch (revErr) {
+          console.error("[AdminService] Failed to revoke Clerk invitation during rollback:", revErr);
+        }
+      }
+
+      // Rollback local database organization record
+      if (localOrgCreated && clerkOrg) {
+        try {
+          await this.db.delete(organizations).where(eq(organizations.id, clerkOrg.id));
+          console.log(`[AdminService] 🔄 Rolled back local organization DB record: ${clerkOrg.id}`);
+        } catch (dbErr) {
+          console.error("[AdminService] Failed to delete local organization during rollback:", dbErr);
+        }
+      }
+
+      // Rollback Clerk organization
+      if (clerkOrg && clerkOrg.id) {
+        try {
+          await client.organizations.deleteOrganization(clerkOrg.id);
+          console.log(`[AdminService] 🔄 Rolled back Clerk organization: ${clerkOrg.id}`);
+        } catch (orgErr) {
+          console.error("[AdminService] Failed to delete Clerk organization during rollback:", orgErr);
+        }
+      }
+
       throw new Error(error instanceof Error ? error.message : "Yeni patron daveti gönderilirken bir hata oluştu.");
     }
   }

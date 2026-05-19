@@ -38,7 +38,7 @@ export default clerkMiddleware(async (auth, req) => {
   // 1. Herkes için açık olan sayfalar
   if (isPublicRoute(req)) {
     // 🛡️ /sign-up rotasına özel katı Bilet Kontrolü (Ticket Guard)
-    if (pathname.startsWith("/sign-up")) {
+    if (pathname === "/sign-up" || pathname === "/sign-up/") {
       const hasTicket =
         req.nextUrl.searchParams.has("ticket") ||
         req.nextUrl.searchParams.has("__clerk_ticket") ||
@@ -144,20 +144,24 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.redirect(new URL("/admin", req.url));
     }
 
-    if (role === "boss" && !activeOrgId) {
-      return handleUnauthorized(req, pathname);
+    if (role === "boss") {
+      return NextResponse.redirect(new URL("/boss-dashboard", req.url));
     }
 
-    if (activeOrgId) {
-      if (orgRole === "org:admin" || role === "boss") return NextResponse.redirect(new URL("/boss-dashboard", req.url));
-      if (role === "manager") return NextResponse.redirect(new URL("/manager-dashboard", req.url));
-      if (role === "cashier") return NextResponse.redirect(new URL("/cashier-dashboard", req.url));
-      if (role === "customer") return NextResponse.redirect(new URL("/customer-dashboard", req.url));
+    if (role === "manager") {
+      return NextResponse.redirect(new URL("/manager-dashboard", req.url));
     }
 
-    if (role === "customer") return NextResponse.redirect(new URL("/customer-dashboard", req.url));
+    if (role === "cashier") {
+      return NextResponse.redirect(new URL("/cashier-dashboard", req.url));
+    }
 
-    console.log("[Middleware] ⚠️ Role/Org unknown, falling back");
+    if (role === "customer") {
+      return NextResponse.redirect(new URL("/customer-dashboard", req.url));
+    }
+
+    console.log("[Middleware] ⚠️ Role/Org unknown, falling back to server component page");
+    return NextResponse.next();
   }
 
   // 🛡️ Hardened Gating: /create-organization
