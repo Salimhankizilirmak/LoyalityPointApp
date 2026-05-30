@@ -202,3 +202,4 @@ export const config = {
     "/(api|trpc)(.*)",
   ],
 };
+//dosya sebebini boşver github push için yazdıpyurm
