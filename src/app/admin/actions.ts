@@ -8,7 +8,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-export async function inviteBossAction(companyName: string, email: string): Promise<{ success: boolean; scenario?: "NEW_BOSS" | "EXISTING_BOSS"; message?: string; error?: string }> {
+export async function inviteBossAction(companyName: string, email: string): Promise<{ success: boolean; scenario?: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message?: string; error?: string }> {
   try {
     const { userId } = await auth();
     if (!userId) {

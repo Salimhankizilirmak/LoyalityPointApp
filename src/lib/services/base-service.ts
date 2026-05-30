@@ -2,7 +2,20 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { users, staffProfiles, customerProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-registry";
 
+// Kullanıcının sahip olduğu organizasyonları önbellekleyen fonksiyon
+export const getCachedUserOwnedOrgs = (userId: string) => unstable_cache(
+  async (uid: string) => {
+    const { organizations } = await import("@/db/schema");
+    return await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.bossId, uid)).all();
+  },
+  [`user-owned-orgs-${userId}`],
+  {
+    tags: [CACHE_TAGS.userOwnership(userId)],
+  }
+);
 
 export abstract class BaseService {
   protected db = db;
@@ -46,10 +59,24 @@ export abstract class BaseService {
     }
 
     if (dbUser.role === "BOSS") {
-      const { organizations } = await import("@/db/schema");
-      const org = await this.db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).get();
-      if (!org) throw new Error("Şirketinize ait organizasyon kaydı bulunamadı.");
-      return org.id;
+      const { cookies } = await import("next/headers");
+      const cookieStore = await cookies();
+      const cookieOrgId = cookieStore.get("selected_org_id")?.value;
+
+      // Sahiplik kontrolü önbellekten okunur (Turso'ya yük bindirmez)
+      const ownedOrgs = await getCachedUserOwnedOrgs(dbUser.id)(dbUser.id);
+
+      if (cookieOrgId) {
+        const isOwner = ownedOrgs.some(org => org.id === cookieOrgId);
+        if (isOwner) return cookieOrgId;
+      }
+
+      // Fallback: İlk sahip olunan organizasyon
+      if (ownedOrgs.length > 0) {
+        return ownedOrgs[0].id;
+      }
+      
+      throw new Error("Şirketinize ait organizasyon kaydı bulunamadı.");
     }
 
     if (dbUser.role === "MANAGER" || dbUser.role === "CASHIER") {

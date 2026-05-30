@@ -1,15 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loyaltyTransactionsRelations = exports.loyaltyRulesRelations = exports.customersRelations = exports.organizationsRelations = exports.userBranchesRelations = exports.branchesRelations = exports.usersRelations = exports.loyaltyTransactions = exports.loyaltyRules = exports.customers = exports.userBranches = exports.pointsTransactions = exports.customerProfiles = exports.staffProfiles = exports.branches = exports.organizations = exports.users = void 0;
+exports.terminalChallengesRelations = exports.terminalsRelations = exports.invitationsRelations = exports.loyaltyTransactionsRelations = exports.loyaltyRulesRelations = exports.customersRelations = exports.organizationsRelations = exports.userBranchesRelations = exports.branchesRelations = exports.usersRelations = exports.invitations = exports.terminalChallenges = exports.terminals = exports.loyaltyTransactions = exports.loyaltyRules = exports.customers = exports.userBranches = exports.pointsTransactions = exports.customerProfiles = exports.staffProfiles = exports.branches = exports.organizations = exports.users = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const sqlite_core_1 = require("drizzle-orm/sqlite-core");
 const cuid2_1 = require("@paralleldrive/cuid2");
+const crypto_1 = require("crypto");
 exports.users = (0, sqlite_core_1.sqliteTable)("users", {
     id: (0, sqlite_core_1.text)("id").$defaultFn(() => (0, cuid2_1.createId)()).primaryKey(),
     clerkId: (0, sqlite_core_1.text)("clerk_id").unique().notNull(),
     email: (0, sqlite_core_1.text)("email").unique().notNull(),
+    username: (0, sqlite_core_1.text)("username").unique(),
     role: (0, sqlite_core_1.text)("role", { enum: ["SUPER_ADMIN", "BOSS", "MANAGER", "CASHIER", "CUSTOMER"] }).notNull(),
     name: (0, sqlite_core_1.text)("name"),
+    imageUrl: (0, sqlite_core_1.text)("image_url"),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
 });
 exports.organizations = (0, sqlite_core_1.sqliteTable)("organizations", {
@@ -19,6 +22,7 @@ exports.organizations = (0, sqlite_core_1.sqliteTable)("organizations", {
     bossEmail: (0, sqlite_core_1.text)("boss_email"),
     branchLimit: (0, sqlite_core_1.integer)("branch_limit").default(1).notNull(),
     isActive: (0, sqlite_core_1.integer)("is_active", { mode: "boolean" }).default(true).notNull(),
+    status: (0, sqlite_core_1.text)("status", { enum: ["PENDING", "ACTIVE", "DISABLED"] }).default("PENDING").notNull(),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
 });
 exports.branches = (0, sqlite_core_1.sqliteTable)("branches", {
@@ -27,12 +31,14 @@ exports.branches = (0, sqlite_core_1.sqliteTable)("branches", {
     name: (0, sqlite_core_1.text)("name").notNull(),
     city: (0, sqlite_core_1.text)("city").notNull(),
     isActive: (0, sqlite_core_1.integer)("is_active", { mode: "boolean" }).default(true).notNull(),
+    managerId: (0, sqlite_core_1.text)("manager_id").references(() => exports.users.id, { onDelete: "set null" }),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
 });
 exports.staffProfiles = (0, sqlite_core_1.sqliteTable)("staff_profiles", {
     id: (0, sqlite_core_1.text)("id").$defaultFn(() => (0, cuid2_1.createId)()).primaryKey(),
     userId: (0, sqlite_core_1.text)("user_id").unique().notNull().references(() => exports.users.id, { onDelete: "cascade" }),
     branchId: (0, sqlite_core_1.text)("branch_id").notNull().references(() => exports.branches.id, { onDelete: "cascade" }),
+    isActive: (0, sqlite_core_1.integer)("is_active", { mode: "boolean" }).default(true).notNull(),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
 });
 exports.customerProfiles = (0, sqlite_core_1.sqliteTable)("customer_profiles", {
@@ -87,15 +93,52 @@ exports.loyaltyTransactions = (0, sqlite_core_1.sqliteTable)("loyalty_transactio
     pointsAmount: (0, sqlite_core_1.integer)("points_amount").notNull(),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).notNull().default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
 });
+// ─── TERMINAL (POS KASA) TABLOLARI ──────────────────────────────────────────
+exports.terminals = (0, sqlite_core_1.sqliteTable)("terminals", {
+    id: (0, sqlite_core_1.text)("id").$defaultFn(() => (0, cuid2_1.createId)()).primaryKey(),
+    branchId: (0, sqlite_core_1.text)("branch_id").references(() => exports.branches.id, { onDelete: "cascade" }),
+    name: (0, sqlite_core_1.text)("name").notNull(),
+    hardwareHash: (0, sqlite_core_1.text)("hardware_hash").unique().notNull(),
+    secretKey: (0, sqlite_core_1.text)("secret_key").notNull().$defaultFn(() => (0, crypto_1.randomBytes)(32).toString("hex")),
+    isActive: (0, sqlite_core_1.integer)("is_active", { mode: "boolean" }).default(false).notNull(),
+    lastSeenAt: (0, sqlite_core_1.integer)("last_seen_at"),
+    createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`).notNull(),
+});
+exports.terminalChallenges = (0, sqlite_core_1.sqliteTable)("terminal_challenges", {
+    id: (0, sqlite_core_1.text)("id").$defaultFn(() => (0, cuid2_1.createId)()).primaryKey(),
+    terminalId: (0, sqlite_core_1.text)("terminal_id").notNull().references(() => exports.terminals.id, { onDelete: "cascade" }),
+    nonce: (0, sqlite_core_1.text)("nonce").unique().notNull(),
+    expiresAt: (0, sqlite_core_1.integer)("expires_at", { mode: "timestamp" }).notNull(),
+    createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`).notNull(),
+});
+// ─── DAVETİYE SHADOW TABLOSU ─────────────────────────────────────────────────
+exports.invitations = (0, sqlite_core_1.sqliteTable)("invitations", {
+    id: (0, sqlite_core_1.text)("id").$defaultFn(() => (0, cuid2_1.createId)()).primaryKey(),
+    clerkInviteId: (0, sqlite_core_1.text)("clerk_invite_id").unique(),
+    email: (0, sqlite_core_1.text)("email").notNull(),
+    organizationId: (0, sqlite_core_1.text)("organization_id").notNull().references(() => exports.organizations.id, { onDelete: "cascade" }),
+    branchId: (0, sqlite_core_1.text)("branch_id").references(() => exports.branches.id, { onDelete: "cascade" }),
+    role: (0, sqlite_core_1.text)("role", { enum: ["BOSS", "MANAGER", "CASHIER", "CUSTOMER"] }).notNull().default("BOSS"),
+    status: (0, sqlite_core_1.text)("status", { enum: ["PENDING", "ACCEPTED", "REVOKED", "EXPIRED"] }).notNull().default("PENDING"),
+    invitedBy: (0, sqlite_core_1.text)("invited_by").notNull().references(() => exports.users.id, { onDelete: "cascade" }),
+    createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).notNull().default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
+    expiresAt: (0, sqlite_core_1.integer)("expires_at", { mode: "timestamp" }).notNull().default((0, drizzle_orm_1.sql) `(strftime('%s', 'now') + 604800)`),
+});
 // ─── İLİŞKİLER ───────────────────────────────────────────────────────────────
 const drizzle_orm_2 = require("drizzle-orm");
 exports.usersRelations = (0, drizzle_orm_2.relations)(exports.users, ({ many }) => ({
     userBranches: many(exports.userBranches),
     cashierTransactions: many(exports.loyaltyTransactions, { relationName: "cashierTransactions" }),
+    managedBranches: many(exports.branches),
+    sentInvitations: many(exports.invitations),
 }));
-exports.branchesRelations = (0, drizzle_orm_2.relations)(exports.branches, ({ many }) => ({
+exports.branchesRelations = (0, drizzle_orm_2.relations)(exports.branches, ({ many, one }) => ({
     userBranches: many(exports.userBranches),
     loyaltyTransactions: many(exports.loyaltyTransactions),
+    manager: one(exports.users, {
+        fields: [exports.branches.managerId],
+        references: [exports.users.id],
+    }),
 }));
 exports.userBranchesRelations = (0, drizzle_orm_2.relations)(exports.userBranches, ({ one }) => ({
     user: one(exports.users, {
@@ -115,6 +158,7 @@ exports.organizationsRelations = (0, drizzle_orm_2.relations)(exports.organizati
         references: [exports.loyaltyRules.organizationId],
     }),
     loyaltyTransactions: many(exports.loyaltyTransactions),
+    invitations: many(exports.invitations),
 }));
 exports.customersRelations = (0, drizzle_orm_2.relations)(exports.customers, ({ one, many }) => ({
     organization: one(exports.organizations, {
@@ -146,5 +190,28 @@ exports.loyaltyTransactionsRelations = (0, drizzle_orm_2.relations)(exports.loya
         relationName: "cashierTransactions",
         fields: [exports.loyaltyTransactions.cashierId],
         references: [exports.users.id],
+    }),
+}));
+exports.invitationsRelations = (0, drizzle_orm_2.relations)(exports.invitations, ({ one }) => ({
+    organization: one(exports.organizations, {
+        fields: [exports.invitations.organizationId],
+        references: [exports.organizations.id],
+    }),
+    inviter: one(exports.users, {
+        fields: [exports.invitations.invitedBy],
+        references: [exports.users.id],
+    }),
+}));
+exports.terminalsRelations = (0, drizzle_orm_2.relations)(exports.terminals, ({ one, many }) => ({
+    branch: one(exports.branches, {
+        fields: [exports.terminals.branchId],
+        references: [exports.branches.id],
+    }),
+    challenges: many(exports.terminalChallenges),
+}));
+exports.terminalChallengesRelations = (0, drizzle_orm_2.relations)(exports.terminalChallenges, ({ one }) => ({
+    terminal: one(exports.terminals, {
+        fields: [exports.terminalChallenges.terminalId],
+        references: [exports.terminals.id],
     }),
 }));

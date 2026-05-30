@@ -29,7 +29,7 @@ export class StaffService extends BaseService {
       role: users.role,
       branchName: branches.name,
       branchId: branches.id,
-      status: sql<string>`'active'`,
+      isActive: staffProfiles.isActive,
     })
     .from(users)
     .innerJoin(staffProfiles, eq(users.id, staffProfiles.userId))
@@ -48,7 +48,7 @@ export class StaffService extends BaseService {
           role: m.role.toLowerCase(),
           branch: m.branchName,
           avatar: `${(u.firstName || "?")[0]}${(u.lastName || "?")[0]}`.toUpperCase(),
-          status: "active" as const,
+          status: m.isActive ? ("active" as const) : ("suspended" as const),
         };
       } catch {
         return {
@@ -58,7 +58,7 @@ export class StaffService extends BaseService {
           role: m.role.toLowerCase(),
           branch: m.branchName,
           avatar: m.email.charAt(0).toUpperCase() + "?",
-          status: "active" as const,
+          status: m.isActive ? ("active" as const) : ("suspended" as const),
         };
       }
     }));
@@ -90,6 +90,13 @@ export class StaffService extends BaseService {
 
   async inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string }) {
     const session = await this.getSession();
+
+    // Davet eden kullanıcının lokal veritabanındaki kaydını sorgula
+    const dbUser = await this.db.select().from(users).where(eq(users.clerkId, session.userId!)).get();
+    if (!dbUser) {
+      throw new Error("Davet eden kullanıcı sistemde bulunamadı.");
+    }
+
     const orgId = data.org_id || await this.requireOrg();
     if (!orgId) throw new Error("Lütfen bir şube seçin. Organizasyon ID eksik.");
 
@@ -120,19 +127,74 @@ export class StaffService extends BaseService {
       throw new Error(`'${targetBranch.name}' şubesi şu an pasif durumdadır. Pasif şubelere personel davet edilemez.`);
     }
 
-    await client.organizations.createOrganizationInvitation({
-      organizationId: orgId,
-      emailAddress: data.email,
-      inviterUserId: session.userId!,
-      role: "org:member",
-      publicMetadata: {
-        role: data.role,
-        branch_id: targetBranch.id,
-        branchName: data.branch,
-        org_id: orgId,
-      },
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
-    });
+    try {
+      await client.organizations.createOrganizationInvitation({
+        organizationId: orgId,
+        emailAddress: data.email,
+        inviterUserId: session.userId!,
+        role: "org:member",
+        publicMetadata: {
+          role: data.role,
+          branch_id: targetBranch.id,
+          branchName: data.branch,
+          org_id: orgId,
+        },
+        redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
+      });
+    } catch (err) {
+      const error = err as { code?: string; message?: string };
+      console.warn("[StaffService] Clerk organization invitation failed, trying global invitation with Nodemailer fallback:", error.message || error);
+      
+      const isEmailLimitError = 
+        error.code === "api_response_error" ||
+        error.message?.includes("limit") ||
+        error.message?.includes("mail") ||
+        error.message?.includes("ClerkAPIResponseError") ||
+        JSON.stringify(error).includes("limit");
+
+      if (isEmailLimitError) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        
+        // E-posta gönderimini devre dışı bırakarak global davetiye oluşturuyoruz (kotaya takılmaz)
+        const clerkInv = await client.invitations.createInvitation({
+          emailAddress: emailLower,
+          redirectUrl: `${appUrl}/sign-up`,
+          ignoreExisting: true,
+          // @ts-expect-error - skipEmailDelivery Clerk SDK tip dosyalarında eksik olabilir
+          skipEmailDelivery: true,
+          notify: false,
+          publicMetadata: {
+            orgId: orgId,
+            role: data.role,
+            branch_id: targetBranch.id,
+            branchName: data.branch,
+            org_id: orgId,
+          },
+        });
+
+        if (!clerkInv.url) {
+          throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
+        }
+
+        // Davetiyeyi yerel veritabanına ekle
+        const { invitations: localInvitations } = await import("@/db/schema");
+        await this.db.insert(localInvitations).values({
+          clerkInviteId: clerkInv.id,
+          email: emailLower,
+          organizationId: orgId,
+          branchId: targetBranch.id,
+          role: data.role.toUpperCase() as "BOSS" | "MANAGER" | "CASHIER",
+          status: "PENDING",
+          invitedBy: dbUser.id,
+        });
+
+        // Nodemailer servisimizi kullanarak daveti e-postayla gönderiyoruz
+        const { emailService } = await import("./email-service");
+        await emailService.sendEmployeeInvitationEmail(emailLower, clerkInv.url, data.role, data.branch);
+      } else {
+        throw err;
+      }
+    }
 
     return { success: true };
   }

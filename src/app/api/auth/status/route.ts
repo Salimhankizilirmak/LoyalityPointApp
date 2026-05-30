@@ -29,13 +29,14 @@ export async function GET() {
       const email = user.emailAddresses?.[0]?.emailAddress?.toLowerCase() || "";
       const metadata = (user.publicMetadata || {}) as Record<string, unknown>;
       let role = (metadata.role as string) || "";
-      const orgId = (metadata.orgId as string) || "";
-
       // Akıllı BOSS tespiti: Eğer e-postaya ait askıda bekleyen bir organizasyon varsa rolü BOSS olarak ata
       if (role !== "boss" && email) {
         const pendingOrgCheck = await db.select()
           .from(organizations)
-          .where(and(eq(organizations.bossEmail, email), isNull(organizations.bossId)))
+          .where(and(
+            eq(organizations.bossEmail, email),
+            eq(organizations.status, "PENDING")
+          ))
           .get();
         if (pendingOrgCheck) {
           role = "boss";
@@ -44,15 +45,23 @@ export async function GET() {
 
       const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || null;
       const localRole = (role.toUpperCase() === "BOSS" || !role ? "BOSS" : role.toUpperCase()) as "SUPER_ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER";
-      const inserted = await db.insert(users).values({
+      await db.insert(users).values({
         clerkId: userId,
         email: email,
         role: localRole,
         name: name,
-      }).returning();
+      })
+      .onConflictDoUpdate({
+        target: users.clerkId,
+        set: {
+          email: email,
+          role: localRole,
+          name: name,
+        }
+      });
       
-      dbUser = inserted[0];
-      console.log(`[StatusAPI] 👤 Self-healing: Created local user record. Id=${dbUser.id}, Role=${dbUser.role}`);
+      dbUser = (await db.select().from(users).where(eq(users.clerkId, userId)).get())!;
+      console.log(`[StatusAPI] 👤 Self-healing: Created/Updated local user record. Id=${dbUser.id}, Role=${dbUser.role}`);
     }
 
     // 2. Eğer rol BOSS ise, askıdaki organizasyonun bağlanıp bağlanmadığını doğrula
@@ -74,7 +83,11 @@ export async function GET() {
         if (!pendingOrg && email) {
           pendingOrg = await db.select()
             .from(organizations)
-            .where(and(eq(organizations.bossEmail, email), isNull(organizations.bossId)))
+            .where(and(
+              eq(organizations.bossEmail, email),
+              eq(organizations.status, "PENDING"),
+              isNull(organizations.bossId)   // Sadece gerçekten bağlanmamış org'ı yakala
+            ))
             .get();
         }
 
@@ -84,7 +97,7 @@ export async function GET() {
           await db.update(organizations)
             .set({
               bossId: dbUser.id,
-              bossEmail: null,
+              status: "ACTIVE",
             })
             .where(eq(organizations.id, pendingOrg.id));
           

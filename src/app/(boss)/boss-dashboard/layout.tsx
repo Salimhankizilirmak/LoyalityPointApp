@@ -1,7 +1,11 @@
 import { checkLayoutGuard } from "@/lib/layout-guard";
 import { resolveActiveBranchContext } from "@/lib/branch-context";
 import { BranchSelector } from "@/components/ui/BranchSelector";
+import UsernameWarningBanner from "@/components/dashboard/UsernameWarningBanner";
 import { ReactNode } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
+
+export const dynamic = "force-dynamic";
 
 interface BossLayoutProps {
   children: ReactNode;
@@ -12,8 +16,16 @@ interface BossLayoutProps {
  * Kural 2: Tek şube varsa BranchSelector render edilmez, çerez sunucu tarafında peşin mühürlenir.
  */
 export default async function BossLayout({ children }: BossLayoutProps) {
-  await checkLayoutGuard();
+  let dbUser = null;
+  try {
+    dbUser = await checkLayoutGuard();
+  } catch (error) {
+    if (isRedirectError(error)) throw error; // 👑 Next.js yönlendirmelerini serbest bırak
+    console.error("[BossLayout] Layout guard validation failed:", error);
+  }
+
   const ctx = await resolveActiveBranchContext();
+  const hasNoUsername = !dbUser?.username || dbUser.username.trim() === "";
 
   return (
     <div className="relative min-h-screen">
@@ -26,6 +38,7 @@ export default async function BossLayout({ children }: BossLayoutProps) {
           />
         </div>
       )}
+      {hasNoUsername && <UsernameWarningBanner />}
       {children}
     </div>
   );

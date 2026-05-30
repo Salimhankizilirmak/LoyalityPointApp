@@ -1,14 +1,14 @@
 import { BaseService } from "./base-service";
 import * as schema from "@/db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, or, lt, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { emailService } from "./email-service";
 
-const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches } = schema;
+const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches, invitations } = schema;
 
 export class AdminService extends BaseService {
-  async inviteBoss(companyName: string, bossEmail: string, appUrl: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS"; message: string }> {
-    await this.requireRole(["SUPER_ADMIN"]);
+  async inviteBoss(companyName: string, bossEmail: string, appUrl: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message: string }> {
+    const { dbUser } = await this.requireRole(["SUPER_ADMIN"]);
 
     if (!companyName?.trim()) {
       throw new Error("Şirket adı boş olamaz.");
@@ -42,9 +42,10 @@ export class AdminService extends BaseService {
           id: clerkOrg.id,
           name: companyName,
           bossId: existingUser.id,
-          bossEmail: null,
+          bossEmail: emailLower,
           branchLimit: 1,
           isActive: true,
+          status: "ACTIVE",
         });
 
         revalidatePath("/admin");
@@ -66,9 +67,14 @@ export class AdminService extends BaseService {
         if (isCreatorNotFound) {
           console.warn(`[AdminService] Stale user detected in DB (Clerk user not found). Self-healing fallback triggered for user clerkId: ${existingUser.clerkId}`);
 
-          // Delete stale user from local database
-          await this.db.delete(users).where(eq(users.clerkId, existingUser.clerkId));
-          console.log(`[AdminService] Stale user ${existingUser.clerkId} removed from local DB.`);
+          // Soft update stale user in local database
+          await this.db.update(users)
+            .set({
+              clerkId: `stale_${existingUser.clerkId}`,
+              email: `stale_${Date.now()}_${existingUser.email}`,
+            })
+            .where(eq(users.id, existingUser.id));
+          console.log(`[AdminService] Stale user ${existingUser.clerkId} soft-updated in local DB.`);
 
           // Fall through to Scenario A (since we don't throw or return)
         } else {
@@ -96,6 +102,7 @@ export class AdminService extends BaseService {
         bossEmail: emailLower,
         branchLimit: 1,
         isActive: true,
+        status: "PENDING",
       });
       localOrgCreated = true;
 
@@ -103,7 +110,8 @@ export class AdminService extends BaseService {
       clerkInv = await client.invitations.createInvitation({
         emailAddress: emailLower,
         redirectUrl: `${appUrl}/sign-up`,
-        // @ts-expect-error - Clerk SDK typings might not show skipEmailDelivery
+        ignoreExisting: true,     // Zombi davetiye duplicate_record kilidini kök kesen zırh
+        // @ts-expect-error - skipEmailDelivery Clerk SDK tiplerinde eksik olabilir
         skipEmailDelivery: true,
         notify: false,
         publicMetadata: {
@@ -115,6 +123,16 @@ export class AdminService extends BaseService {
       if (!clerkInv.url) {
         throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
       }
+
+      // Yerel veritabanına davetiye kaydı ekle
+      await this.db.insert(invitations).values({
+        clerkInviteId: clerkInv.id,
+        email: emailLower,
+        organizationId: clerkOrg.id,
+        role: "BOSS",
+        status: "PENDING",
+        invitedBy: dbUser.id,
+      });
 
       // 4. Nodemailer ile e-posta gönder
       await emailService.sendBossInvitationEmail(emailLower, clerkInv.url);
@@ -206,6 +224,11 @@ export class AdminService extends BaseService {
       console.log(`[AdminService] Revoking global user invitation: InvId=${invitationId}`);
       await client.invitations.revokeInvitation(invitationId);
     }
+    
+    // Yerel veritabanında davetiye durumunu REVOKED yap
+    await this.db.update(invitations)
+      .set({ status: "REVOKED" })
+      .where(eq(invitations.clerkInviteId, invitationId));
     
     revalidatePath("/admin");
     return { success: true };
@@ -332,58 +355,203 @@ export class AdminService extends BaseService {
 
   async getInvitedBosses() {
     await this.requireRole(["SUPER_ADMIN"]);
-    const client = await this.getClerkClient();
     
-    // 1. Yerel aktif BOSS'ları çek
-    const localBosses = await this.db.select({
-      id: users.id,
-      clerkId: users.clerkId,
+    // 30 günü geçmiş veya süresi dolmuş PENDING davetiyeleri otomatik olarak EXPIRED yap
+    const now = new Date();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    await this.db.update(invitations)
+      .set({ status: "EXPIRED" })
+      .where(
+        and(
+          eq(invitations.status, "PENDING"),
+          or(
+            lt(invitations.createdAt, thirtyDaysAgo),
+            lt(invitations.expiresAt, now)
+          )
+        )
+      );
+
+    // Yerel davetiyeleri çek
+    const localInvites = await this.db.select({
+      id: invitations.id,
+      clerkInviteId: invitations.clerkInviteId,
+      email: invitations.email,
+      status: invitations.status,
+      createdAt: invitations.createdAt,
+      organizationId: invitations.organizationId,
+    })
+    .from(invitations)
+    .all();
+
+    // BOSS kullanıcılarını çekerek lastSignIn (veya varsa son giriş) eşleştirmek için bir harita oluşturalım
+    const activeBosses = await this.db.select({
       email: users.email,
-      createdAt: users.createdAt,
     })
     .from(users)
     .where(eq(users.role, "BOSS"))
     .all();
+    const activeBossEmails = new Set(activeBosses.map(b => b.email.toLowerCase()));
 
-    // 2. Yerel organizasyonları çek
-    const localOrgs = await this.db.select({ id: organizations.id }).from(organizations).all();
+    return localInvites.map(inv => {
+      let currentStatus = inv.status.toLowerCase() as "pending" | "accepted" | "revoked" | "expired";
+      
+      // Eğer kullanıcı yerel BOSS olarak eklenmişse durumu kabul edilmiş sayabiliriz
+      if (activeBossEmails.has(inv.email.toLowerCase()) && currentStatus === "pending") {
+        currentStatus = "accepted";
+      }
 
-    // 3. Her organizasyon için bekleyen Clerk davetiyelerini paralel çek
-    const pendingPromises = localOrgs.map(org =>
-      client.organizations.getOrganizationInvitationList({
-        organizationId: org.id,
-        status: ["pending"]
-      }).catch((err) => {
-        console.error(`[AdminService] Davetiyeler çekilirken hata (Org: ${org.id}):`, err);
-        return { data: [] };
-      })
-    );
+      return {
+        id: inv.clerkInviteId || inv.id,
+        email: inv.email,
+        status: currentStatus,
+        createdAt: inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now(),
+        organizationId: inv.organizationId,
+        ...(currentStatus === "accepted" ? { lastSignIn: Date.now() } : {})
+      };
+    }).sort((a, b) => b.createdAt - a.createdAt);
+  }
 
-    const pendingResults = await Promise.all(pendingPromises);
-    const pending: Array<{ id: string; email: string; status: "pending"; createdAt: number; organizationId?: string }> = [];
+  async transferCompanyOwnership(organizationId: string, newBossEmail: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS"; message: string }> {
+    await this.requireRole(["SUPER_ADMIN"]);
 
-    localOrgs.forEach((org, idx) => {
-      const res = pendingResults[idx];
-      res.data.forEach(inv => {
-        pending.push({
-          id: inv.id,
-          email: inv.emailAddress.toLowerCase(),
-          status: "pending",
-          createdAt: new Date(inv.createdAt).getTime(),
-          organizationId: org.id,
-        });
+    if (!organizationId?.trim()) {
+      throw new Error("Organizasyon ID boş olamaz.");
+    }
+    if (!newBossEmail?.trim() || !newBossEmail.includes("@")) {
+      throw new Error("Geçerli bir yeni patron e-posta adresi girilmelidir.");
+    }
+
+    const emailLower = newBossEmail.trim().toLowerCase();
+    const client = await this.getClerkClient();
+
+    // 1. Organizasyonu bul
+    const org = await this.db.select().from(organizations).where(eq(organizations.id, organizationId)).get();
+    if (!org) {
+      throw new Error("Organizasyon bulunamadı.");
+    }
+
+    // 2. Eski patronun Clerk organizasyon üyeliğini kaldır ve metadata temizle
+    if (org.bossId) {
+      const oldBoss = await this.db.select().from(users).where(eq(users.id, org.bossId)).get();
+      if (oldBoss) {
+        try {
+          await client.organizations.deleteOrganizationMembership({
+            organizationId: organizationId,
+            userId: oldBoss.clerkId,
+          });
+          console.log(`[AdminService] Sahiplik Devri: Eski patronun (${oldBoss.email}) Clerk üyeliği silindi.`);
+        } catch (err) {
+          console.warn(`[AdminService] Sahiplik Devri: Eski patron Clerk üyelik silme uyarısı:`, err);
+        }
+
+        try {
+          await client.users.updateUserMetadata(oldBoss.clerkId, {
+            publicMetadata: {
+              role: null,
+              orgId: null,
+            }
+          });
+          console.log(`[AdminService] Sahiplik Devri: Eski patron metadata temizlendi.`);
+        } catch (err) {
+          console.warn(`[AdminService] Sahiplik Devri: Eski patron metadata temizleme hatası:`, err);
+        }
+      }
+    }
+
+    // 3. Yeni patron yerel veritabanında var mı sorgula
+    const existingUser = await this.db.select().from(users).where(eq(users.email, emailLower)).get();
+
+    if (existingUser) {
+      if (existingUser.role === "SUPER_ADMIN") {
+        throw new Error("Süper Admin bir şirkete patron olarak atanamaz.");
+      }
+      if (existingUser.role !== "BOSS") {
+        throw new Error("Bu e-posta adresi platformda farklı bir rol ile kayıtlıdır.");
+      }
+
+      // SENARYO B (Mevcut Patron - Doğrudan Atama)
+      await this.db.transaction(async (tx) => {
+        await tx.update(organizations)
+          .set({
+            bossId: existingUser.id,
+            bossEmail: emailLower,
+            status: "ACTIVE",
+          })
+          .where(eq(organizations.id, organizationId));
       });
+
+      try {
+        await client.users.updateUserMetadata(existingUser.clerkId, {
+          publicMetadata: {
+            role: "boss",
+            orgId: organizationId,
+          }
+        });
+
+        await client.organizations.createOrganizationMembership({
+          organizationId: organizationId,
+          userId: existingUser.clerkId,
+          role: "org:admin",
+        });
+      } catch (err) {
+        console.warn(`[AdminService] Sahiplik Devri: Yeni patron Clerk eşitleme uyarısı:`, err);
+      }
+
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        scenario: "EXISTING_BOSS",
+        message: "Şirket sahipliği mevcut patrona doğrudan devredildi, davetiyeye gerek kalmadı.",
+      };
+    }
+
+    // SENARYO A (Yeni Patron - Davet Gönderimi)
+    await this.db.transaction(async (tx) => {
+      await tx.update(organizations)
+        .set({
+          bossId: null as unknown as string,
+          bossEmail: emailLower,
+          status: "PENDING",
+        })
+        .where(eq(organizations.id, organizationId));
     });
 
-    const active = localBosses.map(u => ({
-      id: u.id,
-      email: u.email,
-      status: "accepted" as const,
-      createdAt: u.createdAt ? new Date(u.createdAt).getTime() : Date.now(),
-      lastSignIn: Date.now(),
-    }));
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    let clerkInv = null;
+    try {
+      clerkInv = await client.invitations.createInvitation({
+        emailAddress: emailLower,
+        redirectUrl: `${appUrl}/sign-up`,
+        // @ts-expect-error - Clerk SDK
+        skipEmailDelivery: true,
+        notify: false,
+        publicMetadata: {
+          orgId: organizationId,
+          role: "boss",
+        },
+      });
 
-    return [...pending, ...active].sort((a, b) => b.createdAt - a.createdAt);
+      if (!clerkInv.url) {
+        throw new Error("Clerk sahiplik devri davetiyesi bağlantısı oluşturamadı.");
+      }
+
+      await emailService.sendBossInvitationEmail(emailLower, clerkInv.url);
+
+      console.log(`[AdminService] 📩 Sahiplik Devri: Davetiye ${clerkInv.id} oluşturuldu ve ${emailLower} adresine gönderildi.`);
+      
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        scenario: "NEW_BOSS",
+        message: "Şirket sahipliği devri başlatıldı. Yeni patronun e-posta onayını yapması bekleniyor.",
+      };
+    } catch (err) {
+      console.error("[AdminService] Sahiplik devri davetiyesi oluşturulamadı veya gönderilemedi:", err);
+      throw new Error("Davetiye gönderim hatası sebebiyle sahiplik devri tamamlanamadı.");
+    }
   }
 }
 

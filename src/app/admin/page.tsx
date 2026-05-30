@@ -1,136 +1,43 @@
 "use client";
-/** UX Auditor Hint: <label placeholder aria-label */
 
-import { useState, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
-import {
-  Plus, Building2, Users, TrendingUp, Server
-} from "lucide-react";
-import { OrgTable } from "@/components/features/super-admin/OrgTable";
-import { ActivityLog } from "@/components/features/super-admin/ActivityLog";
-import { InviteBossModal } from "@/components/features/super-admin/InviteBossModal";
-import { DashboardHeader } from "../../components/features/super-admin/DashboardHeader";
+import { Plus } from "lucide-react";
+import { useSuperAdminDashboard } from "@/components/features/super-admin/hooks/useSuperAdminDashboard";
+import { DashboardHeader } from "@/components/features/super-admin/ui/DashboardHeader";
+import { DashboardLoadingScreen } from "@/components/dashboard/DashboardLoadingScreen";
+import { SuperAdminModals } from "@/components/features/super-admin/modals/SuperAdminModals";
+import { OrganizationsSection, InvitedBossesSection } from "@/components/features/super-admin/sections";
 
-import { getAllOrganizations, toggleOrgStatus, getInvitedBosses, revokeBossInvitation } from "./actions";
-import { useClerk, useUser } from "@clerk/nextjs";
-import { Organization, ActivityLogItem, InvitedBoss } from "../../components/features/super-admin/types";
-import { InvitedBossesList } from "@/components/features/super-admin/InvitedBossesList";
-import { StatCard } from "../../components/features/super-admin/StatCard";
-
-import { MOCK_ORGS, INITIAL_LOGS, ENABLE_MOCK_DATA } from "@/lib/constants/mock-data";
-
-const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
-const fmtTL = (n: number) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(n);
+export const dynamic = "force-dynamic";
 
 export default function SuperAdminDashboard() {
-  const [activeTab, setActiveTab] = useState<"organizations" | "bosses">("organizations");
-  const [showMockData, setShowMockData] = useState(ENABLE_MOCK_DATA);
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [realOrgs, setRealOrgs] = useState<Organization[]>([]);
-  const [invitedBosses, setInvitedBosses] = useState<InvitedBoss[]>([]);
-  const [logs] = useState<ActivityLogItem[]>(INITIAL_LOGS);
-  const [showInvite, setShowInvite] = useState(false);
+  const { state, actions } = useSuperAdminDashboard();
+  const { activeTab, isDarkMode, loading, showInvite, user, organization, isLoaded } = state;
+  const { setActiveTab, setShowInvite } = actions;
 
-  const { signOut } = useClerk();
-  const { user } = useUser();
-
-  const loadData = async () => {
-    try {
-      const [orgsData, bossesData] = await Promise.all([
-        getAllOrganizations(),
-        getInvitedBosses()
-      ]);
-      
-      interface RawOrg {
-        id: string;
-        name: string;
-        slug: string;
-        bossEmail: string;
-        branchCount: number;
-        branchLimit?: number;
-        managerCount: number;
-        createdAt: Date | null;
-        isActive: boolean;
-        customerCount: number;
-        totalVolume: number;
-      }
-
-      const formatted: Organization[] = (orgsData as RawOrg[]).map(o => ({
-        id: o.id,
-        name: o.name,
-        slug: o.slug,
-        email: o.bossEmail,
-        branches: o.branchCount || 0,
-        branchLimit: o.branchLimit || 2,
-        managerCount: o.managerCount || 0,
-        created: o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : "---",
-        status: o.isActive ? "active" : "inactive",
-        customers: o.customerCount || 0,
-        txVolume: Number(o.totalVolume || 0) / 100 // Kuruş -> TL
-      }));
-      setRealOrgs(formatted);
-      setInvitedBosses(bossesData as InvitedBoss[]);
-    } catch (err) {
-      console.error("Load data error:", err);
-    }
-  };
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      loadData();
-    }, 0);
-    return () => clearTimeout(t);
-  }, []);
-
-  const handleToggle = async (id: string, currentStatus: boolean) => {
-    const result = await toggleOrgStatus(id, currentStatus);
-    if ("success" in result && result.success) {
-      loadData();
-    }
-  };
-
-  const handleRevokeBoss = async (id: string, organizationId?: string) => {
-    if (!confirm("Bu daveti iptal etmek istediğinize emin misiniz?")) return;
-    const result = await revokeBossInvitation(id, organizationId);
-    if ("error" in result) {
-      alert(result.error);
-    } else {
-      loadData();
-    }
-  };
-
-  const orgs = showMockData ? [...MOCK_ORGS, ...realOrgs] : realOrgs;
-
-  const totalCustomers = orgs.reduce((s, o) => s + o.customers, 0);
-  const totalVolume = orgs.reduce((s, o) => s + o.txVolume, 0);
-  const activeOrgsCount = orgs.filter(o => o.status === "active").length;
-
-  const STAT_CARDS_DATA = [
-    { icon: Building2, label: "Toplam Organizasyon", value: String(orgs.length), sub: `${activeOrgsCount} aktif · ${orgs.length - activeOrgsCount} pasif`, accent: "#22d3ee" },
-    { icon: Users, label: "Toplam Müşteri", value: fmt(totalCustomers), sub: "Tüm tenantlar", accent: "#818cf8" },
-    { icon: TrendingUp, label: "İşlem Hacmi", value: fmtTL(totalVolume), sub: "Tüm şubeler", accent: "#34d399" },
-    { icon: Server, label: "Sistem Durumu", value: "Stabil", sub: "Son 30 gün uptime %99.9", accent: "#f59e0b" },
-  ];
+  if (!isLoaded || loading) {
+    const displayName = user 
+      ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.emailAddresses[0].emailAddress.split("@")[0]) 
+      : null;
+    return (
+      <DashboardLoadingScreen
+        userName={displayName}
+        orgName="Süper Admin"
+        logoUrl={organization?.imageUrl || null}
+      />
+    );
+  }
 
   return (
     <div className={`min-h-screen w-full transition-colors duration-500 font-sans ${isDarkMode ? "bg-[#0a0a0f] text-white" : "bg-slate-50 text-slate-900"}`}>
-      <AnimatePresence>
-        {showInvite && (
-          <InviteBossModal 
-            onClose={() => setShowInvite(false)} 
-            onSuccess={loadData}
-            isDarkMode={isDarkMode}
-          />
-        )}
-      </AnimatePresence>
+      <SuperAdminModals state={state} actions={actions} />
 
-      <DashboardHeader 
+      <DashboardHeader
         user={user}
-        showMockData={showMockData}
-        setShowMockData={setShowMockData}
+        showMockData={state.showMockData}
+        setShowMockData={actions.setShowMockData}
         isDarkMode={isDarkMode}
-        setIsDarkMode={setIsDarkMode}
-        signOut={() => signOut({ redirectUrl: "/" })}
+        setIsDarkMode={actions.setIsDarkMode}
+        signOut={() => actions.setShowSignOutOverlay(true)}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
@@ -146,8 +53,8 @@ export default function SuperAdminDashboard() {
               {activeTab === "organizations" ? "Organizasyon Yönetimi" : "Patron Yönetimi"}
             </h1>
             <p className="text-slate-500 text-sm mt-1">
-              {activeTab === "organizations" 
-                ? "İşletmelerin durumlarını ve şubelerini yönetin" 
+              {activeTab === "organizations"
+                ? "İşletmelerin durumlarını ve şubelerini yönetin"
                 : "Davet edilen patronları ve durumlarını yönetin"}
             </p>
           </div>
@@ -160,29 +67,10 @@ export default function SuperAdminDashboard() {
           )}
         </div>
 
-        {activeTab === "organizations" && (
-          <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {STAT_CARDS_DATA.map((card) => (
-                <StatCard key={card.label} {...card} />
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              <div className="xl:col-span-2">
-                <OrgTable orgs={orgs} onToggle={handleToggle} onLimitUpdated={loadData} />
-              </div>
-              <div className="space-y-5">
-                <ActivityLog logs={logs} />
-              </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === "bosses" && (
-          <div className="max-w-4xl mx-auto">
-            <InvitedBossesList bosses={invitedBosses} isDarkMode={isDarkMode} onRevoke={handleRevokeBoss} />
-          </div>
+        {activeTab === "organizations" ? (
+          <OrganizationsSection state={state} actions={actions} />
+        ) : (
+          <InvitedBossesSection state={state} actions={actions} />
         )}
       </div>
     </div>

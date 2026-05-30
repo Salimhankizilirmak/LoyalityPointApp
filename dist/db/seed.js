@@ -10,8 +10,8 @@ async function main() {
             // 1. Mevcut organizasyonları çek
             const allOrgs = await tx.select().from(schema_1.organizations);
             console.log(`[SEED] Toplam ${allOrgs.length} organizasyon bulundu.`);
+            // 2. Her organizasyon için varsayılan kural kontrolü ve tohumlama
             for (const org of allOrgs) {
-                // Her organizasyon için varsayılan kural kontrolü
                 const existingRules = await tx
                     .select()
                     .from(schema_1.loyaltyRules)

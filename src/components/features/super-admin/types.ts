@@ -22,7 +22,7 @@ export interface ActivityLogItem {
 export interface InvitedBoss {
   id: string;
   email: string;
-  status: "pending" | "accepted";
+  status: "pending" | "accepted" | "revoked" | "expired";
   createdAt: number;
   lastSignIn?: number | null;
   organizationId?: string;

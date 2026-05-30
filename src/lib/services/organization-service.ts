@@ -1,7 +1,34 @@
 import { BaseService } from "./base-service";
 import { organizations, branches } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
+import { CACHE_TAGS, purgeCacheTag } from "@/lib/cache-registry";
+import { db } from "@/db";
+
+// Önbellek yardımcı fonksiyonları
+const getCachedOrgProfileDetails = (orgId: string) => unstable_cache(
+  async (id: string) => {
+    const [dbOrg, branchCountResult] = await Promise.all([
+      db.select().from(organizations).where(eq(organizations.id, id)).get(),
+      db.select({ count: sql<number>`COUNT(*)` }).from(branches).where(eq(branches.orgId, id)).get()
+    ]);
+    return { dbOrg, branchCount: branchCountResult?.count ?? 0 };
+  },
+  [`org-profile-details-${orgId}`],
+  {
+    tags: [CACHE_TAGS.bossProfile(orgId)],
+  }
+);
+
+const getCachedOrgBranches = (orgId: string) => unstable_cache(
+  async (id: string) => {
+    return await db.select().from(branches).where(eq(branches.orgId, id)).all();
+  },
+  [`org-branches-list-${orgId}`],
+  {
+    tags: [CACHE_TAGS.bossBranches(orgId)],
+  }
+);
 
 export class OrganizationService extends BaseService {
   async getAllBossOrganizations() {
@@ -10,30 +37,54 @@ export class OrganizationService extends BaseService {
   }
 
   async getBossProfile() {
-    const session = await this.getSession();
     const user = await this.getCurrentUser();
     let orgData = null;
+    let allOrgs: { id: string; name: string }[] = [];
 
-    if (session.orgId) {
+    const dbUser = await this.getLocalUser(user.id);
+    if (dbUser && dbUser.role === "BOSS") {
+      // BOSS'un sahip olduğu tüm organizasyonlar
+      allOrgs = await this.db.select({
+        id: organizations.id,
+        name: organizations.name
+      }).from(organizations).where(eq(organizations.bossId, dbUser.id)).all();
+    }
+
+    let orgId = null;
+    try {
+      orgId = await this.requireOrg();
+    } catch (err) {
+      console.warn("[getBossProfile] Failed to resolve orgId:", err);
+    }
+
+    if (orgId) {
       const client = await this.getClerkClient();
-      const [org, dbOrg, branchCountResult] = await Promise.all([
-        client.organizations.getOrganization({ organizationId: session.orgId }),
-        this.db.select().from(organizations).where(eq(organizations.id, session.orgId)).get(),
-        this.db.select({ count: sql<number>`COUNT(*)` }).from(branches).where(eq(branches.orgId, session.orgId)).get()
-      ]);
+      let orgName = "Organizasyon";
+      let orgSlug = "";
+      
+      try {
+        const org = await client.organizations.getOrganization({ organizationId: orgId });
+        orgName = org.name;
+        orgSlug = org.slug || "";
+      } catch (err) {
+        console.warn("[getBossProfile] Failed to fetch organization from Clerk:", err);
+      }
+
+      // Detaylar cached fonksiyondan getirilir
+      const { dbOrg, branchCount } = await getCachedOrgProfileDetails(orgId)(orgId);
 
       if (!dbOrg) {
         throw new Error("Bu organizasyon sistemde aktif değil veya onaylanmamış. Lütfen Sistem Yöneticisi ile iletişime geçin.");
       }
 
       orgData = {
-        id: session.orgId,
-        name: org.name,
-        slug: org.slug || "",
+        id: orgId,
+        name: dbOrg.name || orgName,
+        slug: orgSlug,
         pointRate: 10,
         validityMonths: 12,
         branchLimit: dbOrg.branchLimit ?? 2,
-        currentBranches: branchCountResult?.count ?? 0,
+        currentBranches: branchCount,
       };
     }
 
@@ -43,8 +94,10 @@ export class OrganizationService extends BaseService {
         lastName: user.lastName,
         email: user.emailAddresses[0]?.emailAddress || "",
         imageUrl: user.imageUrl,
+        username: dbUser?.username || null,
       },
       org: orgData,
+      allOrgs,
     };
   }
 
@@ -113,6 +166,10 @@ export class OrganizationService extends BaseService {
         isActive: true,
       }).returning();
 
+      // Önbellek geçersiz kılma
+      purgeCacheTag(CACHE_TAGS.bossBranches(orgId));
+      purgeCacheTag(CACHE_TAGS.bossProfile(orgId));
+
       revalidatePath("/boss-dashboard");
       return { success: true, id: newBranch.id, name, city };
     });
@@ -125,18 +182,22 @@ export class OrganizationService extends BaseService {
   async getBranches() {
     await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const orgId = await this.requireOrg();
-    return await this.db.select().from(branches).where(eq(branches.orgId, orgId)).all();
+    return await getCachedOrgBranches(orgId)(orgId);
   }
 
   async updateName(newName: string) {
     const orgId = await this.requireOrg();
-    await this.requireRole(["BOSS", "SUPER_ADMIN"]);
+    const { dbUser } = await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     
     const client = await this.getClerkClient();
     await Promise.all([
       client.organizations.updateOrganization(orgId, { name: newName }),
       this.db.update(organizations).set({ name: newName }).where(eq(organizations.id, orgId))
     ]);
+
+    // Önbellek geçersiz kılma
+    purgeCacheTag(CACHE_TAGS.bossProfile(orgId));
+    purgeCacheTag(CACHE_TAGS.userOwnership(dbUser.id));
 
     return { success: true };
   }
@@ -145,6 +206,8 @@ export class OrganizationService extends BaseService {
     await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const client = await this.getClerkClient();
     
+    const org = await this.db.select().from(organizations).where(eq(organizations.id, id)).get();
+
     try {
       await client.organizations.deleteOrganization(id);
     } catch (error: unknown) {
@@ -158,6 +221,12 @@ export class OrganizationService extends BaseService {
 
     await this.db.delete(organizations).where(eq(organizations.id, id));
     
+    // Önbellek geçersiz kılma
+    purgeCacheTag(CACHE_TAGS.bossProfile(id));
+    if (org && org.bossId) {
+      purgeCacheTag(CACHE_TAGS.userOwnership(org.bossId));
+    }
+
     revalidatePath("/boss-dashboard");
     revalidatePath("/admin");
     return { success: true };
@@ -166,7 +235,7 @@ export class OrganizationService extends BaseService {
   async deleteBranch(id: string) {
     await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     const session = await (await import("@clerk/nextjs/server")).auth();
-    const orgId = session.orgId;
+    const orgId = await this.requireOrg();
     const client = await this.getClerkClient();
     
     if (orgId) {
@@ -195,18 +264,26 @@ export class OrganizationService extends BaseService {
 
     await this.db.delete(branches).where(eq(branches.id, id));
     
+    // Önbellek geçersiz kılma
+    purgeCacheTag(CACHE_TAGS.bossBranches(orgId));
+    purgeCacheTag(CACHE_TAGS.bossProfile(orgId));
+
     revalidatePath("/boss-dashboard");
     return { success: true };
   }
 
   async toggleStatus(id: string) {
     await this.requireRole(["BOSS", "SUPER_ADMIN"]);
+    const orgId = await this.requireOrg();
     const branch = await this.db.select().from(branches).where(eq(branches.id, id)).get();
     if (!branch) throw new Error("Şube bulunamadı.");
 
     await this.db.update(branches)
       .set({ isActive: !branch.isActive })
       .where(eq(branches.id, id));
+
+    // Önbellek geçersiz kılma
+    purgeCacheTag(CACHE_TAGS.bossBranches(orgId));
 
     revalidatePath("/boss-dashboard");
     return { success: true, newState: !branch.isActive };

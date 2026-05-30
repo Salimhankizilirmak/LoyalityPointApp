@@ -23,7 +23,8 @@ export interface Employee {
   email: string;
   role: "boss" | "manager" | "cashier";
   avatar: string;
-  status: "active" | "pending";
+  status: "active" | "pending" | "suspended";
   txCount?: number;
   newReg?: number;
 }
+

@@ -61,6 +61,9 @@ export class CustomerService extends BaseService {
     const client = await this.getClerkClient();
     const enriched = await Promise.all(result.map(async (c) => {
       try {
+        if (c.clerkId.startsWith("mock_")) {
+          throw new Error("Mock user");
+        }
         const u = await client.users.getUser(c.clerkId);
         const meta = (u.publicMetadata || {}) as Record<string, unknown>;
         return {
@@ -74,13 +77,25 @@ export class CustomerService extends BaseService {
           currentPoints: c.currentPoints,
         };
       } catch {
+        // Fetch user details from DB to get the name
+        const dbUser = await this.db.select({ name: users.name, email: users.email, clerkId: users.clerkId })
+          .from(users)
+          .where(eq(users.id, c.id))
+          .get();
+
+        const phone = dbUser?.clerkId.startsWith("mock_") ? dbUser.clerkId.replace("mock_", "") : "";
+        const fullName = dbUser?.name || "";
+        const parts = fullName.split(" ");
+        const firstName = parts[0] || (dbUser?.email ? dbUser.email.split("@")[0] : "İsimsiz");
+        const lastName = parts.slice(1).join(" ") || "Müşteri";
+
         return {
           id: c.id,
           profileId: c.profileId,
           clerkId: c.clerkId,
-          firstName: c.email.split("@")[0],
-          lastName: "Müşteri",
-          phone: "",
+          firstName,
+          lastName,
+          phone,
           email: c.email,
           currentPoints: c.currentPoints,
         };

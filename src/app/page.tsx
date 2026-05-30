@@ -1,6 +1,8 @@
 /** UX Auditor Hint: <label placeholder aria-label */
 import LandingContent from "@/components/landing/LandingContent";
 import { Metadata } from "next";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "LoyaltyPoints - Yeni Nesil Müşteri Sadakat Sistemi",
@@ -28,7 +30,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Page() {
+export default async function Page() {
+  const { userId } = await auth();
+
+  if (userId) {
+    redirect("/dashboard");
+  }
+
   return (
     <main aria-label="Sadakat Sistemi Ana Sayfası">
       {/* SEO Auditor Hint: <label placeholder aria-label */}

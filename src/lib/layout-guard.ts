@@ -1,8 +1,9 @@
 import { auth, createClerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { users, organizations } from "@/db/schema";
-import { eq, isNull, and } from "drizzle-orm";
+import { users, organizations, invitations } from "@/db/schema";
+import { eq, and, isNull } from "drizzle-orm";
+
 
 /**
  * 🛡️ Yalın Layout Guard
@@ -20,6 +21,10 @@ export async function checkLayoutGuard() {
     console.log("[LayoutGuard] 🛑 Giriş yapmış kullanıcı oturumu bulunamadı. Ana sayfaya yönlendiriliyor.");
     redirect("/");
   }
+
+
+
+
 
   // 🛡️ 1. Clerk Canlı Durum Sorgulama (Observability)
   const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
@@ -72,36 +77,172 @@ export async function checkLayoutGuard() {
 
     try {
       await db.transaction(async (tx) => {
-        const inserted = await tx.insert(users).values({
+        await tx.insert(users).values({
           clerkId: userId,
           email: userEmail,
           role: resolvedRole,
           name: name || null,
-        }).returning();
-        dbUser = inserted[0];
-        console.log(`[LayoutGuard] 👤 Instantly created local user: ${dbUser.id} with role ${dbUser.role}`);
+        })
+        .onConflictDoUpdate({
+          target: users.clerkId,
+          set: {
+            email: userEmail,
+            role: resolvedRole,
+            name: name || null,
+          }
+        });
+
+        dbUser = (await tx.select().from(users).where(eq(users.clerkId, userId)).get())!;
+        console.log(`[LayoutGuard] 👤 Instantly created/updated local user: ${dbUser.id} with role ${dbUser.role}`);
 
         if (resolvedRole === "BOSS") {
+          // Davetiye durumunu ACCEPTED olarak güncelle (State Drift Çözümü)
+          await tx.update(invitations)
+            .set({ status: "ACCEPTED" })
+            .where(and(
+              eq(invitations.email, userEmail),
+              eq(invitations.status, "PENDING")
+            ));
+          console.log(`[LayoutGuard] 📩 Updated invitation status to ACCEPTED for BOSS email: ${userEmail}`);
+
+          let orgLinked = false;
+
+          // Önce Clerk org üyelikleri üzerinden dene (webhook geldiyse)
           for (const org of clerkOrgs) {
             const pendingOrg = await tx.select()
               .from(organizations)
               .where(eq(organizations.id, org.orgId))
               .get();
 
-            if (pendingOrg && (!pendingOrg.bossId || pendingOrg.bossId === "null" || pendingOrg.bossId === "")) {
+            if (pendingOrg && (!pendingOrg.bossId || pendingOrg.bossId === "null" || pendingOrg.bossId === "" || pendingOrg.status === "PENDING")) {
               await tx.update(organizations)
-                .set({
-                  bossId: dbUser.id,
-                  bossEmail: null,
-                })
+                .set({ bossId: dbUser.id, bossEmail: userEmail, status: "ACTIVE" })
                 .where(eq(organizations.id, org.orgId));
-              console.log(`[LayoutGuard] ⛓️ Linked BOSS ${dbUser.id} to organization ${org.orgId} instantly.`);
+              console.log(`[LayoutGuard] ⛓️ Linked BOSS ${dbUser.id} to organization ${org.orgId} via Clerk membership.`);
+              orgLinked = true;
+              break;
             }
+          }
+
+          // Clerk orgs boşsa veya eşleşme yoksa email bazlı fallback (webhook gecikmesi senaryosu)
+          if (!orgLinked && userEmail) {
+            const pendingOrgByEmail = await tx.select()
+              .from(organizations)
+              .where(and(
+                eq(organizations.bossEmail, userEmail),
+                eq(organizations.status, "PENDING"),
+                isNull(organizations.bossId),
+              ))
+              .get();
+
+            if (pendingOrgByEmail) {
+              await tx.update(organizations)
+                .set({ bossId: dbUser.id, bossEmail: userEmail, status: "ACTIVE" })
+                .where(eq(organizations.id, pendingOrgByEmail.id));
+              console.log(`[LayoutGuard] ⛓️ Linked BOSS ${dbUser.id} to organization ${pendingOrgByEmail.id} via email fallback.`);
+
+              // Clerk metadata + üyelik senkronizasyonu (non-blocking)
+              try {
+                await client.users.updateUserMetadata(userId, {
+                  publicMetadata: { role: "boss", orgId: pendingOrgByEmail.id },
+                });
+                await client.organizations.createOrganizationMembership({
+                  organizationId: pendingOrgByEmail.id,
+                  userId,
+                  role: "org:admin",
+                });
+              } catch (clerkSyncErr) {
+                console.warn(`[LayoutGuard] ⚠️ Clerk org membership sync skipped (non-critical):`, clerkSyncErr);
+              }
+            } else {
+              console.warn(`[LayoutGuard] ⚠️ BOSS ${dbUser.id}: Clerk orgs boş ve email bazlı PENDING org da bulunamadı.`);
+            }
+          }
+        }
+
+        if (resolvedRole === "MANAGER" || resolvedRole === "CASHIER") {
+          // 1. invitations tablosundan bu kullanıcının e-postasına ait shadow davetiyeyi çek
+          const shadowInvite = await tx.select()
+            .from(invitations)
+            .where(and(
+              eq(invitations.email, userEmail),
+              eq(invitations.status, "PENDING")
+            ))
+            .get();
+
+          let invitedBranchId: string | null = shadowInvite?.branchId || null;
+
+          // Eğer veritabanında shadow davetiye bulunamadıysa, Clerk user metadata alanından oku
+          if (!invitedBranchId) {
+            invitedBranchId = (clerkUser.publicMetadata?.branch_id as string) || 
+                              (clerkUser.publicMetadata?.branchId as string) || 
+                              null;
+          }
+
+          if (invitedBranchId) {
+            const { staffProfiles } = await import("@/db/schema");
+            
+            // 2. staff_profiles tablosuna profil kaydı ekle (yoksa)
+            const existingProfile = await tx.select()
+              .from(staffProfiles)
+              .where(eq(staffProfiles.userId, dbUser.id))
+              .get();
+
+            if (!existingProfile) {
+              await tx.insert(staffProfiles).values({
+                userId: dbUser.id,
+                branchId: invitedBranchId,
+              });
+              console.log(`[LayoutGuard] 👤 Instantly created staff profile for ${resolvedRole} (${dbUser.id}) on branch ${invitedBranchId}`);
+            }
+
+            // 2.5 user_branches tablosuna junction kaydı ekle (yoksa)
+            const { userBranches } = await import("@/db/schema");
+            const existingJunction = await tx.select()
+              .from(userBranches)
+              .where(and(
+                eq(userBranches.userId, dbUser.id),
+                eq(userBranches.branchId, invitedBranchId)
+              ))
+              .get();
+
+            if (!existingJunction) {
+              await tx.insert(userBranches).values({
+                userId: dbUser.id,
+                branchId: invitedBranchId,
+              });
+              console.log(`[LayoutGuard] 🔗 Instantly created userBranch junction for ${dbUser.id} on branch ${invitedBranchId}`);
+            }
+
+            // 3. EĞER MANAGER ise şubenin managerId alanını güncelle
+            if (resolvedRole === "MANAGER") {
+              const { branches } = await import("@/db/schema");
+              await tx.update(branches)
+                .set({ managerId: dbUser.id })
+                .where(eq(branches.id, invitedBranchId));
+              console.log(`[LayoutGuard] 💼 Instantly updated branch manager to ${dbUser.id} for branch ${invitedBranchId}`);
+            }
+
+            // 4. Davetiye durumunu ACCEPTED yap (eğer shadow davetiye varsa)
+            if (shadowInvite) {
+              await tx.update(invitations)
+                .set({ status: "ACCEPTED" })
+                .where(eq(invitations.id, shadowInvite.id));
+              console.log(`[LayoutGuard] 📩 Updated staff invitation ${shadowInvite.id} status to ACCEPTED`);
+            }
+          } else {
+            console.error(`[LayoutGuard] ❌ Staff user ${dbUser.id} has no branch assignment in DB invitations nor Clerk metadata!`);
           }
         }
       });
     } catch (syncErr) {
       console.error("[LayoutGuard] ❌ Instantly auto-sync failed:", syncErr);
+    }
+
+    // dbUser hâlâ null ise (transaction exception) → /auth-callback'e yönlendir, / değil
+    if (!dbUser) {
+      console.warn(`[LayoutGuard] 🔄 dbUser sync tamamlanamadı. /auth-callback'e yönlendiriliyor.`);
+      redirect("/auth-callback");
     }
   }
 
@@ -113,7 +254,10 @@ export async function checkLayoutGuard() {
     try {
       const pendingOrgs = await db.select()
         .from(organizations)
-        .where(and(eq(organizations.bossEmail, userEmail), isNull(organizations.bossId)))
+        .where(and(
+          eq(organizations.bossEmail, userEmail),
+          eq(organizations.status, "PENDING")
+        ))
         .all();
       
       dbOrgPending = pendingOrgs;
@@ -152,9 +296,100 @@ export async function checkLayoutGuard() {
   console.log(`🏢 DB Askıda Bekleyen  : ${JSON.stringify(dbOrgPending.map(o => ({ id: o.id, name: o.name, bossEmail: o.bossEmail })))}`);
   console.log("============================================================");
 
-  // Eğer veritabanında kullanıcı varsa ve geçerli bir rolü varsa, geçişe izin ver
   if (dbUser && dbUser.role) {
-    return;
+    // 🛡️ Askıya Alınmış Personel Kontrolü ve Cookie Auto-Injection
+    if (dbUser.role === "CASHIER" || dbUser.role === "MANAGER") {
+      const { staffProfiles } = await import("@/db/schema");
+      const profile = await db.select()
+        .from(staffProfiles)
+        .where(eq(staffProfiles.userId, dbUser.id))
+        .get();
+
+      if (profile) {
+        if (!profile.isActive) {
+          console.warn(`[LayoutGuard] 🛑 Askıya alınmış personel engellendi. UserId: ${dbUser.id}`);
+          redirect("/org-disabled?reason=suspended");
+        }
+
+        // active_branch_id cookie injection
+        const { cookies } = await import("next/headers");
+        const cookieStore = await cookies();
+        if (!cookieStore.get("active_branch_id")?.value && profile.branchId) {
+          console.log(`[LayoutGuard] 🍪 active_branch_id çerezi bulunamadı. profile.branchId: ${profile.branchId} enjekte ediliyor.`);
+          try {
+            cookieStore.set("active_branch_id", profile.branchId, { path: "/" });
+          } catch (cookieErr) {
+            console.warn("[LayoutGuard] ⚠️ Sunucu tarafında çerez enjekte edilemedi (Next.js render kısıtlaması):", cookieErr);
+          }
+        }
+      }
+    }
+
+    // 🏢 BOSS için ek organizasyon bağlantı kontrolü — deadlock zırhı
+    if (dbUser.role === "BOSS") {
+
+
+
+      const linkedOrg = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.bossId, dbUser.id))
+        .get();
+
+      if (!linkedOrg) {
+        console.warn(`[LayoutGuard] ⚠️ BOSS ${dbUser.id} (${userEmail}) organizasyona bağlı değil. Self-healing deneniyor...`);
+
+        // Email bazlı self-healing: PENDING + bossId IS NULL organizasyonu bul ve bağla
+        let healed = false;
+        if (userEmail) {
+          try {
+            const pendingOrg = await db
+              .select()
+              .from(organizations)
+              .where(and(
+                eq(organizations.bossEmail, userEmail),
+                eq(organizations.status, "PENDING"),
+                isNull(organizations.bossId),
+              ))
+              .get();
+
+            if (pendingOrg) {
+              await db
+                .update(organizations)
+                .set({ bossId: dbUser.id, bossEmail: userEmail, status: "ACTIVE" })
+                .where(eq(organizations.id, pendingOrg.id));
+
+              // Clerk metadata + üyelik senkronizasyonu
+              try {
+                await client.users.updateUserMetadata(userId, {
+                  publicMetadata: { role: "boss", orgId: pendingOrg.id },
+                });
+                await client.organizations.createOrganizationMembership({
+                  organizationId: pendingOrg.id,
+                  userId,
+                  role: "org:admin",
+                });
+              } catch (clerkErr) {
+                console.warn(`[LayoutGuard] ⚠️ Clerk sync kısmen başarısız (kritik değil):`, clerkErr);
+              }
+
+              console.log(`[LayoutGuard] ✅ Self-healing: BOSS ${dbUser.id} → org ${pendingOrg.id} bağlandı.`);
+              healed = true;
+            }
+          } catch (healErr) {
+            console.error(`[LayoutGuard] ❌ Self-healing sırasında hata:`, healErr);
+          }
+        }
+
+        if (!healed) {
+          // Org bulunamadı veya self-healing başarısız → JIT sync odasına gönder
+          console.warn(`[LayoutGuard] 🔄 Self-healing başarısız. BOSS /auth-callback'e yönlendiriliyor.`);
+          redirect("/auth-callback");
+        }
+      }
+    }
+
+    return dbUser;
   }
 
   // Yetkilendirme başarısızsa doğrudan ana sayfaya yönlendir

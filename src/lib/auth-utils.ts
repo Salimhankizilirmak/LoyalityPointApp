@@ -1,6 +1,6 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { organizations, users, staffProfiles, customerProfiles, branches } from "@/db/schema";
+import { organizations, users, staffProfiles, customerProfiles, branches, invitations } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 
 export async function getDashboardRedirectPath(
@@ -38,20 +38,21 @@ export async function getDashboardRedirectPath(
   }
 
   // 🔄 Eşzamanlı Yerel Veritabanı Senkronizasyonu (Kvkk ve SaaS geçişi için)
-  let dbUser = await db.select().from(users).where(eq(users.clerkId, userId)).get();
-  if (!dbUser) {
-    const inserted = await db.insert(users).values({
-      clerkId: userId,
+  await db.insert(users).values({
+    clerkId: userId,
+    email,
+    role: dbRole,
+  })
+  .onConflictDoUpdate({
+    target: users.clerkId,
+    set: {
       email,
       role: dbRole,
-    }).returning();
-    dbUser = inserted[0];
-    console.log(`[AuthUtils] Created new local user: ${dbUser.id} with role ${dbUser.role}`);
-  } else if (dbUser.role !== dbRole || dbUser.email !== email) {
-    await db.update(users).set({ role: dbRole, email }).where(eq(users.id, dbUser.id));
-    dbUser.role = dbRole;
-    console.log(`[AuthUtils] Updated local user: ${dbUser.id} role to ${dbRole}`);
-  }
+    }
+  });
+
+  const dbUser = (await db.select().from(users).where(eq(users.clerkId, userId)).get())!;
+  console.log(`[AuthUtils] Synchronized local user: ${dbUser.id} with role ${dbUser.role}`);
 
   // 👑 2. Süper Admin Yönlendirmesi
   if (dbUser.role === "SUPER_ADMIN") {
@@ -67,14 +68,26 @@ export async function getDashboardRedirectPath(
     // 2. Eğer yerel veritabanında yoksa ama Clerk session'da orgId varsa, veritabanına senkronize et
     if (!dbOrg && orgId) {
       const clerkOrg = await client.organizations.getOrganization({ organizationId: orgId });
-      const insertedOrg = await db.insert(organizations).values({
+      const insertedOrgs = await db.insert(organizations).values({
         id: orgId,
         name: clerkOrg.name,
         bossId: dbUser.id,
+        bossEmail: email,
         branchLimit: 2,
         isActive: true,
-      }).returning();
-      dbOrg = insertedOrg[0];
+        status: "ACTIVE",
+      })
+      .onConflictDoUpdate({
+        target: organizations.id,
+        set: {
+          name: clerkOrg.name,
+          bossId: dbUser.id,
+          bossEmail: email,
+          status: "ACTIVE",
+        }
+      })
+      .returning();
+      dbOrg = insertedOrgs[0];
       console.log(`[AuthUtils] Synchronized new boss organization: ${dbOrg.name}`);
     }
 
@@ -86,17 +99,34 @@ export async function getDashboardRedirectPath(
       return "/boss-dashboard";
     }
 
-    // 4. Hiçbir yerde organizasyon bulunamadıysa ama BOSS rolünde ise, yerel DB'de askıda bekleyen organizasyonu bağla (Self-healing fallback)
+    // 4. Hicbir yerde organizasyon bulunamadıysa ama BOSS rolünde ise, yerel DB'de askıda bekleyen organizasyonu bağla (Self-healing fallback)
     if (email) {
       const pendingOrg = await db.select()
         .from(organizations)
-        .where(and(eq(organizations.bossEmail, email), isNull(organizations.bossId)))
+        .where(and(
+          eq(organizations.bossEmail, email),
+          eq(organizations.status, "PENDING"),
+          isNull(organizations.bossId)   // Sadece gerçekten bağlanmamış org'ı yakala
+        ))
         .get();
       
       if (pendingOrg) {
         await db.update(organizations)
-          .set({ bossId: dbUser.id, bossEmail: null })
+          .set({
+            bossId: dbUser.id,
+            bossEmail: email,            // Audit trail: bossEmail'i koru
+            status: "ACTIVE",
+          })
           .where(eq(organizations.id, pendingOrg.id));
+        
+        // Yerel invitations tablosundaki durumu ACCEPTED yapalım:
+        await db.update(invitations)
+          .set({ status: "ACCEPTED" })
+          .where(and(
+            eq(invitations.email, email),
+            eq(invitations.organizationId, pendingOrg.id),
+            eq(invitations.status, "PENDING")
+          ));
         
         // Clerk tarafında da senkronizasyon yapmayı dene
         try {

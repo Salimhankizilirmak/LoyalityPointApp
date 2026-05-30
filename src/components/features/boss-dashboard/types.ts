@@ -35,4 +35,5 @@ export interface BossInfo {
   orgName: string;
   branchLimit?: number;
   currentBranches?: number;
+  username?: string | null;
 }

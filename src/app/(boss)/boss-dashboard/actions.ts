@@ -142,3 +142,122 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
   }
 }
 
+export async function setActiveOrganization(orgId: string) {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  
+  const { userId } = await (await import("@clerk/nextjs/server")).auth();
+  if (!userId) throw new Error("Oturum bulunamadı.");
+
+  const { db } = await import("@/db");
+  const { users } = await import("@/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const { getCachedUserOwnedOrgs } = await import("@/lib/services/base-service");
+
+  const dbUser = await db.select().from(users).where(eq(users.clerkId, userId)).get();
+  if (!dbUser || dbUser.role !== "BOSS") {
+    throw new Error("Sadece patronlar organizasyon değiştirebilir.");
+  }
+
+  // Önbellekli katmandan sahiplik doğrulaması yapılır
+  const ownedOrgs = await getCachedUserOwnedOrgs(dbUser.id)(dbUser.id);
+  const isOwner = ownedOrgs.some(org => org.id === orgId);
+
+  if (!isOwner) {
+    throw new Error("Organizasyon bulunamadı veya bu organizasyona erişim yetkiniz yok.");
+  }
+
+  cookieStore.set("selected_org_id", orgId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+
+  return { success: true };
+}
+
+export async function saveUsernameAction(prevState: unknown, formData: FormData) {
+  const { auth, clerkClient } = await import("@clerk/nextjs/server");
+  const { userId } = await auth();
+
+  if (!userId) {
+    return { success: false, error: "Yetkisiz işlem. Oturum bulunamadı." };
+  }
+
+  const usernameInput = formData.get("username") as string;
+  if (!usernameInput || usernameInput.trim() === "") {
+    return { success: false, error: "Kullanıcı adı boş bırakılamaz." };
+  }
+
+  const username = usernameInput.trim().toLowerCase();
+
+  // Regex doğrulama: Sadece küçük harf, rakam, alt çizgi ve nokta. En az 3, en fazla 30 karakter.
+  const usernameRegex = /^[a-z0-9_.]+$/;
+  if (!usernameRegex.test(username)) {
+    return { success: false, error: "Kullanıcı adı sadece küçük harf, rakam, alt çizgi (_) ve nokta (.) içerebilir." };
+  }
+
+  if (username.length < 3 || username.length > 30) {
+    return { success: false, error: "Kullanıcı adı 3 ile 30 karakter arasında olmalıdır." };
+  }
+
+  try {
+    const client = await clerkClient();
+
+    // 1. Clerk üzerinde kullanıcıyı güncelle (Primary Source)
+    try {
+      await client.users.updateUser(userId, {
+        username: username,
+      });
+      console.log(`[SetupUsername] 🏆 Clerk username updated successfully for ${userId}`);
+    } catch (clerkErr) {
+      console.error(`[SetupUsername] ❌ Clerk username update failed:`, clerkErr);
+      
+      const clerkErrObj = clerkErr as { status?: number; errors?: Array<{ code?: string; message?: string }> };
+      const errCode = clerkErrObj.errors?.[0]?.code || "";
+      const errMsg = clerkErrObj.errors?.[0]?.message || "";
+      
+      if (errCode === "form_identifier_exists" || errMsg.includes("exists") || errMsg.includes("taken") || clerkErrObj.status === 422) {
+        return { 
+          success: false, 
+          error: "Bu kullanıcı adı dünyada başka bir işletme tarafından alınmış. Lütfen farklı bir ad deneyin." 
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: errMsg || "Clerk üzerinde kullanıcı adı güncellenirken hata oluştu." 
+      };
+    }
+
+    // 2. Turso Veritabanını güncelle
+    const { db } = await import("@/db");
+    const { users } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    try {
+      await db.update(users)
+        .set({ username })
+        .where(eq(users.clerkId, userId));
+      console.log(`[SetupUsername] 🗄️ Turso DB users table updated successfully for clerkId: ${userId}`);
+    } catch (dbErr) {
+      console.error(`[SetupUsername] ❌ Turso DB update failed:`, dbErr);
+      return { success: false, error: "Kullanıcı adı kaydedildi fakat yerel veritabanı senkronizasyonunda hata oluştu." };
+    }
+
+    // 3. Cache temizle ve yönlendir
+    const { CACHE_TAGS, purgeCacheTag } = await import("@/lib/cache-registry");
+    const { revalidatePath } = await import("next/cache");
+
+    purgeCacheTag(CACHE_TAGS.userOwnership(userId));
+    revalidatePath("/boss-dashboard");
+    revalidatePath("/boss-dashboard", "layout");
+
+    return { success: true, error: "" };
+  } catch (err) {
+    console.error(`[SetupUsername] ❌ Global setup error:`, err);
+    return { success: false, error: "Beklenmedik bir hata oluştu. Lütfen tekrar deneyin." };
+  }
+}
+

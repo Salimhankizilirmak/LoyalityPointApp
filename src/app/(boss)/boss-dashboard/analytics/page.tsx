@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { getBranches, getBossProfile } from "../actions";
 import { getFilteredAnalyticsAction } from "./actions";
-import { BranchAnalytics } from "@/components/features/boss-dashboard/BranchAnalytics";
+import { BranchAnalytics } from "@/components/features/boss-dashboard/ui/BranchAnalytics";
+export const dynamic = "force-dynamic";
 
 interface BranchItem {
   id: string;
