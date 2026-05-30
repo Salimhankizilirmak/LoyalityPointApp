@@ -1,5 +1,5 @@
 "use client";
-
+//use cleint olması önemli
 import { useState, useRef, useEffect } from "react";
 import { UserProfile } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,8 +36,8 @@ export function UserMenu({ user, signOut, isDarkMode }: UserMenuProps) {
   if (!user) return null;
 
   // Safe Fallback Display Name
-  const displayName = user.firstName && user.lastName 
-    ? `${user.firstName} ${user.lastName}` 
+  const displayName = user.firstName && user.lastName
+    ? `${user.firstName} ${user.lastName}`
     : user.fullName || user.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "Kullanıcı";
 
   const email = user.emailAddresses?.[0]?.emailAddress || "";
@@ -78,11 +78,10 @@ export function UserMenu({ user, signOut, isDarkMode }: UserMenuProps) {
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className={`absolute right-0 mt-2 w-56 rounded-2xl border shadow-xl z-40 py-1.5 transition-all backdrop-blur-xl ${
-              isDarkMode 
-                ? "bg-slate-900/95 border-slate-800 text-slate-200 shadow-indigo-500/5" 
+            className={`absolute right-0 mt-2 w-56 rounded-2xl border shadow-xl z-40 py-1.5 transition-all backdrop-blur-xl ${isDarkMode
+                ? "bg-slate-900/95 border-slate-800 text-slate-200 shadow-indigo-500/5"
                 : "bg-white/95 border-slate-200 text-slate-700 shadow-slate-200"
-            }`}
+              }`}
           >
             {/* Header info */}
             <div className="px-4 py-2.5 border-b border-slate-800/10 dark:border-slate-800/50">
@@ -101,11 +100,10 @@ export function UserMenu({ user, signOut, isDarkMode }: UserMenuProps) {
                   setIsOpen(false);
                   setShowProfile(true);
                 }}
-                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${
-                  isDarkMode 
-                    ? "hover:bg-slate-800 text-slate-200" 
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${isDarkMode
+                    ? "hover:bg-slate-800 text-slate-200"
                     : "hover:bg-slate-50 text-slate-700"
-                }`}
+                  }`}
               >
                 <Settings size={14} className="text-slate-400" />
                 <span>Profili Yönet</span>
@@ -134,20 +132,18 @@ export function UserMenu({ user, signOut, isDarkMode }: UserMenuProps) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className={`relative rounded-3xl border shadow-2xl max-w-5xl max-h-[90vh] overflow-y-auto ${
-                isDarkMode 
-                  ? "bg-slate-900/90 border-slate-800 shadow-indigo-500/10" 
+              className={`relative rounded-3xl border shadow-2xl max-w-5xl max-h-[90vh] overflow-y-auto ${isDarkMode
+                  ? "bg-slate-900/90 border-slate-800 shadow-indigo-500/10"
                   : "bg-white border-slate-200 shadow-slate-250"
-              }`}
+                }`}
             >
               {/* Close Button */}
               <button
                 onClick={() => setShowProfile(false)}
-                className={`absolute top-4 right-4 z-50 p-2 rounded-xl transition-colors ${
-                  isDarkMode 
-                    ? "hover:bg-slate-800/80 text-slate-400 hover:text-white" 
+                className={`absolute top-4 right-4 z-50 p-2 rounded-xl transition-colors ${isDarkMode
+                    ? "hover:bg-slate-800/80 text-slate-400 hover:text-white"
                     : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
-                }`}
+                  }`}
                 aria-label="Kapat"
               >
                 <X size={18} />
