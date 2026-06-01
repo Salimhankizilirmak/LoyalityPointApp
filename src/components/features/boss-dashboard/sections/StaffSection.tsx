@@ -2,6 +2,16 @@
 
 import { StaffManagement } from "../ui/StaffManagement";
 import { Employee } from "../types";
+import { InvitationsAuditFeed } from "@/components/features/invitations/ui/InvitationsAuditFeed";
+
+interface InvitationItem {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: Date | number | null;
+  branchName?: string | null;
+}
 
 interface StaffSectionProps {
   displayEmployees: Employee[];
@@ -12,6 +22,7 @@ interface StaffSectionProps {
   setShowInvite: (show: boolean) => void;
   loadingId: string | null;
   hasNoUsername: boolean;
+  invitations: InvitationItem[];
 }
 
 export function StaffSection({
@@ -22,18 +33,24 @@ export function StaffSection({
   setReassigningEmployee,
   setShowInvite,
   loadingId,
-  hasNoUsername
+  hasNoUsername,
+  invitations
 }: StaffSectionProps) {
   return (
-    <StaffManagement
-      employees={displayEmployees}
-      isDarkMode={isDarkMode}
-      onUpdate={handleUpdateMember}
-      onRemove={handleRemoveMember}
-      onReassign={setReassigningEmployee}
-      onInvite={() => setShowInvite(true)}
-      loadingId={loadingId}
-      hasNoUsername={hasNoUsername}
-    />
+    <div className="space-y-6">
+      <StaffManagement
+        employees={displayEmployees}
+        isDarkMode={isDarkMode}
+        onUpdate={handleUpdateMember}
+        onRemove={handleRemoveMember}
+        onReassign={setReassigningEmployee}
+        onInvite={() => setShowInvite(true)}
+        loadingId={loadingId}
+        hasNoUsername={hasNoUsername}
+      />
+      <div className="mt-8">
+        <InvitationsAuditFeed invitations={invitations} isDarkMode={isDarkMode} />
+      </div>
+    </div>
   );
 }

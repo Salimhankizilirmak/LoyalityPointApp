@@ -48,16 +48,23 @@ export async function deleteCustomer(id: string) {
 
 import { managerService } from "@/lib/services/manager-service";
 import { db } from "@/db";
-import { users, customerProfiles } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { auth } from "@clerk/nextjs/server";
+import { users, invitations } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
 export async function getManagerProfile() {
   return await managerService.getMyBranchData();
 }
 
-export async function addCustomerAction(firstName: string, lastName: string, phone: string) {
+export async function addCustomerAction(firstName: string, lastName: string, phone: string, email: string) {
   try {
+    if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim()) {
+      return { error: "Ad, soyad, telefon ve e-posta adresi zorunludur." };
+    }
+    if (!email.includes("@")) {
+      return { error: "Geçerli bir e-posta adresi giriniz." };
+    }
+
     const { userId } = await auth();
     if (!userId) return { error: "Oturum bulunamadı." };
 
@@ -70,28 +77,41 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
     const profile = await managerService.getMyBranchData();
     if (!profile || !profile.orgId) return { error: "Şube organizasyon kimliği bulunamadı." };
     const orgId = profile.orgId;
+    const branchId = profile.branchId;
 
-    const mockClerkId = `mock_${phone}`;
-    const mockEmail = `${phone}@mock.com`;
+    // Mükerrer davetiye kontrolü (Guard Clause)
+    const existingPending = await db.select()
+      .from(invitations)
+      .where(and(
+        eq(invitations.email, email.trim().toLowerCase()),
+        eq(invitations.status, "PENDING")
+      ))
+      .get();
 
-    const existingUser = await db.select().from(users).where(eq(users.clerkId, mockClerkId)).get();
-    if (existingUser) {
-      return { error: "Bu telefon numarasıyla kayıtlı bir müşteri zaten mevcut." };
+    if (existingPending) {
+      return { error: "Bu e-posta adresi için zaten bekleyen bir davet mevcut." };
     }
 
-    await db.transaction(async (tx) => {
-      const insertedUser = await tx.insert(users).values({
-        clerkId: mockClerkId,
-        email: mockEmail,
-        role: "CUSTOMER",
-        name: `${firstName} ${lastName}`,
-      }).returning();
+    const client = await clerkClient();
+    const invitation = await client.invitations.createInvitation({
+      emailAddress: email.trim().toLowerCase(),
+      publicMetadata: {
+        role: "customer",
+        branchId,
+        orgId,
+      },
+      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign-up`,
+    });
 
-      await tx.insert(customerProfiles).values({
-        userId: insertedUser[0].id,
-        orgId: orgId,
-        currentPoints: 0,
-      });
+    await db.insert(invitations).values({
+      clerkInviteId: invitation.id,
+      email: email.trim().toLowerCase(),
+      phoneNumber: phone.trim(),
+      organizationId: orgId,
+      branchId,
+      role: "CUSTOMER",
+      status: "PENDING",
+      invitedBy: dbUserLocal.id,
     });
 
     return { success: true };

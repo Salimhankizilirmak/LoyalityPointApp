@@ -18,6 +18,16 @@ import {
 import { Branch, Employee, BossInfo } from "../types";
 import { Customer } from "@/components/features/manager-dashboard/types";
 import { MOCK_BRANCHES, MOCK_CUSTOMERS, ENABLE_MOCK_DATA } from "@/lib/constants/mock-data";
+import { getInvitationsAction } from "@/app/actions/invitation-actions";
+
+interface InvitationItem {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: Date | number | null;
+  branchName?: string | null;
+}
 
 interface UseBossDashboardProps {
   setIsDeleting: (loading: boolean) => void;
@@ -51,6 +61,7 @@ export function useBossDashboard({
   const [validityMonths, setValidityMonths] = useState(12);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
 
   // Loading and Error States
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -60,11 +71,14 @@ export function useBossDashboard({
 
   const refreshData = useCallback(async () => {
     try {
-      const [profile, emps, dbBranches] = await Promise.all([
+      const [profile, emps, dbBranches, invitesList] = await Promise.all([
         getBossProfile(),
         getOrgMembers(),
-        getBranches()
+        getBranches(),
+        getInvitationsAction()
       ]);
+
+      setInvitations(invitesList);
 
       setBossInfo({
         name: `${profile.user.firstName || ""} ${profile.user.lastName || ""}`.trim(),
@@ -288,6 +302,7 @@ export function useBossDashboard({
     handleCreateBranch,
     handleChangeManager,
     handleSaveSettings,
-    handleAddCustomer
+    handleAddCustomer,
+    invitations
   };
 }

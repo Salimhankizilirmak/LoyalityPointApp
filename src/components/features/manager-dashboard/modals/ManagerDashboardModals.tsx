@@ -18,7 +18,7 @@ interface ManagerDashboardModalsProps {
   
   showAddCustomer: boolean;
   setShowAddCustomer: (show: boolean) => void;
-  handleAddCustomer: (data: { firstName: string; lastName: string; phone: string }) => Promise<void>;
+  handleAddCustomer: (data: { firstName: string; lastName: string; phone: string; email: string }) => Promise<void>;
   
   editingTransaction: Transaction | null;
   setEditingTransaction: (tx: Transaction | null) => void;

@@ -58,7 +58,7 @@ export function ManagerHeader({
     );
   }
 
-  const userRole = (user?.publicMetadata?.role as string) || "manager";
+
   const userBranch = (user?.publicMetadata?.branch as string) || "Bilinmeyen Şube";
   const fallbackDisplayName = user && user.firstName && user.lastName 
     ? `${user.firstName} ${user.lastName}` 

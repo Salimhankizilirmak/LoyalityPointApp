@@ -2,22 +2,23 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X, UserPlus, Phone, User, CheckCircle, AlertCircle } from "lucide-react";
+import { X, UserPlus, Phone, User, CheckCircle, AlertCircle, Mail } from "lucide-react";
 
 interface AddCustomerModalProps {
   onClose: () => void;
-  onAdd: (data: { firstName: string; lastName: string; phone: string }) => Promise<void>;
+  onAdd: (data: { firstName: string; lastName: string; phone: string; email: string }) => Promise<void>;
   isDarkMode: boolean;
 }
 
 export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModalProps) {
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "" });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   // Phone validation: must be digits, start with 05, and be 11 digits long
   const isPhoneValid = form.phone.startsWith("05") && form.phone.length === 11 && /^\d+$/.test(form.phone);
-  const valid = form.firstName && form.lastName && isPhoneValid;
+  const isEmailValid = form.email.includes("@") && form.email.trim().length > 3;
+  const valid = form.firstName && form.lastName && isPhoneValid && isEmailValid;
 
   const handlePhoneChange = (val: string) => {
     // Only allow numbers
@@ -125,6 +126,22 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
                     <span className="text-[10px] font-bold">Numara 05 ile başlamalı ve 11 haneli olmalıdır.</span>
                   </div>
                 )}
+              </div>
+
+              <div>
+                <label htmlFor="email" className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Müşteri E-posta Adresi</label>
+                <div className="relative">
+                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="email"
+                    required
+                    type="email"
+                    value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="ornek@musteri.com"
+                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
+                      }`}
+                  />
+                </div>
               </div>
 
               <button

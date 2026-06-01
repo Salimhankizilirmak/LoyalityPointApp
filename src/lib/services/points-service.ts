@@ -146,6 +146,8 @@ export class PointsService extends BaseService {
       branchId: pointsTransactions.branchId,
       clerkId: users.clerkId,
       email: users.email,
+      status: pointsTransactions.status,
+      parentTransactionId: pointsTransactions.parentTransactionId,
     })
     .from(pointsTransactions)
     .innerJoin(customerProfiles, eq(pointsTransactions.customerProfileId, customerProfiles.id))
@@ -167,6 +169,8 @@ export class PointsService extends BaseService {
           customerFirstName: u.firstName || "İsimsiz",
           customerLastName: u.lastName || "Müşteri",
           customerId: t.customerProfileId,
+          status: t.status,
+          parentTransactionId: t.parentTransactionId,
         };
       } catch {
         return {
@@ -177,6 +181,8 @@ export class PointsService extends BaseService {
           customerFirstName: t.email.split("@")[0],
           customerLastName: "Müşteri",
           customerId: t.customerProfileId,
+          status: t.status,
+          parentTransactionId: t.parentTransactionId,
         };
       }
     }));

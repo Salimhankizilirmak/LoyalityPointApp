@@ -59,6 +59,8 @@ export const pointsTransactions = sqliteTable("points_transactions", {
   amount: integer("amount").notNull(),
   type: text("type", { enum: ["EARN", "SPEND"] }).notNull(),
   description: text("description"),
+  status: text("status", { enum: ["SUCCESS", "VOIDED"] }).notNull().default("SUCCESS"),
+  parentTransactionId: text("parent_transaction_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),
 });
 
@@ -97,9 +99,12 @@ export const loyaltyTransactions = sqliteTable("loyalty_transactions", {
   branchId: text("branch_id").notNull().references(() => branches.id, { onDelete: "restrict" }),
   customerId: text("customer_id").notNull().references(() => customers.id, { onDelete: "restrict" }),
   cashierId: text("cashier_id").notNull().references(() => users.id, { onDelete: "restrict" }),
-  type: text("type", { enum: ["EARN", "BURN"] }).notNull(),
+  type: text("type", { enum: ["EARN", "BURN", "VOID", "CASH_SETTLEMENT"] }).notNull(),
   amountSpent: integer("amount_spent").default(0),
   pointsAmount: integer("points_amount").notNull(),
+  description: text("description"),
+  status: text("status", { enum: ["SUCCESS", "VOIDED"] }).notNull().default("SUCCESS"),
+  parentTransactionId: text("parent_transaction_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
@@ -130,6 +135,7 @@ export const invitations = sqliteTable("invitations", {
   id: text("id").$defaultFn(() => createId()).primaryKey(),
   clerkInviteId: text("clerk_invite_id").unique(),
   email: text("email").notNull(),
+  phoneNumber: text("phone_number"),
   organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   branchId: text("branch_id").references(() => branches.id, { onDelete: "cascade" }),
   role: text("role", { enum: ["BOSS", "MANAGER", "CASHIER", "CUSTOMER"] }).notNull().default("BOSS"),

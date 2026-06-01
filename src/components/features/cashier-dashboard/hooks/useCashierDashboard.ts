@@ -8,7 +8,8 @@ import {
   earnPointsAction, 
   burnPointsAction, 
   registerCustomerAction, 
-  getBranchStatus 
+  getBranchStatus,
+  getCustomerRecentTransactionsAction
 } from "@/app/(cashier)/cashier-dashboard/actions";
 
 export interface CustomerData {
@@ -19,11 +20,37 @@ export interface CustomerData {
   tier: "Bronze" | "Silver" | "Gold" | "Platinum";
   totalTx: number;
   avatar: string;
+  createdAt?: string; // Kayıt tarihi bilgisi için opsiyonel alan
+}
+
+export interface TransactionReceipt {
+  customerName: string;
+  customerPhone: string;
+  txType: TxType;
+  amount: string;
+  ptsPreview: number;
+  oldPoints: number;
+  newPoints: number;
+  timestamp: string;
+  totalCartAmount?: number;
+  ptsBurned?: number;
+  cashPaid?: number;
+  refId?: string;
+}
+
+export interface TransactionData {
+  id: string;
+  type: "EARN" | "BURN" | "VOID";
+  amountSpent: number | null;
+  pointsAmount: number;
+  status: "SUCCESS" | "VOIDED";
+  parentTransactionId?: string | null;
+  createdAtFormatted: string;
 }
 
 export type TxType = "EARN" | "BURN" | null;
 
-export function useCashierDashboard() {
+export function useCashierDashboard(showMockData?: boolean) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [customer, setCustomer] = useState<CustomerData | null>(null);
@@ -31,13 +58,48 @@ export function useCashierDashboard() {
   const [scanning, setScanning] = useState(false);
   const [txType, setTxType] = useState<TxType>(null);
   const [amount, setAmount] = useState("");
+  const [totalCartAmount, setTotalCartAmount] = useState("");
   const [txSuccess, setTxSuccess] = useState(false);
   const [txError, setTxError] = useState("");
-  const [stats, setStats] = useState({ totalTxToday: 0, ptsGivenToday: 0, newMembersToday: 0 });
+  const [searchError, setSearchError] = useState("");
+  const [stats, setStats] = useState({
+    totalTxToday: showMockData ? 24 : 0,
+    ptsGivenToday: showMockData ? 1420 : 0,
+    newMembersToday: showMockData ? 5 : 0
+  });
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [branchStatus, setBranchStatus] = useState<{ isActive: boolean; isDeleted: boolean } | null>(null);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const { signOut } = useClerk();
+
+  // Audit Modal States
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditTransactions, setAuditTransactions] = useState<TransactionData[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  // Invite Form States (Single Source of Truth)
+  const [inviteForm, setInviteForm] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+  });
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  
+  // Last Transaction Receipt State
+  const [lastTxReceipt, setLastTxReceipt] = useState<TransactionReceipt | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (showMockData) {
+        setStats({ totalTxToday: 24, ptsGivenToday: 1420, newMembersToday: 5 });
+      } else {
+        setStats({ totalTxToday: 0, ptsGivenToday: 0, newMembersToday: 0 });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [showMockData]);
 
   // Polling for branch status: Increased interval to 180 seconds to protect Turso DB quotas
   useEffect(() => {
@@ -67,23 +129,166 @@ export function useCashierDashboard() {
     };
   }, []);
 
+  // Global Toast auto-dismiss (3 seconds)
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
   const baseAmount = Number(amount) || 0;
   const ptsPreview = (!amount || !txType) ? 0 : (
     txType === "EARN"
       ? Math.floor((baseAmount * 10) / 100)  // varsayılan %10 oran
-      : Math.min(baseAmount, customer?.pts ?? 0)
+      : Math.min(Number(amount) || 0, customer?.pts ?? 0, Number(totalCartAmount) || Infinity)
   );
+
+  const fetchAuditTransactions = useCallback(async (customerId: string, limit: number = 10) => {
+    setAuditLoading(true);
+    if (showMockData) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const mockTxs: TransactionData[] = [
+        {
+          id: "audit-1",
+          type: "EARN",
+          amountSpent: 15000,
+          pointsAmount: 15,
+          status: "SUCCESS",
+          createdAtFormatted: "01.06.2026 11:30",
+        },
+        {
+          id: "audit-2",
+          type: "BURN",
+          amountSpent: null,
+          pointsAmount: -50,
+          status: "SUCCESS",
+          createdAtFormatted: "30.05.2026 15:45",
+        },
+        {
+          id: "audit-3",
+          type: "EARN",
+          amountSpent: 20000,
+          pointsAmount: 20,
+          status: "VOIDED",
+          createdAtFormatted: "28.05.2026 09:15",
+        },
+        {
+          id: "audit-4",
+          type: "VOID",
+          amountSpent: -20000,
+          pointsAmount: -20,
+          status: "SUCCESS",
+          parentTransactionId: "audit-3",
+          createdAtFormatted: "28.05.2026 09:20",
+        },
+        {
+          id: "audit-5",
+          type: "EARN",
+          amountSpent: 8000,
+          pointsAmount: 8,
+          status: "SUCCESS",
+          createdAtFormatted: "25.05.2026 17:10",
+        },
+        {
+          id: "audit-6",
+          type: "EARN",
+          amountSpent: 12000,
+          pointsAmount: 12,
+          status: "SUCCESS",
+          createdAtFormatted: "22.05.2026 14:20",
+        },
+        {
+          id: "audit-7",
+          type: "BURN",
+          amountSpent: null,
+          pointsAmount: -30,
+          status: "SUCCESS",
+          createdAtFormatted: "20.05.2026 10:15",
+        },
+        {
+          id: "audit-8",
+          type: "EARN",
+          amountSpent: 5000,
+          pointsAmount: 5,
+          status: "SUCCESS",
+          createdAtFormatted: "18.05.2026 16:40",
+        },
+        {
+          id: "audit-9",
+          type: "EARN",
+          amountSpent: 30000,
+          pointsAmount: 30,
+          status: "SUCCESS",
+          createdAtFormatted: "15.05.2026 12:00",
+        },
+        {
+          id: "audit-10",
+          type: "BURN",
+          amountSpent: null,
+          pointsAmount: -10,
+          status: "SUCCESS",
+          createdAtFormatted: "12.05.2026 09:30",
+        }
+      ];
+      // Limite göre kes
+      setAuditTransactions(mockTxs.slice(0, limit));
+      setAuditLoading(false);
+      return;
+    }
+    try {
+      const res = await getCustomerRecentTransactionsAction(customerId, limit);
+      if (res.success && res.transactions) {
+        setAuditTransactions(res.transactions as TransactionData[]);
+      } else {
+        setTxError(res.error || "İşlem geçmişi yüklenemedi.");
+      }
+    } catch {
+      setTxError("İşlem geçmişi sorgulanırken hata oluştu.");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [showMockData]);
 
   const handleScan = useCallback(async (phone: string) => {
     if (!phone) return;
     setScanning(true);
+    setSearchError("");
     setTxError("");
+    if (showMockData) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const mockId = "mock_cust_1";
+      setCustomer({
+        id: mockId,
+        name: "Ahmet Yılmaz",
+        phone: phone.trim(),
+        pts: 450,
+        tier: "Gold",
+        totalTx: 12,
+        avatar: "A",
+        createdAt: "15.01.2026",
+      });
+      fetchAuditTransactions(mockId);
+      setScanInput("");
+      setScanning(false);
+      return;
+    }
     try {
       const result = await searchCustomerAction(phone);
       if ("error" in result) {
-        setTxError(result.error ?? "Arama hatası");
+        setSearchError(result.error ?? "Arama hatası");
       } else if (result.found && result.customer) {
         const c = result.customer;
+        
+        // Kayıt tarihini formatla
+        const formatter = new Intl.DateTimeFormat("tr-TR", {
+          timeZone: "Europe/Istanbul",
+          dateStyle: "short",
+        });
+        const cDate = c.createdAt ? formatter.format(new Date(c.createdAt)) : "Belirtilmemiş";
+
         setCustomer({
           id: c.id,
           name: c.name,
@@ -92,21 +297,54 @@ export function useCashierDashboard() {
           tier: "Bronze",
           totalTx: 0,
           avatar: c.name?.[0] ?? "?",
+          createdAt: cDate,
         });
+        fetchAuditTransactions(c.id);
         setScanInput("");
       } else {
-        setTxError("Müşteri bulunamadı");
+        setSearchError("Müşteri bulunamadı");
       }
     } catch {
-      setTxError("Sorgulama hatası");
+      setSearchError("Sorgulama hatası");
     } finally {
       setScanning(false);
     }
-  }, []);
+  }, [showMockData, fetchAuditTransactions]);
 
   const handleTx = useCallback(async () => {
     if (!customer || !txType || !amount) return;
     setTxError("");
+    if (showMockData) {
+      startTransition(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const change = txType === "EARN" ? ptsPreview : -Number(amount);
+        const newTotal = customer.pts + change;
+        
+        setLastTxReceipt({
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          txType,
+          amount,
+          ptsPreview,
+          oldPoints: customer.pts,
+          newPoints: newTotal,
+          timestamp: new Date().toLocaleTimeString("tr-TR")
+        });
+
+        setStats(s => ({
+          ...s,
+          totalTxToday: s.totalTxToday + 1,
+          ptsGivenToday: s.ptsGivenToday + (txType === "EARN" ? ptsPreview : 0)
+        }));
+        
+        setAmount("");
+        setCustomer(prev => prev ? { ...prev, pts: newTotal } : null);
+        setTxType(null);
+        setTxSuccess(true);
+      });
+      return;
+    }
+
     startTransition(async () => {
       try {
         let result;
@@ -115,13 +353,32 @@ export function useCashierDashboard() {
           result = await earnPointsAction(customer.id, amountSpentInKurus);
         } else {
           const pointsToBurn = Math.round(Number(amount));
-          result = await burnPointsAction(customer.id, pointsToBurn);
+          const totalAmountVal = Number(totalCartAmount);
+          result = await burnPointsAction(customer.id, pointsToBurn, totalAmountVal);
         }
 
         if ("error" in result && result.error) {
           setTxError(result.error || "İşlem başarısız");
         } else if ("success" in result && result.success) {
           const newTotal = "newTotal" in result ? (result as { newTotal: number }).newTotal : customer.pts;
+          const refId = "refId" in result ? (result as { refId: string }).refId : undefined;
+          const pointsBurned = txType === "BURN" ? Math.round(Number(amount)) : 0;
+          
+          setLastTxReceipt({
+            customerName: customer.name,
+            customerPhone: customer.phone,
+            txType,
+            amount,
+            ptsPreview: txType === "EARN" ? ptsPreview : pointsBurned,
+            oldPoints: customer.pts,
+            newPoints: newTotal,
+            totalCartAmount: txType === "BURN" ? Number(totalCartAmount) : undefined,
+            ptsBurned: txType === "BURN" ? pointsBurned : undefined,
+            cashPaid: txType === "BURN" ? Math.max(0, Number(totalCartAmount) - pointsBurned) : undefined,
+            refId,
+            timestamp: new Date().toLocaleTimeString("tr-TR")
+          });
+
           setStats(s => ({ 
             ...s, 
             totalTxToday: s.totalTxToday + 1, 
@@ -132,45 +389,88 @@ export function useCashierDashboard() {
 
           // Form ve inputları temizle
           setAmount("");
+          setTotalCartAmount("");
           setCustomer(prev => prev ? { ...prev, pts: newTotal } : null);
           setTxType(null);
-          setTxSuccess(false);
+          setTxSuccess(true);
         }
       } catch {
-        setTxError("İşlem sırasında hata oluştu");
+        setTxError("İşlem sırasında beklenmedik bir hata oluştu.");
       }
     });
-  }, [customer, txType, amount, ptsPreview, router]);
+  }, [customer, txType, amount, totalCartAmount, ptsPreview, router, showMockData]);
 
-  const handleAddCustomer = useCallback(async (data: { firstName: string; lastName: string; phone: string }) => {
+  // Invite Customer Form Actions
+  const setInviteField = useCallback((field: keyof typeof inviteForm, value: string) => {
+    setInviteForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const resetInviteForm = useCallback(() => {
+    setInviteForm({ firstName: "", lastName: "", phone: "", email: "" });
+  }, []);
+
+  const isInviteEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim());
+  const isInviteFormValid =
+    inviteForm.firstName.trim().length > 0 &&
+    inviteForm.lastName.trim().length > 0 &&
+    inviteForm.phone.trim().length >= 7 &&
+    isInviteEmailValid;
+
+  const handleInviteCustomer = useCallback(async () => {
+    if (!isInviteFormValid || inviteSubmitting) return;
+    setInviteSubmitting(true);
+    setToastMessage(null);
+
+    if (showMockData) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setToastMessage({ text: "Davetiye başarıyla e-posta adresine gönderildi.", type: "success" });
+      setStats(s => ({ ...s, newMembersToday: s.newMembersToday + 1 }));
+      resetInviteForm();
+      setInviteSubmitting(false);
+      return;
+    }
+
+    try {
+      const res = await registerCustomerAction(
+        `${inviteForm.firstName} ${inviteForm.lastName}`.trim(),
+        inviteForm.phone.trim(),
+        inviteForm.email.trim()
+      );
+      if ("error" in res && res.error) {
+        setToastMessage({ text: res.error, type: "error" });
+      } else if (res.success) {
+        setToastMessage({ text: "Davetiye başarıyla e-posta adresine gönderildi.", type: "success" });
+        setStats(s => ({ ...s, newMembersToday: s.newMembersToday + 1 }));
+        resetInviteForm();
+      }
+    } catch {
+      setToastMessage({ text: "Davetiye gönderilirken sistemsel bir hata oluştu.", type: "error" });
+    } finally {
+      setInviteSubmitting(false);
+    }
+  }, [inviteForm, isInviteFormValid, inviteSubmitting, resetInviteForm, showMockData]);
+
+  // Deprecated handleAddCustomer compatibility
+  const handleAddCustomer = useCallback(async (data: { firstName: string; lastName: string; phone: string; email: string }) => {
     return new Promise<void>((resolve, reject) => {
       startTransition(async () => {
         try {
           const res = await registerCustomerAction(
             `${data.firstName} ${data.lastName}`.trim(),
-            data.phone
+            data.phone,
+            data.email
           );
           if ("error" in res && res.error) {
             setTxError(res.error);
             reject(new Error((res as { error: string }).error || "Kayıt hatası"));
             return;
           }
-          if (res.success && res.customer) {
-            const c = res.customer;
-            setCustomer({
-              id: c.id,
-              name: c.name,
-              phone: c.phoneNumber,
-              pts: c.totalPoints,
-              tier: "Bronze",
-              totalTx: 0,
-              avatar: c.name?.[0] ?? "?",
-            });
-            setScanInput("");
+          if (res.success) {
+            setTxError("Davetiye başarıyla e-posta adresine gönderildi.");
             setShowAddCustomer(false);
+            setStats(s => ({ ...s, newMembersToday: s.newMembersToday + 1 }));
+            resolve();
           }
-          setStats(s => ({ ...s, newMembersToday: s.newMembersToday + 1 }));
-          resolve();
         } catch (e) {
           setTxError("Müşteri eklenirken hata oluştu");
           reject(e);
@@ -183,9 +483,18 @@ export function useCashierDashboard() {
     setCustomer(null);
     setTxType(null);
     setAmount("");
+    setTotalCartAmount("");
     setTxSuccess(false);
     setTxError("");
+    setSearchError("");
+    setLastTxReceipt(null);
   }, []);
+
+  const clearTxReceipt = useCallback(() => {
+    setLastTxReceipt(null);
+  }, []);
+
+
 
   return {
     state: {
@@ -194,28 +503,49 @@ export function useCashierDashboard() {
       scanning,
       txType,
       amount,
+      totalCartAmount,
       txSuccess,
       txError,
+      searchError,
       stats,
       showAddCustomer,
       branchStatus,
       ptsPreview,
       isPending,
-      showSignOutOverlay
+      showSignOutOverlay,
+      showAuditModal,
+      auditTransactions,
+      auditLoading,
+      inviteForm,
+      inviteSubmitting,
+      isInviteEmailValid,
+      isInviteFormValid,
+      toastMessage,
+      lastTxReceipt
     },
     actions: {
       setScanInput,
       setTxType,
       setAmount,
+      setTotalCartAmount,
       setShowAddCustomer,
       setTxSuccess,
       setTxError,
+      setSearchError,
       handleScan,
       handleTx,
       handleAddCustomer,
       reset,
       setShowSignOutOverlay,
-      signOut
+      signOut,
+      setShowAuditModal,
+      fetchAuditTransactions,
+      setInviteField,
+      resetInviteForm,
+      handleInviteCustomer,
+      setToastMessage,
+      clearTxReceipt
     }
   };
 }
+

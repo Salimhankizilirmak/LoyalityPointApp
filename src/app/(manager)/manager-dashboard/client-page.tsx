@@ -92,6 +92,7 @@ export function ManagerDashboardClient({
                 handleUpdateCashier={dashboard.handleUpdateCashier} handleRemoveCashier={dashboard.handleRemoveCashier}
                 handleToggleStatus={dashboard.handleToggleStatus}
                 setShowInvite={setShowInvite} loadingId={dashboard.loadingId}
+                invitations={dashboard.invitations}
               />
             )}
           </motion.div>

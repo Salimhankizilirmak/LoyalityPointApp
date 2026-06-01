@@ -28,7 +28,7 @@ interface SuperAdminModalsProps {
 
 export function SuperAdminModals({ state, actions }: SuperAdminModalsProps) {
   const { showInvite, showAddOrg, editingQuotaOrg, showSignOutOverlay, isDarkMode } = state;
-  const { setShowInvite, setShowAddOrg, setEditingQuotaOrg, setShowSignOutOverlay, loadData, handleAddOrgMock, signOut } = actions;
+  const { setShowInvite, setShowAddOrg, setEditingQuotaOrg, loadData, handleAddOrgMock, signOut } = actions;
 
   return (
     <AnimatePresence mode="wait">

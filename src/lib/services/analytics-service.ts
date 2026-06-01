@@ -14,7 +14,11 @@ export class AnalyticsService extends BaseService {
     startDate?: number,
     endDate?: number
   ) {
-    const conditions = [eq(loyaltyTransactions.branchId, branchId)];
+    const conditions = [
+      eq(loyaltyTransactions.branchId, branchId),
+      eq(loyaltyTransactions.status, "SUCCESS"),
+      sql`${loyaltyTransactions.type} != 'VOID'`
+    ];
 
     if (startDate !== undefined) {
       conditions.push(gte(loyaltyTransactions.createdAt, new Date(startDate)));

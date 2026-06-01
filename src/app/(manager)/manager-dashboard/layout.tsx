@@ -1,7 +1,9 @@
 import { checkLayoutGuard } from "@/lib/layout-guard";
 import { resolveActiveBranchContext } from "@/lib/branch-context";
 import { BranchSelector } from "@/components/ui/BranchSelector";
+import UsernameWarningBanner from "@/components/ui/UsernameWarningBanner";
 import { ReactNode } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 interface ManagerLayoutProps {
   children: ReactNode;
@@ -12,7 +14,14 @@ interface ManagerLayoutProps {
  * Kural 2: Tek şube varsa BranchSelector render edilmez, çerez sunucu tarafında peşin mühürlenir.
  */
 export default async function ManagerLayout({ children }: ManagerLayoutProps) {
-  await checkLayoutGuard();
+  let dbUser = null;
+  try {
+    dbUser = await checkLayoutGuard();
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    console.error("[ManagerLayout] Layout guard validation failed:", error);
+  }
+
   const ctx = await resolveActiveBranchContext();
 
   return (
@@ -26,6 +35,7 @@ export default async function ManagerLayout({ children }: ManagerLayoutProps) {
           />
         </div>
       )}
+      <UsernameWarningBanner username={dbUser?.username} settingsUrl="/manager-dashboard/settings" />
       {children}
     </div>
   );

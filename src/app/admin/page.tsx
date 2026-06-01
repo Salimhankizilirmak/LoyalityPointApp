@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default function SuperAdminDashboard() {
   const { state, actions } = useSuperAdminDashboard();
-  const { activeTab, isDarkMode, loading, showInvite, user, organization, isLoaded } = state;
+  const { activeTab, isDarkMode, loading, user, organization, isLoaded } = state;
   const { setActiveTab, setShowInvite } = actions;
 
   if (!isLoaded || loading) {

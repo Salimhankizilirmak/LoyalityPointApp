@@ -92,6 +92,7 @@ export function EmployeeManagement({
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       {emp.avatar ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img 
                           src={emp.avatar} 
                           alt={emp.name} 

@@ -14,10 +14,12 @@ interface Transaction {
   customerFirstName: string;
   customerLastName: string;
   customerClerkId: string;
-  type: 'earn' | 'spend' | 'manual_adjustment';
+  type: 'earn' | 'spend' | 'manual_adjustment' | 'void';
   amount: number;
   employeeId: string;
   customerId: string;
+  status?: string;
+  parentTransactionId?: string | null;
 }
 
 export function ManagerTransactionTable({ transactions, onRefresh }: { transactions: Transaction[], onRefresh: () => void }) {
@@ -45,40 +47,62 @@ export function ManagerTransactionTable({ transactions, onRefresh }: { transacti
                 <td colSpan={6} className="text-center py-16 text-outline">No transactions found.</td>
               </tr>
             ) : (
-              transactions.map((tx) => (
-                <tr key={tx.id} className="hover:bg-surface-container-lowest/80 transition-colors">
-                  <td className="p-4 text-on-surface-variant text-sm">
-                    {new Date(tx.createdAt).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" })}
-                  </td>
-                  <td className="p-4 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-xs">
-                      {tx.customerFirstName?.[0]}{tx.customerLastName?.[0]}
-                    </div>
-                    <div>
-                      <span>{tx.customerFirstName} {tx.customerLastName}</span>
-                      <div className="text-xs text-outline font-mono mt-0.5">#{tx.customerClerkId?.split('_')[1] || tx.customerClerkId}</div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    {tx.type === 'earn' && <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-full text-xs font-medium border border-emerald-500/20">Earn</span>}
-                    {tx.type === 'spend' && <span className="bg-red-500/10 text-red-600 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium border border-red-500/20">Spend</span>}
-                    {tx.type === 'manual_adjustment' && <span className="bg-surface-variant text-on-surface-variant px-2 py-1 rounded-full text-xs font-medium border border-outline/20">Manual</span>}
-                  </td>
-                  <td className={`p-4 text-right font-bold text-lg ${tx.amount > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {tx.amount > 0 ? '+' : ''}{(tx.amount / 100).toFixed(2)} TL
-                  </td>
-                  <td className="p-4 text-center text-outline font-mono text-xs">
-                    {tx.employeeId.split('_')[1] || tx.employeeId}
-                  </td>
-                  <td className="p-4 text-right pr-6">
-                    <ManualAdjustmentDialog 
-                      customerId={tx.customerId} 
-                      customerName={`${tx.customerFirstName} ${tx.customerLastName}`} 
-                      onSuccess={onRefresh} 
-                    />
-                  </td>
-                </tr>
-              ))
+              transactions.map((tx) => {
+                const isVoided = tx.status === "VOIDED" || tx.type === "void";
+                return (
+                  <tr 
+                    key={tx.id} 
+                    className={`transition-all duration-300 ${
+                      isVoided
+                        ? "bg-rose-500/5 hover:bg-rose-500/10 border-l-2 border-l-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.1)]"
+                        : "hover:bg-surface-container-lowest/80"
+                    }`}
+                  >
+                    <td className="p-4 text-on-surface-variant text-sm">
+                      {new Date(tx.createdAt).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" })}
+                    </td>
+                    <td className="p-4 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-xs">
+                        {tx.customerFirstName?.[0]}{tx.customerLastName?.[0]}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={isVoided ? "line-through text-on-surface-variant/70" : ""}>
+                            {tx.customerFirstName} {tx.customerLastName}
+                          </span>
+                          {isVoided && (
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[8px] font-extrabold uppercase tracking-wider">
+                              VOIDED
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-outline font-mono mt-0.5">#{tx.customerClerkId?.split('_')[1] || tx.customerClerkId}</div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      {isVoided && <span className="bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-1 rounded-full text-xs font-medium border border-rose-500/20">Void</span>}
+                      {!isVoided && tx.type === 'earn' && <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-full text-xs font-medium border border-emerald-500/20">Earn</span>}
+                      {!isVoided && tx.type === 'spend' && <span className="bg-red-500/10 text-red-600 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium border border-red-500/20">Spend</span>}
+                      {!isVoided && tx.type === 'manual_adjustment' && <span className="bg-surface-variant text-on-surface-variant px-2 py-1 rounded-full text-xs font-medium border border-outline/20">Manual</span>}
+                    </td>
+                    <td className={`p-4 text-right font-bold text-lg ${isVoided ? "text-rose-500/70" : tx.amount > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {tx.amount > 0 && !isVoided ? '+' : ''}{(tx.amount / 100).toFixed(2)} TL
+                    </td>
+                    <td className="p-4 text-center text-outline font-mono text-xs">
+                      {tx.employeeId?.split('_')[1] || tx.employeeId || "System"}
+                    </td>
+                    <td className="p-4 text-right pr-6">
+                      {!isVoided && (
+                        <ManualAdjustmentDialog 
+                          customerId={tx.customerId} 
+                          customerName={`${tx.customerFirstName} ${tx.customerLastName}`} 
+                          onSuccess={onRefresh} 
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { UserPlus, X, CheckCircle, AlertCircle, Mail, ShieldAlert } from "lucide-react";
 import { inviteEmployee } from "@/app/(boss)/boss-dashboard/actions";
@@ -16,6 +17,7 @@ interface InviteModalProps {
 const FORBIDDEN_EMAILS = ["superadmin@loyaltycore.io", "admin@loyalty.io"];
 
 export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: InviteModalProps) {
+  const router = useRouter();
   const { user } = useUser();
   const bossEmail = user?.primaryEmailAddress?.emailAddress;
 
@@ -54,6 +56,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
         role: fixedRole || "manager",
         branch: targetBranchName || "Atanmadı"
       });
+      router.refresh();
       setSent(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Davet gönderilemedi";

@@ -97,7 +97,7 @@ export abstract class BaseService {
     throw new Error("Geçerli bir rol veya organizasyon bulunamadı.");
   }
 
-  protected async isShowcaseOrg(_orgId: string) {
+  protected async isShowcaseOrg() {
     // SaaS modelinde showcase/vitrin organizasyonu bulunmuyorsa false dön
     return false;
   }

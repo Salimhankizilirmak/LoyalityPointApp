@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import { trTR } from '@clerk/localizations'
+import RootAuthBoundary from "@/components/providers/RootAuthBoundary";
 import "./globals.css";
 
 const inter = Inter({
@@ -62,8 +63,32 @@ export default function RootLayout({
       <html
         lang="tr"
         className={`dark ${inter.variable} h-full antialiased font-sans`}
+        suppressHydrationWarning
       >
-        <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
+        <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function() {
+                try {
+                  var storageTheme = localStorage.getItem('theme');
+                  var systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                  var currentTheme = storageTheme ? (storageTheme === 'system' ? systemTheme : storageTheme) : 'dark';
+                  
+                  if (currentTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.style.colorScheme = 'dark';
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.style.colorScheme = 'light';
+                  }
+                } catch (e) {}
+              })()`
+            }}
+          />
+        </head>
+        <body className="min-h-full flex flex-col bg-background text-foreground">
+          <RootAuthBoundary>{children}</RootAuthBoundary>
+        </body>
       </html>
     </ClerkProvider>
   );

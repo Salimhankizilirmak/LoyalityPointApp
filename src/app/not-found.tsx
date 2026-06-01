@@ -53,13 +53,13 @@ export default function NotFoundPage() {
           Aradığınız sayfa kaldırılmış, adı değiştirilmiş veya geçici olarak kullanım dışı bırakılmış olabilir. Lütfen URL adresini kontrol edin.
         </p>
 
-        {/* Küçük Durum Kodu Rozeti */}
+        {/* Küçük Durum Kodu Rozeti 
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-500/10 bg-cyan-500/5 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
           <span className="text-[10px] font-bold text-cyan-400 tracking-widest uppercase">
             STATUS: 404 / OBJECT NOT FOUND
           </span>
-        </div>
+        </div>*/}
 
         {/* Aksiyon Butonları */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

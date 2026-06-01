@@ -9,7 +9,7 @@ interface CashierDashboardModalsProps {
   branchStatus: { isActive: boolean; isDeleted: boolean } | null;
   showAddCustomer: boolean;
   setShowAddCustomer: (show: boolean) => void;
-  handleAddCustomer: (data: { firstName: string; lastName: string; phone: string }) => Promise<void>;
+  handleAddCustomer: (data: { firstName: string; lastName: string; phone: string; email: string }) => Promise<void>;
   showSignOutOverlay?: boolean;
   onSignOutCountdownComplete?: () => void;
 }
@@ -72,7 +72,7 @@ export function CashierDashboardModals({
           key="add-customer-modal"
           onClose={() => setShowAddCustomer(false)}
           onAdd={handleAddCustomer}
-          isDarkMode={false}
+          isDarkMode={true}
         />
       )}
 

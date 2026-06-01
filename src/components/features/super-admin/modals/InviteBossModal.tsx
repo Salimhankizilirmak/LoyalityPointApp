@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, X, CheckCircle, Send, AlertCircle, Building2 } from "lucide-react";
 import { inviteBossAction } from "@/app/admin/actions";
@@ -12,6 +13,7 @@ interface InviteBossModalProps {
 }
 
 export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossModalProps) {
+  const router = useRouter();
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -37,6 +39,7 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
     const result = await inviteBossAction(companyName, email);
     
     if (result && result.success) {
+      router.refresh();
       setSuccessScenario(result.scenario || "NEW_BOSS");
       setSuccessMessage(result.message || "");
       setSent(true);

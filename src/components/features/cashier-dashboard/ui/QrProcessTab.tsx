@@ -57,7 +57,7 @@ export function QrProcessTab() {
       res = await earnPointsAction(customerInfo.id, amountSpentInKurus);
     } else {
       const pointsToBurn = Math.round(Number(amount));
-      res = await burnPointsAction(customerInfo.id, pointsToBurn);
+      res = await burnPointsAction(customerInfo.id, pointsToBurn, pointsToBurn);
     }
 
     if ("error" in res && res.error) {

@@ -176,6 +176,8 @@ export class OrganizationService extends BaseService {
   }
 
   async updateSettings(_pointRate: number, _validityMonths: number) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const dummy = [_pointRate, _validityMonths];
     return { success: true };
   }
 

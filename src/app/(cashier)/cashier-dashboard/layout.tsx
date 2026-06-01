@@ -1,7 +1,8 @@
 import { checkLayoutGuard } from "@/lib/layout-guard";
 import { resolveActiveBranchContext } from "@/lib/branch-context";
-import { BranchSelector } from "@/components/ui/BranchSelector";
+import { CashierLayoutClient } from "./layout-client";
 import { ReactNode } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 interface CashierLayoutProps {
   children: ReactNode;
@@ -12,21 +13,24 @@ interface CashierLayoutProps {
  * Kural 2: Tek şube varsa BranchSelector render edilmez, çerez sunucu tarafında peşin mühürlenir.
  */
 export default async function CashierLayout({ children }: CashierLayoutProps) {
-  await checkLayoutGuard();
+  let dbUser = null;
+  try {
+    dbUser = await checkLayoutGuard();
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    console.error("[CashierLayout] Layout guard validation failed:", error);
+  }
+
   const ctx = await resolveActiveBranchContext();
 
   return (
-    <div className="relative min-h-screen">
-      {/* Branch Selector – sadece çoklu şube varsa göster */}
-      {ctx && ctx.isMultiBranch && (
-        <div className="fixed top-3 right-4 z-50">
-          <BranchSelector
-            activeBranchId={ctx.activeBranchId}
-            branches={ctx.allBranches}
-          />
-        </div>
-      )}
+    <CashierLayoutClient
+      username={dbUser?.username}
+      isMultiBranch={ctx?.isMultiBranch}
+      activeBranchId={ctx?.activeBranchId}
+      allBranches={ctx?.allBranches}
+    >
       {children}
-    </div>
+    </CashierLayoutClient>
   );
 }

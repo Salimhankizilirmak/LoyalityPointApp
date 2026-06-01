@@ -128,7 +128,7 @@ export class StaffService extends BaseService {
     }
 
     try {
-      await client.organizations.createOrganizationInvitation({
+      const clerkInv = await client.organizations.createOrganizationInvitation({
         organizationId: orgId,
         emailAddress: data.email,
         inviterUserId: session.userId!,
@@ -140,6 +140,18 @@ export class StaffService extends BaseService {
           org_id: orgId,
         },
         redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
+      });
+
+      // Davetiyeyi yerel veritabanına ekle
+      const { invitations: localInvitations } = await import("@/db/schema");
+      await this.db.insert(localInvitations).values({
+        clerkInviteId: clerkInv.id,
+        email: emailLower,
+        organizationId: orgId,
+        branchId: targetBranch.id,
+        role: data.role.toUpperCase() as "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER",
+        status: "PENDING",
+        invitedBy: dbUser.id,
       });
     } catch (err) {
       const error = err as { code?: string; message?: string };

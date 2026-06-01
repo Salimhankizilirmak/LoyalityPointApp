@@ -15,6 +15,16 @@ import {
   toggleStaffStatus
 } from "@/app/(manager)/manager-dashboard/actions";
 import { Transaction, Customer, Employee } from "../types";
+import { getInvitationsAction } from "@/app/actions/invitation-actions";
+
+interface InvitationItem {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: Date | number | null;
+  branchName?: string | null;
+}
 
 // Debounce helper to protect database quotas
 function useDebounce<T>(value: T, delay: number = 300): T {
@@ -40,6 +50,7 @@ export function useManagerDashboard() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cashiers, setCashiers] = useState<Employee[]>([]);
   const [branchInfo, setBranchInfo] = useState<{id: string, name: string, orgId: string} | null>(null);
+  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
   
   // Loading and Error States
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -56,23 +67,27 @@ export function useManagerDashboard() {
 
   const refreshData = useCallback(async () => {
     try {
-      const [profile, txs, custs, emps] = await Promise.all([
+      const [profile, txs, custs, emps, invitesList] = await Promise.all([
         getManagerProfile(),
         getBranchTransactions(),
         getCustomers(debouncedCustomerSearch),
-        getOrgMembers()
+        getOrgMembers(),
+        getInvitationsAction()
       ]);
       
+      setInvitations(invitesList);
       setBranchInfo({ id: profile.branchId, name: profile.branchName, orgId: profile.orgId || "" });
       
-      const mappedTxs: Transaction[] = (txs as { id: string; customerFirstName?: string | null; customerLastName?: string | null; transactionType: string; amount: number; createdAt: Date | null }[]).map(t => ({
+      const mappedTxs: Transaction[] = (txs as { id: string; customerFirstName?: string | null; customerLastName?: string | null; transactionType: string; amount: number; createdAt: Date | null; status?: string; parentTransactionId?: string | null }[]).map(t => ({
         id: t.id,
         customer: `${t.customerFirstName || ""} ${t.customerLastName || ""}`.trim() || "Bilinmeyen Müşteri",
-        type: t.transactionType === "earn" ? "earned" : t.transactionType === "spend" ? "spent" : "new",
+        type: t.transactionType === "void" ? "void" : (t.transactionType === "earn" ? "earned" : t.transactionType === "spend" ? "spent" : "new"),
         pts: t.amount,
         amount: t.amount * 2, // Mock ciro hesabı
         cashier: "Kasiyer",
-        time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"
+        time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--",
+        status: t.status,
+        parentTransactionId: t.parentTransactionId
       }));
 
       setTransactions(mappedTxs);
@@ -150,9 +165,9 @@ export function useManagerDashboard() {
     }
   };
 
-  const handleAddCustomer = async (data: { firstName: string; lastName: string; phone: string }) => {
+  const handleAddCustomer = async (data: { firstName: string; lastName: string; phone: string; email: string }) => {
     try {
-      const res = await addCustomerAction(data.firstName, data.lastName, data.phone);
+      const res = await addCustomerAction(data.firstName, data.lastName, data.phone, data.email);
       if (res && "error" in res) {
         setError(String(res.error));
       } else {
@@ -262,6 +277,7 @@ export function useManagerDashboard() {
     handleUpdateCustomer,
     handleDeleteCustomer,
     handleToggleStatus,
-    handleEditPointsSave
+    handleEditPointsSave,
+    invitations
   };
 }

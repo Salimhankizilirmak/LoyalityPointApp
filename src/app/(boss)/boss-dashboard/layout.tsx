@@ -1,7 +1,7 @@
 import { checkLayoutGuard } from "@/lib/layout-guard";
 import { resolveActiveBranchContext } from "@/lib/branch-context";
 import { BranchSelector } from "@/components/ui/BranchSelector";
-import UsernameWarningBanner from "@/components/dashboard/UsernameWarningBanner";
+import UsernameWarningBanner from "@/components/ui/UsernameWarningBanner";
 import { ReactNode } from "react";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
@@ -25,7 +25,6 @@ export default async function BossLayout({ children }: BossLayoutProps) {
   }
 
   const ctx = await resolveActiveBranchContext();
-  const hasNoUsername = !dbUser?.username || dbUser.username.trim() === "";
 
   return (
     <div className="relative min-h-screen">
@@ -38,7 +37,7 @@ export default async function BossLayout({ children }: BossLayoutProps) {
           />
         </div>
       )}
-      {hasNoUsername && <UsernameWarningBanner />}
+      <UsernameWarningBanner username={dbUser?.username} settingsUrl="/boss-dashboard/settings" />
       {children}
     </div>
   );

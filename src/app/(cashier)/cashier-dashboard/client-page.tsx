@@ -1,86 +1,234 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Zap, Star, User, ScanLine, Wifi, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useCashierDashboard } from "@/components/features/cashier-dashboard/hooks/useCashierDashboard";
-import { ScannerSection, RecentSalesSection } from "@/components/features/cashier-dashboard/sections";
+import { Header } from "@/components/features/cashier-dashboard/ui/Header";
+import { BranchMiniStats } from "@/components/features/cashier-dashboard/ui/BranchMiniStats";
+import { CustomerSearchPanel } from "@/components/features/cashier-dashboard/ui/CustomerSearchPanel";
+import { InviteCustomerCard } from "@/components/features/cashier-dashboard/ui/InviteCustomerCard";
+import { RecentSalesSection } from "@/components/features/cashier-dashboard/sections";
 import { CashierDashboardModals } from "@/components/features/cashier-dashboard/modals/CashierDashboardModals";
+import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
+import { InviteProgressModal } from "@/components/features/cashier-dashboard/modals/InviteProgressModal";
+import { TransactionProgressModal } from "@/components/features/cashier-dashboard/modals/TransactionProgressModal";
+import { CashierTransactionModal } from "@/components/features/cashier-dashboard/modals/CashierTransactionModal";
+import { CustomerTransactionsHistoryModal } from "@/components/features/cashier-dashboard/modals/CustomerTransactionsHistoryModal";
+import { Coins, CreditCard } from "lucide-react";
 
-const INDIGO = "#4f46e5";
-const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
+interface CashierDashboardPageProps {
+  dbUser: {
+    name: string;
+    email: string;
+    branchName: string;
+  };
+}
 
-export default function CashierDashboardPage() {
-  const { state, actions } = useCashierDashboard();
+export default function CashierDashboardPage({ dbUser }: CashierDashboardPageProps) {
+  const [showMockData, setShowMockData] = useState(false);
+  const { state, actions } = useCashierDashboard(showMockData);
+  const { user: clerkUser } = useUser();
+
+  // Mismatch ve geçiş flaşını önlemek için lazy initialization motorunu kullanıyoruz
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark");
+    }
+    return true;
+  });
+
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+  // DOM üzerindeki sınıfı dinle ve state ile anında senkronize et
+  useEffect(() => {
+    const isDark = document.documentElement.classList.contains("dark");
+    if (isDark !== isDarkMode) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect */
+      setIsDarkMode(isDark);
+    }
+  }, [isDarkMode]);
+
+  // Kasiyer tema butonuna bastığında hem DOM'u hem LocalStorage'ı hem de state'i senkronize et
+  const toggleTheme = (checked: boolean) => {
+    setIsDarkMode(checked);
+    if (checked) {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+      localStorage.setItem("theme", "light");
+    }
+  };
+
+  const openActionModal = (type: "EARN" | "BURN") => {
+    actions.setTxType(type);
+    actions.setAmount("");
+    actions.setTxError("");
+    setIsActionModalOpen(true);
+  };
 
   return (
-    <div className="min-h-screen w-full" style={{ background: "#f8fafc", fontFamily: "system-ui,-apple-system,sans-serif" }}>
-      <CashierDashboardModals 
+    <div className={`min-h-screen flex flex-col font-sans select-none antialiased transition-colors duration-300 ${isDarkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-800"
+      }`}>
+      {/* Şube ve Oturum Kilit Overlay'leri */}
+      <CashierDashboardModals
         branchStatus={state.branchStatus}
-        showAddCustomer={state.showAddCustomer}
+        showAddCustomer={false}
         setShowAddCustomer={actions.setShowAddCustomer}
         handleAddCustomer={actions.handleAddCustomer}
         showSignOutOverlay={state.showSignOutOverlay}
         onSignOutCountdownComplete={() => actions.signOut({ redirectUrl: "/" })}
       />
 
-      <div className="bg-white sticky top-0 z-20" style={{ borderBottom: "1px solid #f1f5f9" }}>
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: INDIGO }}>
-              <ScanLine size={15} className="text-white" />
-            </div>
-            <div>
-              <p className="text-slate-900 font-bold text-sm leading-tight">Kasa Paneli</p>
-              <p className="text-slate-400 text-xs">Aktif Oturum</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: "#eef2ff", border: "1px solid #c7d2fe" }}>
-              <Wifi size={12} style={{ color: INDIGO }} />
-              <span className="text-xs font-semibold" style={{ color: INDIGO }}>Canlı</span>
-            </div>
-            <button 
-              onClick={() => actions.setShowSignOutOverlay(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-all border border-slate-200 hover:border-rose-200 text-xs font-semibold"
+      {/* Ortak Navigasyon Header */}
+      <Header
+        isDarkMode={isDarkMode}
+        setIsDarkMode={toggleTheme}
+        branchName={dbUser.branchName}
+        showMockData={showMockData}
+        setShowMockData={setShowMockData}
+        clerkUser={clerkUser}
+        setShowSignOutOverlay={actions.setShowSignOutOverlay}
+        setShowProfileSettings={setShowProfileSettings}
+      />
+
+      {/* Ana Gövde */}
+      <main className="flex-1 p-4 sm:p-5">
+        <div className="max-w-7xl mx-auto w-full flex flex-col gap-4">
+
+          {/* ÜST ROW: GENİŞ KASA AKSİYON BARI */}
+          <div className="w-full grid grid-cols-2 gap-4 mb-6">
+            <button
+              disabled={!state.customer}
+              onClick={() => openActionModal("EARN")}
+              className={`h-14 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 ${state.customer
+                  ? "bg-gradient-to-r from-cyan-600/80 to-cyan-500/80 hover:from-cyan-500 hover:to-cyan-400 border-cyan-500/30 text-white shadow-[0_4px_15px_rgba(8,145,178,0.2)] active:scale-98"
+                  : isDarkMode
+                    ? "bg-slate-900/40 border-slate-800 text-slate-600"
+                    : "bg-slate-100 border-slate-200 text-slate-400"
+                }`}
             >
-              <LogOut size={12} />
-              <span>Çıkış Yap</span>
+              <Coins size={16} />
+              <span>[ + Puan Kazandır ]</span>
+            </button>
+
+            <button
+              disabled={!state.customer}
+              onClick={() => openActionModal("BURN")}
+              className={`h-14 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 ${state.customer
+                  ? "bg-gradient-to-r from-amber-600/80 to-amber-500/80 hover:from-amber-500 hover:to-amber-400 border-amber-500/30 text-white shadow-[0_4px_15px_rgba(217,119,6,0.2)] active:scale-98"
+                  : isDarkMode
+                    ? "bg-slate-900/40 border-slate-800 text-slate-600"
+                    : "bg-slate-100 border-slate-200 text-slate-400"
+                }`}
+            >
+              <CreditCard size={16} />
+              <span>[ - Puan Harcat ]</span>
             </button>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-5">
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Bugün İşlem", value: String(state.stats.totalTxToday), icon: Zap, color: INDIGO },
-              { label: "Dağıtılan Puan", value: fmt(state.stats.ptsGivenToday), icon: Star, color: INDIGO },
-              { label: "Yeni Üye", value: String(state.stats.newMembersToday), icon: User, color: "#059669" },
-            ].map(({ label, value, icon: Icon, color }, i) => (
-              <motion.div key={label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                className="rounded-2xl p-4 bg-white text-center" style={{ border: "1px solid #f1f5f9" }}>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center mx-auto mb-2" style={{ background: `${color}12` }}>
-                  <Icon size={15} style={{ color }} />
-                </div>
-                <p className="text-slate-900 font-bold text-lg">{value}</p>
-                <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">{label}</p>
-              </motion.div>
-            ))}
+          {/* Çift Sütunlu Grid Düzeni */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+
+            {/* Sol Sütun: Sorgulama & Profil Önizleme */}
+            <div className="lg:col-span-6 flex flex-col">
+              <CustomerSearchPanel
+                customer={state.customer}
+                scanInput={state.scanInput}
+                setScanInput={actions.setScanInput}
+                scanning={state.scanning}
+                handleScan={actions.handleScan}
+                reset={actions.reset}
+                isDarkMode={isDarkMode}
+                lastTransaction={state.auditTransactions[0] || null}
+                loading={state.auditLoading}
+                onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
+                searchError={state.searchError}
+              />
+            </div>
+
+            {/* Sağ Sütun: İstatistikler & Davet Formu */}
+            <div className="lg:col-span-6 flex flex-col gap-4">
+              <div className="flex-shrink-0">
+                <BranchMiniStats
+                  totalTxToday={state.stats.totalTxToday}
+                  ptsGivenToday={state.stats.ptsGivenToday}
+                  newMembersToday={state.stats.newMembersToday}
+                  isDarkMode={isDarkMode}
+                />
+              </div>
+              <div className="flex-grow">
+                <InviteCustomerCard
+                  form={state.inviteForm}
+                  setField={actions.setInviteField}
+                  isFormValid={state.isInviteFormValid}
+                  isEmailValid={state.isInviteEmailValid}
+                  submitting={state.inviteSubmitting}
+                  onSubmit={actions.handleInviteCustomer}
+                  isDarkMode={isDarkMode}
+                />
+              </div>
+            </div>
           </div>
 
-          <ScannerSection 
-            customer={state.customer} scanInput={state.scanInput} setScanInput={actions.setScanInput}
-            scanning={state.scanning} handleScan={actions.handleScan} txType={state.txType}
-            setTxType={actions.setTxType} amount={state.amount} setAmount={actions.setAmount}
-            txSuccess={state.txSuccess} txError={state.txError} ptsPreview={state.ptsPreview}
-            isPending={state.isPending} handleTx={actions.handleTx} reset={actions.reset}
-            setShowAddCustomer={actions.setShowAddCustomer}
-          />
+          {/* Alt Kısım: Son İşlemler Şeridi */}
+          <div className="w-full border-t border-indigo-500/10 pt-4 mt-6">
+            <RecentSalesSection
+              refreshTrigger={state.stats.totalTxToday}
+              showMockData={showMockData}
+            />
+          </div>
         </div>
+      </main>
 
-        <RecentSalesSection refreshTrigger={state.stats.totalTxToday} />
-      </div>
+      {/* Modaller */}
+      <ProfileSettingsModal
+        isOpen={showProfileSettings}
+        onClose={() => setShowProfileSettings(false)}
+        isDarkMode={isDarkMode}
+      />
+
+      <CashierTransactionModal
+        isOpen={isActionModalOpen && !state.lastTxReceipt}
+        onClose={() => setIsActionModalOpen(false)}
+        customer={state.customer}
+        txType={state.txType}
+        setTxType={actions.setTxType}
+        amount={state.amount}
+        setAmount={actions.setAmount}
+        totalCartAmount={state.totalCartAmount}
+        setTotalCartAmount={actions.setTotalCartAmount}
+        ptsPreview={state.ptsPreview}
+        isPending={state.isPending}
+        txError={state.txError}
+        handleTx={actions.handleTx}
+        isDarkMode={isDarkMode}
+      />
+
+      <CustomerTransactionsHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        customer={state.customer}
+        transactions={state.auditTransactions}
+        loading={state.auditLoading}
+        isDarkMode={isDarkMode}
+      />
+
+      <InviteProgressModal
+        submitting={state.inviteSubmitting}
+        toastMessage={state.toastMessage}
+      />
+
+      <TransactionProgressModal
+        isPending={state.isPending}
+        receipt={state.lastTxReceipt}
+        txError={state.txError}
+        onClose={actions.clearTxReceipt}
+      />
     </div>
   );
 }

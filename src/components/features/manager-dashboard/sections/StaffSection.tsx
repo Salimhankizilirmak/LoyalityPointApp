@@ -2,6 +2,16 @@
 
 import { EmployeeManagement } from "../ui/EmployeeManagement";
 import { Employee } from "../types";
+import { InvitationsAuditFeed } from "@/components/features/invitations/ui/InvitationsAuditFeed";
+
+interface InvitationItem {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: Date | number | null;
+  branchName?: string | null;
+}
 
 interface StaffSectionProps {
   cashiers: Employee[];
@@ -11,6 +21,7 @@ interface StaffSectionProps {
   handleToggleStatus: (id: string, isActive: boolean) => Promise<void>;
   setShowInvite: (show: boolean) => void;
   loadingId: string | null;
+  invitations: InvitationItem[];
 }
 
 export function StaffSection({
@@ -20,27 +31,32 @@ export function StaffSection({
   handleRemoveCashier,
   handleToggleStatus,
   setShowInvite,
-  loadingId
+  loadingId,
+  invitations
 }: StaffSectionProps) {
   return (
-    <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-xl font-bold text-white">Ekip Yönetimi</h2>
-        <button 
-          onClick={() => setShowInvite(true)}
-          className="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold"
-        >
-          Kasiyer Davet Et
-        </button>
+    <div className="space-y-6">
+      <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
+        <div className="flex items-center justify-between mb-8">
+          <button
+            onClick={() => setShowInvite(true)}
+            className="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold"
+          >
+            Kasiyer Davet Et
+          </button>
+        </div>
+        <EmployeeManagement
+          employees={cashiers}
+          isDarkMode={isDarkMode}
+          onUpdate={handleUpdateCashier}
+          onRemove={handleRemoveCashier}
+          onToggleStatus={handleToggleStatus}
+          loadingId={loadingId}
+        />
       </div>
-      <EmployeeManagement 
-        employees={cashiers}
-        isDarkMode={isDarkMode}
-        onUpdate={handleUpdateCashier}
-        onRemove={handleRemoveCashier}
-        onToggleStatus={handleToggleStatus}
-        loadingId={loadingId}
-      />
+      <div className="mt-8">
+        <InvitationsAuditFeed invitations={invitations} isDarkMode={isDarkMode} />
+      </div>
     </div>
   );
 }

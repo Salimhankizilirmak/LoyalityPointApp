@@ -1,6 +1,6 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { organizations, users, staffProfiles, customerProfiles, branches, invitations } from "@/db/schema";
+import { organizations, users, staffProfiles, customerProfiles, branches, invitations, customers } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 
 export async function getDashboardRedirectPath(
@@ -196,13 +196,59 @@ export async function getDashboardRedirectPath(
 
   // 🏢 5. Müşteri (CUSTOMER) Yönlendirmesi
   if (dbUser.role === "CUSTOMER") {
-    const targetOrgId = orgId || (meta.org_id as string) || "";
+    // shadow davetiye tablosundan e-posta üzerinden bekleyen müşteri davetiyesini sorgula
+    const pendingInvite = await db.select()
+      .from(invitations)
+      .where(and(
+        eq(invitations.email, email),
+        eq(invitations.role, "CUSTOMER"),
+        eq(invitations.status, "PENDING")
+      ))
+      .get();
+
+    const targetOrgId = orgId || (meta.org_id as string) || pendingInvite?.organizationId || "";
+
     if (targetOrgId) {
-      await db.insert(customerProfiles).values({
-        userId: dbUser.id,
-        orgId: targetOrgId,
-        currentPoints: 0,
-      }).onConflictDoNothing();
+      await db.transaction(async (tx) => {
+        // 1. customerProfiles tablosuna shadow veya normal kaydını ekle
+        await tx.insert(customerProfiles).values({
+          userId: dbUser.id,
+          orgId: targetOrgId,
+          currentPoints: 0,
+        }).onConflictDoNothing();
+
+        // 2. Eğer davet kaydı varsa, customers tablosuna telefon numarası ve isim ile asıl kaydı oluştur
+        if (pendingInvite && pendingInvite.phoneNumber) {
+          const userFullname = user.firstName || user.lastName 
+            ? `${user.firstName || ""} ${user.lastName || ""}`.trim() 
+            : (dbUser.name || email);
+
+          // Aynı org'da mükerrer telefon numarası kontrolü
+          const existingCustomer = await tx.select()
+            .from(customers)
+            .where(and(
+              eq(customers.organizationId, targetOrgId),
+              eq(customers.phoneNumber, pendingInvite.phoneNumber)
+            ))
+            .get();
+
+          if (!existingCustomer) {
+            await tx.insert(customers).values({
+              organizationId: targetOrgId,
+              phoneNumber: pendingInvite.phoneNumber,
+              name: userFullname,
+              totalPoints: 0,
+            });
+          }
+
+          // 3. Shadow davetiyeyi ACCEPTED yap
+          await tx.update(invitations)
+            .set({ status: "ACCEPTED" })
+            .where(eq(invitations.id, pendingInvite.id));
+
+          console.log(`[AuthUtils] Self-healing linked CUSTOMER ${dbUser.id} with phone ${pendingInvite.phoneNumber} to org ${targetOrgId}`);
+        }
+      });
     }
 
     return "/customer-dashboard";

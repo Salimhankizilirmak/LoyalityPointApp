@@ -10,6 +10,8 @@ interface CustomJwtPayload {
   metadata?: {
     role?: string;
     orgId?: string;
+    branch_id?: string;
+    branchId?: string;
   };
   email?: string;
 }
@@ -43,14 +45,35 @@ export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) {
     // 🛡️ /sign-up rotasına özel katı Bilet Kontrolü (Ticket Guard)
     if (pathname.startsWith("/sign-up")) {
-      const hasTicket =
-        req.nextUrl.searchParams.has("ticket") ||
-        req.nextUrl.searchParams.has("__clerk_ticket") ||
-        req.nextUrl.searchParams.has("__clerk_invitation_token");
+      const isClerkInternalSignUp = 
+        pathname.includes("/sign-up/sso-callback") || 
+        pathname.includes("SignIn_clerk_catchall_") ||
+        pathname.includes("SignUp_clerk_catchall_");
 
-      if (!hasTicket) {
-        console.warn(`[Middleware] 🛑 Gating: Unauthorized Sign-up block! No ticket provided. Redirecting to /sign-in.`);
-        return NextResponse.redirect(new URL("/sign-in", req.url));
+      if (!isClerkInternalSignUp) {
+        const hasTicketInUrl =
+          req.nextUrl.searchParams.has("ticket") ||
+          req.nextUrl.searchParams.has("__clerk_ticket") ||
+          req.nextUrl.searchParams.has("__clerk_invitation_token");
+
+        const hasTicketInCookies =
+          req.cookies.has("__clerk_ticket") ||
+          req.cookies.has("__clerk_invitation_token") ||
+          req.cookies.has("clerk_invitation_ticket") ||
+          req.cookies.getAll().some(c => 
+            c.name.includes("ticket") || 
+            c.name.includes("invitation")
+          );
+
+        const authData = await auth();
+        const hasValidAuthContext = !!authData.userId || !!authData.orgId;
+
+        const isAuthorized = hasTicketInUrl || hasTicketInCookies || hasValidAuthContext;
+
+        if (!isAuthorized) {
+          console.warn(`[Middleware] 🛑 Gating: Unauthorized Sign-up block! No ticket, cookie or auth context found. Redirecting to /sign-in.`);
+          return NextResponse.redirect(new URL("/sign-in", req.url));
+        }
       }
     }
 
@@ -189,11 +212,28 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   });
+
+  // 3. active_branch_id çerez enjeksiyonu (Next.js layout çerez set etme hatası çözümü)
+  const isDashboardRoute = pathname.startsWith("/boss-dashboard") || 
+                           pathname.startsWith("/manager-dashboard") || 
+                           pathname.startsWith("/cashier-dashboard") || 
+                           pathname.startsWith("/customer-dashboard") ||
+                           pathname.startsWith("/dashboard");
+
+  const activeBranchId = claims.metadata?.branch_id || claims.metadata?.branchId;
+  const hasBranchCookie = req.cookies.has("active_branch_id");
+
+  if (isDashboardRoute && activeBranchId && !hasBranchCookie) {
+    console.log(`[Middleware] 🍪 active_branch_id çerezi bulunamadı. activeBranchId: ${activeBranchId} enjekte ediliyor.`);
+    response.cookies.set("active_branch_id", activeBranchId, { path: "/", httpOnly: false });
+  }
+
+  return response;
 });
 
 export const config = {

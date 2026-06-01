@@ -311,17 +311,8 @@ export async function checkLayoutGuard() {
           redirect("/org-disabled?reason=suspended");
         }
 
-        // active_branch_id cookie injection
-        const { cookies } = await import("next/headers");
-        const cookieStore = await cookies();
-        if (!cookieStore.get("active_branch_id")?.value && profile.branchId) {
-          console.log(`[LayoutGuard] 🍪 active_branch_id çerezi bulunamadı. profile.branchId: ${profile.branchId} enjekte ediliyor.`);
-          try {
-            cookieStore.set("active_branch_id", profile.branchId, { path: "/" });
-          } catch (cookieErr) {
-            console.warn("[LayoutGuard] ⚠️ Sunucu tarafında çerez enjekte edilemedi (Next.js render kısıtlaması):", cookieErr);
-          }
-        }
+        // active_branch_id çerez enjeksiyonu artık proxy.ts (Middleware) katmanında yapılmaktadır.
+        // Bu sayede Server Component render edilirken çerez yazma kısıtlaması (Next.js kısıtlaması) aşılmış olur.
       }
     }
 

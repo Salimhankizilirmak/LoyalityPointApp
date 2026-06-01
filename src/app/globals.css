@@ -5,6 +5,20 @@
 /* @tailwind components; */
 /* @tailwind utilities; */
 
+html.dark {
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+}
+
+html:not(.dark) {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+body {
+  background-color: inherit;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {
