@@ -121,6 +121,12 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
     }
     
     // 2. Clerk Org Invitation
+    const { headers } = await import("next/headers");
+    const headersList = await headers();
+    const host = headersList.get("host") || "localhost:3000";
+    const proto = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+    const appUrl = `${proto}://${host}`;
+
     await client.organizations.createOrganizationInvitation({
       organizationId: org.id,
       emailAddress: email,
@@ -130,7 +136,7 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
         role: role,
         targetBranchIds: branchIds
       },
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
+      redirectUrl: `${appUrl}/dashboard`,
     });
     
     return { success: true };

@@ -92,6 +92,12 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
       return { error: "Bu e-posta adresi için zaten bekleyen bir davet mevcut." };
     }
 
+    const { headers } = await import("next/headers");
+    const headersList = await headers();
+    const host = headersList.get("host") || "localhost:3000";
+    const proto = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+    const appUrl = `${proto}://${host}`;
+
     const client = await clerkClient();
     const invitation = await client.invitations.createInvitation({
       emailAddress: email.trim().toLowerCase(),
@@ -100,7 +106,7 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
         branchId,
         orgId,
       },
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign-up`,
+      redirectUrl: `${appUrl}/sign-up`,
     });
 
     await db.insert(invitations).values({

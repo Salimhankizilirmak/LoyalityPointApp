@@ -127,6 +127,17 @@ export class StaffService extends BaseService {
       throw new Error(`'${targetBranch.name}' şubesi şu an pasif durumdadır. Pasif şubelere personel davet edilemez.`);
     }
 
+    const { headers } = await import("next/headers");
+    let appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    try {
+      const headersList = await headers();
+      const host = headersList.get("host") || "localhost:3000";
+      const proto = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+      appUrl = `${proto}://${host}`;
+    } catch (e) {
+      console.log("[StaffService] Could not resolve request headers, using env fallback.");
+    }
+
     try {
       const clerkInv = await client.organizations.createOrganizationInvitation({
         organizationId: orgId,
@@ -139,7 +150,7 @@ export class StaffService extends BaseService {
           branchName: data.branch,
           org_id: orgId,
         },
-        redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
+        redirectUrl: `${appUrl}/dashboard`,
       });
 
       // Davetiyeyi yerel veritabanına ekle
@@ -165,8 +176,6 @@ export class StaffService extends BaseService {
         JSON.stringify(error).includes("limit");
 
       if (isEmailLimitError) {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        
         // E-posta gönderimini devre dışı bırakarak global davetiye oluşturuyoruz (kotaya takılmaz)
         const clerkInv = await client.invitations.createInvitation({
           emailAddress: emailLower,
