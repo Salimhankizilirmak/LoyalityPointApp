@@ -1,5 +1,5 @@
 import { BaseService } from "./base-service";
-import { users, customerProfiles } from "@/db/schema";
+import { users, customerProfiles, organizations, customers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export class CustomerService extends BaseService {
@@ -19,7 +19,68 @@ export class CustomerService extends BaseService {
     }
 
     const meta = (user.publicMetadata || {}) as Record<string, unknown>;
-    const orgId = session.orgId || (meta.org_id as string) || "showcase";
+    
+    // Resolve dynamic orgId without using explicit 'any'
+    const sessionWithClaims = session as { sessionClaims?: { metadata?: { orgId?: string }; orgId?: string } };
+    const sessionClaimsOrgId = sessionWithClaims.sessionClaims?.metadata?.orgId || sessionWithClaims.sessionClaims?.orgId;
+    let orgId = session.orgId || (meta.org_id as string) || sessionClaimsOrgId;
+    
+    if (!orgId || orgId === "showcase") {
+      orgId = "org_3ERbT8Zq2peIxRmL13y820AmHCO";
+    }
+
+    // Dynamic Organization Check & Dynamic Creation to prevent Foreign Key constraints
+    let orgExists = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    if (!orgExists) {
+      console.log(`[syncCustomerData] Organization ${orgId} not found in DB. Creating dynamically to avoid constraint failures.`);
+      const insertedOrg = await this.db.insert(organizations).values({
+        id: orgId,
+        name: "Varsayılan Organizasyon",
+        isActive: true,
+        status: "ACTIVE",
+        branchLimit: 10,
+      }).returning();
+      orgExists = insertedOrg[0];
+    }
+
+    // Dynamic Customer Record Check
+    const phoneFromMeta = (meta.phone as string) || "";
+    let primaryPhone = user.phoneNumbers?.[0]?.phoneNumber || phoneFromMeta;
+    
+    // Ensure primaryPhone is never empty by using a dummy phone derived from email or userId
+    if (!primaryPhone || primaryPhone.trim() === "") {
+      const emailStr = dbUser.email || user.id;
+      let hash = 0;
+      for (let i = 0; i < emailStr.length; i++) {
+        hash = emailStr.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const num = Math.abs(hash).toString().substring(0, 10).padEnd(10, "0");
+      primaryPhone = `+90${num}`;
+    }
+
+    let customerRecord = null;
+    const cleanPhone = primaryPhone.replace(/[\s+-]/g, "");
+    customerRecord = await this.db.select().from(customers).where(eq(customers.phoneNumber, primaryPhone)).get();
+    
+    if (!customerRecord && cleanPhone) {
+      const allCustomers = await this.db.select().from(customers).all();
+      customerRecord = allCustomers.find(c => {
+        const cClean = c.phoneNumber.replace(/[\s+-]/g, "");
+        return cClean === cleanPhone || cClean.endsWith(cleanPhone) || cleanPhone.endsWith(cClean);
+      }) || null;
+    }
+
+    // Dynamic customer creation if record does not exist
+    if (!customerRecord) {
+      console.log(`[syncCustomerData] Creating new root customer record for phone: ${primaryPhone}`);
+      const insertedCustomer = await this.db.insert(customers).values({
+        organizationId: orgId,
+        phoneNumber: primaryPhone,
+        name: `${user.firstName || "İsimsiz"} ${user.lastName || "Müşteri"}`.trim(),
+        totalPoints: 0,
+      }).returning();
+      customerRecord = insertedCustomer[0];
+    }
 
     // Ensure customer_profiles table record exists
     let profile = await this.db.select().from(customerProfiles).where(eq(customerProfiles.userId, dbUser.id)).get();
@@ -27,9 +88,21 @@ export class CustomerService extends BaseService {
       const insertedProfile = await this.db.insert(customerProfiles).values({
         userId: dbUser.id,
         orgId: orgId,
-        currentPoints: 0,
+        currentPoints: customerRecord.totalPoints || 0,
       }).returning();
       profile = insertedProfile[0];
+    } else {
+      // Sync currentPoints with customers table totalPoints
+      if (profile.currentPoints !== customerRecord.totalPoints || profile.orgId !== orgId) {
+        await this.db.update(customerProfiles)
+          .set({ 
+            currentPoints: customerRecord.totalPoints,
+            orgId: orgId
+          })
+          .where(eq(customerProfiles.id, profile.id));
+        profile.currentPoints = customerRecord.totalPoints;
+        profile.orgId = orgId;
+      }
     }
 
     return {
@@ -37,7 +110,7 @@ export class CustomerService extends BaseService {
       clerkId: dbUser.clerkId,
       firstName: user.firstName || "İsimsiz",
       lastName: user.lastName || "Müşteri",
-      phone: (meta.phone as string) || "",
+      phone: primaryPhone,
       email: dbUser.email,
       currentPoints: profile.currentPoints,
     };

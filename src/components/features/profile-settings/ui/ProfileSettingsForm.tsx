@@ -11,11 +11,14 @@ interface ProfileSettingsFormProps {
   initialLastName: string;
   initialUsername: string;
   email: string;
+  initialPhone: string;
+  hasPhone: boolean;
   initialMarketingSms: boolean;
   initialMarketingEmail: boolean;
   onSave: (
     firstName: string,
     lastName: string,
+    phone: string,
     smsAllowed: boolean,
     emailAllowed: boolean
   ) => Promise<void>;
@@ -27,6 +30,8 @@ export function ProfileSettingsForm({
   initialLastName,
   initialUsername,
   email,
+  initialPhone,
+  hasPhone,
   initialMarketingSms,
   initialMarketingEmail,
   onSave,
@@ -35,104 +40,130 @@ export function ProfileSettingsForm({
   const [firstName, setFirstName] = useState(initialFirstName);
   const [lastName, setLastName] = useState(initialLastName);
   const [username, setUsername] = useState(initialUsername);
+  const [phone, setPhone] = useState(initialPhone);
   const [marketingSms, setMarketingSms] = useState(initialMarketingSms);
   const [marketingEmail, setMarketingEmail] = useState(initialMarketingEmail);
 
-  // Keep state synced with props changes (e.g. on initial load)
+  // Sync internal state with prop changes
   useEffect(() => {
     const timer = setTimeout(() => {
       setFirstName(initialFirstName);
       setLastName(initialLastName);
       setUsername(initialUsername);
+      setPhone(initialPhone);
       setMarketingSms(initialMarketingSms);
       setMarketingEmail(initialMarketingEmail);
     }, 0);
     return () => clearTimeout(timer);
-  }, [initialFirstName, initialLastName, initialUsername, initialMarketingSms, initialMarketingEmail]);
+  }, [initialFirstName, initialLastName, initialUsername, initialPhone, initialMarketingSms, initialMarketingEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSave(firstName, lastName, marketingSms, marketingEmail);
+    await onSave(firstName, lastName, phone, marketingSms, marketingEmail);
   };
 
-  const isFormChanged = 
-    firstName !== initialFirstName || 
+  const isFormChanged =
+    firstName !== initialFirstName ||
     lastName !== initialLastName ||
+    phone !== initialPhone ||
     marketingSms !== initialMarketingSms ||
     marketingEmail !== initialMarketingEmail;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-4">
-        {/* Ad Soyad */}
+        {/* Name Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="firstName" className="text-slate-400 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Ad</Label>
+          <div className="space-y-1">
+            <Label htmlFor="firstName" className="text-slate-400 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider pl-0.5">Ad</Label>
             <Input
               id="firstName"
-              placeholder="Adınızı girin"
+              placeholder="Adınız"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               required
-              className="bg-white/10 dark:bg-white/5 border-slate-700/20 dark:border-white/10 text-slate-800 dark:text-white rounded-xl focus:border-cyan-500 min-h-[44px]"
+              className="bg-slate-900/40 border border-slate-800 text-slate-200 rounded-lg focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all min-h-[40px] text-sm"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="lastName" className="text-slate-400 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Soyad</Label>
+          <div className="space-y-1">
+            <Label htmlFor="lastName" className="text-slate-400 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider pl-0.5">Soyad</Label>
             <Input
               id="lastName"
-              placeholder="Soyadınızı girin"
+              placeholder="Soyadınız"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               required
-              className="bg-white/10 dark:bg-white/5 border-slate-700/20 dark:border-white/10 text-slate-800 dark:text-white rounded-xl focus:border-cyan-500 min-h-[44px]"
+              className="bg-slate-900/40 border border-slate-800 text-slate-200 rounded-lg focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all min-h-[40px] text-sm"
             />
           </div>
         </div>
 
-        {/* E-posta (Salt Okunur) */}
-        <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-400 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">E-posta Adresi</Label>
+        {/* Read-only Email */}
+        <div className="space-y-1">
+          <Label htmlFor="email" className="text-slate-400 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider pl-0.5">E-posta Adresi</Label>
           <Input
             id="email"
             value={email}
             disabled={true}
-            className="bg-white/5 dark:bg-white/5 border-slate-750/30 dark:border-white/10 text-slate-400 dark:text-slate-400 rounded-xl min-h-[44px] disabled:opacity-60 disabled:cursor-not-allowed bg-slate-950/40"
+            readOnly={true}
+            className="bg-slate-950/60 border border-slate-900 text-slate-500 rounded-lg min-h-[40px] text-sm disabled:opacity-50 disabled:cursor-not-allowed select-none"
           />
         </div>
 
-        {/* Kullanıcı Adı (Salt Okunur) */}
-        <div className="space-y-1.5">
-          <Label htmlFor="username" className="text-slate-400 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Kullanıcı Adı</Label>
+        {/* Read-only Username */}
+        <div className="space-y-1">
+          <Label htmlFor="username" className="text-slate-400 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider pl-0.5">Kullanıcı Adı</Label>
           <Input
             id="username"
-            placeholder="kullanici_adi"
             value={username}
             disabled={true}
-            className="bg-white/5 dark:bg-white/5 border-slate-750/30 dark:border-white/10 text-slate-400 dark:text-slate-400 rounded-xl min-h-[44px] lowercase disabled:opacity-60 disabled:cursor-not-allowed bg-slate-950/40"
+            readOnly={true}
+            className="bg-slate-950/60 border border-slate-900 text-slate-500 rounded-lg min-h-[40px] text-sm disabled:opacity-50 disabled:cursor-not-allowed select-none lowercase"
           />
-          <p className="text-[10px] text-slate-500">
+          <p className="text-[10px] text-slate-500 pl-0.5">
             Kullanıcı adınızı değiştirmek için lütfen sistem yöneticinizle irtibata geçin.
           </p>
         </div>
 
-        {/* İletişim Tercihleri */}
-        <div className="pt-4 border-t border-slate-800/40 dark:border-white/5 space-y-3.5">
+        {/* Phone Input (Read-only if exists) */}
+        <div className="space-y-1">
+          <Label htmlFor="phone" className="text-slate-400 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider pl-0.5">Telefon Numarası</Label>
+          <Input
+            id="phone"
+            placeholder="+905554443322"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            disabled={hasPhone}
+            className="bg-slate-900/40 border border-slate-800 text-slate-200 rounded-lg focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all min-h-[40px] text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-950/60"
+          />
+          {hasPhone ? (
+            <p className="text-[10px] text-slate-500 pl-0.5">
+              Telefon numaranız sadakat sisteminizle eşleştirilmiştir ve değiştirilemez.
+            </p>
+          ) : (
+            <p className="text-[10px] text-cyan-400 font-medium pl-0.5">
+              Eşleşme ve puan kazanımı için telefon numaranızı ekleyin. Bir kez ekledikten sonra değiştiremezsiniz.
+            </p>
+          )}
+        </div>
+
+        {/* Notification Preferences */}
+        <div className="pt-4 border-t border-slate-900/80 space-y-3">
           <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 pl-0.5">
             İletişim Tercihleri (Notification Preferences)
           </h4>
           
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {/* SMS Checkbox */}
-            <label className="flex items-start gap-3 p-3 rounded-2xl border border-white/5 hover:border-cyan-500/25 bg-[#09090b]/40 hover:bg-[#0a0f1d]/50 transition-all duration-200 cursor-pointer select-none group">
+            <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-900 hover:border-cyan-500/20 bg-slate-950/30 hover:bg-slate-950/50 transition-all duration-150 cursor-pointer select-none group">
               <input
                 type="checkbox"
                 checked={marketingSms}
                 onChange={(e) => setMarketingSms(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-slate-700/50 bg-[#07070a] text-cyan-500 focus:ring-cyan-500/40 focus:ring-offset-slate-950 accent-cyan-500 transition-all cursor-pointer"
+                className="mt-0.5 w-4 h-4 rounded border-slate-800 bg-slate-950 text-cyan-500 focus:ring-cyan-500/30 focus:ring-offset-slate-950 accent-cyan-500 cursor-pointer transition-all"
               />
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-bold text-slate-200 group-hover:text-white flex items-center gap-1.5 transition-colors">
+                <span className="text-xs font-bold text-slate-300 group-hover:text-slate-100 flex items-center gap-1.5 transition-colors">
                   <MessageSquare size={13} className="text-cyan-400" />
                   SMS ile pazarlama/kampanya bilgilendirmesi almak istiyorum
                 </span>
@@ -141,15 +172,15 @@ export function ProfileSettingsForm({
             </label>
 
             {/* E-posta Checkbox */}
-            <label className="flex items-start gap-3 p-3 rounded-2xl border border-white/5 hover:border-cyan-500/25 bg-[#09090b]/40 hover:bg-[#0a0f1d]/50 transition-all duration-200 cursor-pointer select-none group">
+            <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-900 hover:border-cyan-500/20 bg-slate-950/30 hover:bg-slate-950/50 transition-all duration-150 cursor-pointer select-none group">
               <input
                 type="checkbox"
                 checked={marketingEmail}
                 onChange={(e) => setMarketingEmail(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-slate-700/50 bg-[#07070a] text-cyan-500 focus:ring-cyan-500/40 focus:ring-offset-slate-950 accent-cyan-500 transition-all cursor-pointer"
+                className="mt-0.5 w-4 h-4 rounded border-slate-800 bg-slate-950 text-cyan-500 focus:ring-cyan-500/30 focus:ring-offset-slate-950 accent-cyan-500 cursor-pointer transition-all"
               />
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-bold text-slate-200 group-hover:text-white flex items-center gap-1.5 transition-colors">
+                <span className="text-xs font-bold text-slate-300 group-hover:text-slate-100 flex items-center gap-1.5 transition-colors">
                   <Mail size={13} className="text-cyan-400" />
                   E-posta ile pazarlama/kampanya bilgilendirmesi almak istiyorum
                 </span>
@@ -163,20 +194,20 @@ export function ProfileSettingsForm({
       <Button
         type="submit"
         disabled={isSaving || !isFormChanged}
-        className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all min-h-[44px] ${
+        className={`w-full py-3 rounded-lg text-xs font-bold text-white shadow-sm transition-all min-h-[40px] border ${
           isFormChanged && !isSaving
-            ? "bg-gradient-to-r from-indigo-600 to-cyan-600 shadow-indigo-500/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-            : "bg-slate-700/40 cursor-not-allowed opacity-50 shadow-none text-slate-500 border border-slate-800"
+            ? "bg-slate-100 hover:bg-slate-200 text-slate-950 border-slate-200 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] cursor-pointer"
+            : "bg-slate-900/40 border-slate-900 text-slate-500 cursor-not-allowed opacity-40 shadow-none"
         }`}
       >
         {isSaving ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
             <span>Kaydediliyor...</span>
           </>
         ) : (
           <>
-            <Save className="w-4 h-4 mr-2" />
+            <Save className="w-3.5 h-3.5 mr-1.5" />
             <span>Tercihleri ve Bilgileri Kaydet</span>
           </>
         )}
@@ -184,4 +215,3 @@ export function ProfileSettingsForm({
     </form>
   );
 }
-

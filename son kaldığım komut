@@ -1,0 +1,20 @@
+antigravity-kit context context fskill' ilkelerini aktif ederek, müşteri panelindeki çıkış esnasında [SignOutOverlay.tsx](file;file:///Users/alperensongut/Desktop/LoyalityPointApp/src/components/dashboard/SignOutOverlay.tsx)  bileşeninin görünmesini engelleyen ve doğrudan [DashboardLoadingScreen.tsx](file;file:///Users/alperensongut/Desktop/LoyalityPointApp/src/components/dashboard/DashboardLoadingScreen.tsx) ekranını sızdıran race-condition hatasını strictly çözmeni istiyorum. Kasiyer panelindeki güvenli animasyonlu geri sayım protokolünü birebir buraya entegre edeceksin. Bu oturum tamamen bağımsızdır, önceki turlara referans vermez.
+
+Şu 2 dosyada yapısal eşitlemeyi diske fiziksel olarak işle:
+
+1. KASİYER TARZI GERİ SAYIM PROTOKOLÜ ([client-page.tsx](file;file:///Users/alperensongut/Desktop/LoyalityPointApp/src/app/%28customer%29/customer-dashboard/client-page.tsx) ):
+   - Sayfa içindeki 'handleSignOut' veya 'signOut' buton tetikleyicisini strictly güncelle.
+   - Çıkış butonuna basıldığında direkt Clerk 'signOut' fonksiyonunu ÇAĞIRMA. Önce sadece 'showSignOutOverlay' state durumunu true yap.
+   - JSX alanına 'SignOutOverlay' bileşenini ('src/components/dashboard/SignOutOverlay' yolundan) şu imza ile ekle:
+     <SignOutOverlay 
+        isOpen={showSignOutOverlay} 
+        onCountdownComplete={() => signOut({ redirectUrl: "/sign-in" })} 
+     />
+   - Böylece ekranda önce kurumsal çıkış perdesi belirecek, animasyon/bekleme süresi (3sn) strictly tamamlanınca Clerk oturumu güvenle kapatıp yönlendirecektir.
+
+2. LAYOUT KATMANI ARINDIRILMASI ([CustomerLayoutClient.tsx](file;file:///Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/customer-dashboard/ui/CustomerLayoutClient.tsx) :
+   - Layout katmanına bir önceki turda eklenen ve sunucu/istemci yaşam döngüsü çakışmasından dolayı sızıntı üreten tüm 'showSignOutOverlay' veya manuel yükleme maskesi kodlarını TAMAMEN TEMİZLE.
+   - Bu dosya strictly sadece Clerk '!isLoaded' durumunda veya 'isAuthLoading' anında projenin ortak 'DashboardLoadingScreen' bileşenini render etmeye devam etsin. Kasiyer ve Boss panellerindeki temiz hiyerarşik yapı korunsun.
+
+3. STATİK ANALİZ VE TIP DOĞRULAMA:
+   - Geliştirme bittiğinde terminalde strictly 'npx tsc --noEmit' ve 'npm run lint' komutlarını koştur.

@@ -14,6 +14,8 @@ export function ProfileSettingsPage() {
     lastName,
     username,
     email,
+    phone,
+    hasPhone,
     marketingSms,
     marketingEmail,
     isSaving,
@@ -134,6 +136,8 @@ export function ProfileSettingsPage() {
             initialLastName={lastName}
             initialUsername={username}
             email={email || user?.emailAddresses?.[0]?.emailAddress || ""}
+            initialPhone={phone}
+            hasPhone={hasPhone}
             initialMarketingSms={marketingSms}
             initialMarketingEmail={marketingEmail}
             onSave={updateProfile}

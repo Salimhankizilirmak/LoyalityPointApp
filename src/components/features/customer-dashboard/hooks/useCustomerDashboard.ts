@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useClerk, useUser, useOrganization } from "@clerk/nextjs";
 import { syncCustomerData, getCustomerLedgerTransactionsAction } from "@/app/(customer)/customer-dashboard/actions";
 
@@ -37,8 +37,6 @@ export interface CustomerData {
   clerkId: string;
 }
 
-const ITEMS_PER_PAGE = 9;
-
 export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
   const [activeTab, setActiveTab] = useState<"cuzdan" | "islemler" | "profil">("cuzdan");
   const [customerData, setCustomerData] = useState<CustomerData | null>(initialCustomerData);
@@ -49,6 +47,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
 
   // Sayfalama State'i
   const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6; // Üçlü grid için 6 kart
 
   // Mock Veri State'i
   const [isMockData, setIsMockData] = useState(false);
@@ -56,10 +55,26 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
   // Tema Yönetimi
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
+      const storedTheme = localStorage.getItem("theme");
+      if (storedTheme) {
+        return storedTheme === "dark";
+      }
       return document.documentElement.classList.contains("dark");
     }
     return true;
   });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (isDarkMode) {
+        document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = "dark";
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.documentElement.style.colorScheme = "light";
+      }
+    }
+  }, [isDarkMode]);
 
   // Anti-Fraud QR State
   const [qrToken, setQrToken] = useState(() => {
@@ -126,11 +141,11 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
 
   // Tema Geçiş Fonksiyonu
   const toggleTheme = () => {
-    const nextTheme = isDarkMode ? "light" : "dark";
-    setIsDarkMode(!isDarkMode);
+    const nextTheme = !isDarkMode;
+    setIsDarkMode(nextTheme);
     if (typeof window !== "undefined") {
-      localStorage.setItem("theme", nextTheme);
-      if (nextTheme === "dark") {
+      localStorage.setItem("theme", nextTheme ? "dark" : "light");
+      if (nextTheme) {
         document.documentElement.classList.add("dark");
         document.documentElement.style.colorScheme = "dark";
       } else {
@@ -151,7 +166,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
     currentPoints: 45000, // 450.00 TL puan
   };
 
-  // Mock Ledger Timeline Tanımı (Sayfalama testi için 12 kayıt)
+  // Mock Ledger Timeline Tanımı
   const mockLedgerTransactions: LedgerTransaction[] = [
     {
       id: "mock_tx_1",
@@ -168,7 +183,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
     },
     {
       id: "mock_tx_2",
-      refId: null,
+      refId: "REF-ABC123",
       type: "EARN",
       amountSpent: 150.00,
       pointsAmount: 15,
@@ -194,121 +209,56 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
     },
     {
       id: "mock_tx_4",
-      refId: "REF-ABC123",
-      type: "SPLIT_PAYMENT",
-      amountSpent: 80.00,
-      pointsAmount: -200,
-      totalCartAmount: 280.00,
-      description: "REF-ABC123 referanslı parçalı ödeme.",
-      status: "SUCCESS",
-      createdAtFormatted: "20.05.2026 09:45",
-      createdAt: new Date("2026-05-20T09:45:00"),
-      branchName: "Etiler Şubesi",
-    },
-    {
-      id: "mock_tx_5",
-      refId: null,
+      refId: "REF-KRT555",
       type: "EARN",
-      amountSpent: 320.00,
-      pointsAmount: 32,
-      totalCartAmount: 320.00,
-      description: "320 TL tutarında puan kazanma alışverişi.",
+      amountSpent: 300.00,
+      pointsAmount: 30,
+      totalCartAmount: 300.00,
+      description: "Puan kazanımı.",
       status: "SUCCESS",
-      createdAtFormatted: "18.05.2026 16:00",
-      createdAt: new Date("2026-05-18T16:00:00"),
-      branchName: "Levent Şubesi",
-    },
-    {
-      id: "mock_tx_6",
-      refId: null,
-      type: "BURN",
-      amountSpent: 0,
-      pointsAmount: -50,
-      totalCartAmount: 50.00,
-      description: "50 puan harcama işlemi.",
-      status: "SUCCESS",
-      createdAtFormatted: "15.05.2026 11:30",
-      createdAt: new Date("2026-05-15T11:30:00"),
+      createdAtFormatted: "24.05.2026 15:45",
+      createdAt: new Date("2026-05-24T15:45:00"),
       branchName: "Ataşehir Şubesi",
     },
     {
-      id: "mock_tx_7",
-      refId: "REF-DEF456",
-      type: "SPLIT_PAYMENT",
-      amountSpent: 200.00,
-      pointsAmount: -300,
-      totalCartAmount: 500.00,
-      description: "REF-DEF456 referanslı parçalı ödeme.",
+      id: "mock_tx_5",
+      refId: "REF-BRN111",
+      type: "BURN",
+      amountSpent: 0.00,
+      pointsAmount: -200,
+      totalCartAmount: 200.00,
+      description: "Puan harcama.",
       status: "SUCCESS",
-      createdAtFormatted: "12.05.2026 14:15",
-      createdAt: new Date("2026-05-12T14:15:00"),
-      branchName: "Bağdat Caddesi Şubesi",
+      createdAtFormatted: "22.05.2026 09:30",
+      createdAt: new Date("2026-05-22T09:30:00"),
+      branchName: "Caddebostan Şubesi",
     },
     {
-      id: "mock_tx_8",
-      refId: null,
-      type: "EARN",
-      amountSpent: 75.00,
-      pointsAmount: 8,
-      totalCartAmount: 75.00,
-      description: "75 TL tutarında puan kazanma.",
-      status: "SUCCESS",
-      createdAtFormatted: "10.05.2026 10:00",
-      createdAt: new Date("2026-05-10T10:00:00"),
-      branchName: "Taksim Şubesi",
-    },
-    {
-      id: "mock_tx_9",
-      refId: "REF-GHI789",
+      id: "mock_tx_6",
+      refId: "REF-XYZ111",
       type: "SPLIT_PAYMENT",
       amountSpent: 120.00,
-      pointsAmount: -180,
-      totalCartAmount: 300.00,
-      description: "REF-GHI789 referanslı parçalı ödeme.",
-      status: "VOIDED",
-      createdAtFormatted: "08.05.2026 17:45",
-      createdAt: new Date("2026-05-08T17:45:00"),
-      branchName: "Beyoğlu Şubesi",
+      pointsAmount: -80,
+      totalCartAmount: 200.00,
+      description: "Parçalı Ödeme.",
+      status: "SUCCESS",
+      createdAtFormatted: "20.05.2026 19:10",
+      createdAt: new Date("2026-05-20T19:10:00"),
+      branchName: "Bebek Şubesi",
     },
     {
-      id: "mock_tx_10",
-      refId: null,
+      id: "mock_tx_7",
+      refId: "REF-XYZ222",
       type: "EARN",
-      amountSpent: 500.00,
-      pointsAmount: 50,
-      totalCartAmount: 500.00,
-      description: "500 TL tutarında puan kazanma.",
+      amountSpent: 80.00,
+      pointsAmount: 8,
+      totalCartAmount: 80.00,
+      description: "Puan kazanımı.",
       status: "SUCCESS",
-      createdAtFormatted: "05.05.2026 13:20",
-      createdAt: new Date("2026-05-05T13:20:00"),
-      branchName: "Şişli Şubesi",
-    },
-    {
-      id: "mock_tx_11",
-      refId: null,
-      type: "BURN",
-      amountSpent: 0,
-      pointsAmount: -100,
-      totalCartAmount: 100.00,
-      description: "100 puan harcama işlemi.",
-      status: "SUCCESS",
-      createdAtFormatted: "02.05.2026 08:00",
-      createdAt: new Date("2026-05-02T08:00:00"),
-      branchName: "Maslak Şubesi",
-    },
-    {
-      id: "mock_tx_12",
-      refId: "REF-JKL012",
-      type: "SPLIT_PAYMENT",
-      amountSpent: 250.00,
-      pointsAmount: -500,
-      totalCartAmount: 750.00,
-      description: "REF-JKL012 referanslı parçalı ödeme.",
-      status: "SUCCESS",
-      createdAtFormatted: "28.04.2026 19:00",
-      createdAt: new Date("2026-04-28T19:00:00"),
-      branchName: "Florya Şubesi",
-    },
+      createdAtFormatted: "18.05.2026 11:20",
+      createdAt: new Date("2026-05-18T11:20:00"),
+      branchName: "Göztepe Şubesi",
+    }
   ];
 
   // Aktif Veri Seçimi (Mock vs Gerçek)
@@ -317,29 +267,15 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
   const pts = activeCustomerData ? Math.floor(activeCustomerData.currentPoints / 100) : 450;
 
   // Sayfalama Hesaplaması
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(activeLedgerTransactions.length / ITEMS_PER_PAGE)),
-    [activeLedgerTransactions.length]
+  const totalPages = Math.ceil(activeLedgerTransactions.length / pageSize) || 1;
+  const paginatedTransactions = activeLedgerTransactions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
-  const paginatedTransactions = useMemo(
-    () => activeLedgerTransactions.slice(
-      (currentPage - 1) * ITEMS_PER_PAGE,
-      currentPage * ITEMS_PER_PAGE
-    ),
-    [activeLedgerTransactions, currentPage]
-  );
-
-  const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
-  // Sekme değiştiğinde sayfayı sıfırla (useEffect yerine wrapper)
-  const handleTabChange = (tab: "cuzdan" | "islemler" | "profil") => {
+  const handleSetActiveTab = (tab: "cuzdan" | "islemler" | "profil") => {
     setActiveTab(tab);
-    setCurrentPage(1);
+    setCurrentPage(1); // Sekme değiştiğinde sayfa 1'e sıfırlanır
   };
 
   return {
@@ -363,15 +299,15 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       isDarkMode
     },
     actions: {
-      setActiveTab: handleTabChange,
+      setActiveTab: handleSetActiveTab,
+      setCurrentPage,
       setShowProfileModal,
       setShowSignOutOverlay,
       signOut,
       setCustomerData,
       refreshLedger: loadLedgerData,
       setIsMockData,
-      toggleTheme,
-      goToPage
+      toggleTheme
     }
   };
 }

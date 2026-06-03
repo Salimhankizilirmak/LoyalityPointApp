@@ -8,6 +8,9 @@ import { customerService } from "@/lib/services/customer-service";
 
 export async function syncCustomerData() {
   try {
+    const { sessionClaims } = await auth();
+    const metadata = (sessionClaims?.metadata || {}) as Record<string, unknown>;
+    console.log(`[Sync] syncCustomerData initiated with metadata:`, metadata);
     return await customerService.syncCustomerData();
   } catch (error: unknown) {
     console.error("Sync error:", error);
@@ -99,10 +102,15 @@ export async function saveCustomerUsernameAction(prevState: unknown, formData: F
  */
 export async function getCustomerLedgerTransactionsAction() {
   try {
-    const { userId } = await auth();
+    const { userId, sessionClaims } = await auth();
     if (!userId) {
       return { success: false, error: "Oturum bulunamadı.", transactions: [] };
     }
+
+    const metadata = (sessionClaims?.metadata || {}) as Record<string, unknown>;
+    const orgId = metadata.orgId as string;
+
+    console.log(`[Ledger] Fetching transactions for user ${userId} in org ${orgId}`);
 
     // 1. Clerk kullanıcısını al
     const client = await clerkClient();
@@ -110,27 +118,32 @@ export async function getCustomerLedgerTransactionsAction() {
     
     // Telefon numarası ve e-postasını belirle
     const phoneFromMeta = (clerkUser.publicMetadata?.phone as string) || "";
-    const primaryPhone = clerkUser.phoneNumbers?.[0]?.phoneNumber || phoneFromMeta;
+    let primaryPhone = clerkUser.phoneNumbers?.[0]?.phoneNumber || phoneFromMeta;
     const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
 
-    if (!primaryPhone && !email) {
-      return { success: true, transactions: [] };
+    // Telefon numarasını okurken fallback zincirini güçlendir, sunucu servisine asla boş string gönderme.
+    if (!primaryPhone || primaryPhone.trim() === "") {
+      const emailStr = email || clerkUser.id;
+      let hash = 0;
+      for (let i = 0; i < emailStr.length; i++) {
+        hash = emailStr.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const num = Math.abs(hash).toString().substring(0, 10).padEnd(10, "0");
+      primaryPhone = `+90${num}`;
+      console.log(`[Ledger] Fallback phone generated: ${primaryPhone} for user: ${userId}`);
     }
 
     // 2. Customers tablosunda telefon veya e-posta ile eşleşen customer kaydını bul
     let customerRecord = null;
     if (primaryPhone) {
-      // Telefon numarasını temizleyip dene (+ veya boşlukları temizleyerek)
       const cleanPhone = primaryPhone.replace(/[\s+-]/g, "");
       
-      // Tam eşleşme veya temizlenmiş eşleşme ile ara
       customerRecord = await db.select()
         .from(customers)
         .where(eq(customers.phoneNumber, primaryPhone))
         .get();
       
       if (!customerRecord && cleanPhone) {
-        // Drizzle sql kullanarak telefon alanındaki karakterleri temizleyip aramayı deneyebiliriz ya da like
         const allCustomers = await db.select().from(customers).all();
         customerRecord = allCustomers.find(c => {
           const cClean = c.phoneNumber.replace(/[\s+-]/g, "");
@@ -139,10 +152,8 @@ export async function getCustomerLedgerTransactionsAction() {
       }
     }
 
-
-
     if (!customerRecord) {
-      console.log(`[Ledger] Customer record not found for user: ${userId}. Phone: ${primaryPhone}, Email: ${email}`);
+      console.warn(`[Ledger] Müşteri eşleşme verisi eksik for user: ${userId}. Customer record not found in DB. Phone: ${primaryPhone}, Email: ${email}`);
       return { success: true, transactions: [] };
     }
 
