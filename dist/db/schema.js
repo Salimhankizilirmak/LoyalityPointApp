@@ -55,6 +55,8 @@ exports.pointsTransactions = (0, sqlite_core_1.sqliteTable)("points_transactions
     amount: (0, sqlite_core_1.integer)("amount").notNull(),
     type: (0, sqlite_core_1.text)("type", { enum: ["EARN", "SPEND"] }).notNull(),
     description: (0, sqlite_core_1.text)("description"),
+    status: (0, sqlite_core_1.text)("status", { enum: ["SUCCESS", "VOIDED"] }).notNull().default("SUCCESS"),
+    parentTransactionId: (0, sqlite_core_1.text)("parent_transaction_id"),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
 });
 exports.userBranches = (0, sqlite_core_1.sqliteTable)("user_branches", {
@@ -88,9 +90,12 @@ exports.loyaltyTransactions = (0, sqlite_core_1.sqliteTable)("loyalty_transactio
     branchId: (0, sqlite_core_1.text)("branch_id").notNull().references(() => exports.branches.id, { onDelete: "restrict" }),
     customerId: (0, sqlite_core_1.text)("customer_id").notNull().references(() => exports.customers.id, { onDelete: "restrict" }),
     cashierId: (0, sqlite_core_1.text)("cashier_id").notNull().references(() => exports.users.id, { onDelete: "restrict" }),
-    type: (0, sqlite_core_1.text)("type", { enum: ["EARN", "BURN"] }).notNull(),
+    type: (0, sqlite_core_1.text)("type", { enum: ["EARN", "BURN", "VOID", "CASH_SETTLEMENT"] }).notNull(),
     amountSpent: (0, sqlite_core_1.integer)("amount_spent").default(0),
     pointsAmount: (0, sqlite_core_1.integer)("points_amount").notNull(),
+    description: (0, sqlite_core_1.text)("description"),
+    status: (0, sqlite_core_1.text)("status", { enum: ["SUCCESS", "VOIDED"] }).notNull().default("SUCCESS"),
+    parentTransactionId: (0, sqlite_core_1.text)("parent_transaction_id"),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).notNull().default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
 });
 // ─── TERMINAL (POS KASA) TABLOLARI ──────────────────────────────────────────
@@ -116,6 +121,7 @@ exports.invitations = (0, sqlite_core_1.sqliteTable)("invitations", {
     id: (0, sqlite_core_1.text)("id").$defaultFn(() => (0, cuid2_1.createId)()).primaryKey(),
     clerkInviteId: (0, sqlite_core_1.text)("clerk_invite_id").unique(),
     email: (0, sqlite_core_1.text)("email").notNull(),
+    phoneNumber: (0, sqlite_core_1.text)("phone_number"),
     organizationId: (0, sqlite_core_1.text)("organization_id").notNull().references(() => exports.organizations.id, { onDelete: "cascade" }),
     branchId: (0, sqlite_core_1.text)("branch_id").references(() => exports.branches.id, { onDelete: "cascade" }),
     role: (0, sqlite_core_1.text)("role", { enum: ["BOSS", "MANAGER", "CASHIER", "CUSTOMER"] }).notNull().default("BOSS"),

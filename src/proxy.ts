@@ -103,6 +103,27 @@ export default clerkMiddleware(async (auth, req) => {
   const authData = await auth();
   const { userId, orgId, orgRole, sessionClaims, redirectToSignIn } = authData;
 
+  const hasInvitationTicket = req.nextUrl.searchParams.has("__clerk_ticket") || req.nextUrl.searchParams.has("ticket");
+  if (!userId && hasInvitationTicket) {
+    const isSignUpRoute = pathname.startsWith("/sign-up");
+    
+    // Eğer kullanıcı zaten sign-up sayfasında DEĞİLSE, onu bilet parametreleriyle beraber oraya zorla
+    if (!isSignUpRoute) {
+      console.log(`[Middleware] 🎟️ New user invitation ticket detected on ${pathname}. Smart redirecting to /sign-up.`);
+      const signUpUrl = new URL("/sign-up", req.url);
+      signUpUrl.search = req.nextUrl.search; // URL'deki __clerk_ticket ve diğer parametreleri aynen taşı
+      return NextResponse.redirect(signUpUrl);
+    }
+
+    // Zaten /sign-up sayfasındaysa bırak geçsin (biletini orada eritecek)
+    console.log(`[Middleware] 🎟️ Ticket consumption permitted on sign-up route.`);
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
+
   if (!userId) {
     console.log(`[Middleware] 🛑 No User -> Redirecting to Sign-In`);
     return redirectToSignIn({ returnBackUrl: pathname });

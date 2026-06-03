@@ -1,14 +1,14 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations } from "@/db/schema";
+import { users, organizations, invitations, staffProfiles } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 
 export async function GET() {
   console.log("[StatusAPI] 🔍 Check sync status requested.");
 
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
 
     if (!userId) {
       console.warn("[StatusAPI] 🛑 No clerk session found.");
@@ -62,6 +62,80 @@ export async function GET() {
       
       dbUser = (await db.select().from(users).where(eq(users.clerkId, userId)).get())!;
       console.log(`[StatusAPI] 👤 Self-healing: Created/Updated local user record. Id=${dbUser.id}, Role=${dbUser.role}`);
+    }
+
+    // 1.5. Çalışan Kontrolü (Employee Check) & Self-Healing
+    const user = await client.users.getUser(userId);
+    const publicMetadata = (user.publicMetadata || {}) as Record<string, unknown>;
+
+    if (orgId && !publicMetadata.role) {
+      console.log(`[StatusAPI] 🛠️ Employee check triggered for user: ${userId}`);
+      const email = user.emailAddresses?.[0]?.emailAddress?.toLowerCase() || "";
+
+      if (!email) {
+        console.warn("[StatusAPI] 🛑 User email not found on Clerk user object.");
+        return NextResponse.json({ synced: false, error: "E-posta bulunamadı." }, { status: 400 });
+      }
+
+      // Turso 'invitations' tablosundan kullanıcının e-postasına göre kaydını bul.
+      const invite = await db.select()
+        .from(invitations)
+        .where(eq(invitations.email, email))
+        .get();
+
+      // B2B mimarisinde davetiye bulunmalıdır ve branchId zorunludur.
+      if (!invite || !invite.branchId) {
+        console.warn(`[StatusAPI] 🛑 B2B Security Gate: Employee invitation or branchId missing for ${email}`);
+        return NextResponse.json({ synced: false, error: "Geçerli bir şube davetiyesi bulunamadı." }, { status: 400 });
+      }
+
+      console.log(`[StatusAPI] 🎟️ Found invitation for ${email}: Role=${invite.role}, BranchId=${invite.branchId}`);
+
+      // Eğer veritabanında davet hala PENDING görünüyorsa, bunu 'ACCEPTED' olarak güncelle
+      if (invite.status === "PENDING") {
+        await db.update(invitations)
+          .set({ status: "ACCEPTED" })
+          .where(eq(invitations.id, invite.id));
+        console.log(`[StatusAPI] 🎟️ Invitation status updated to ACCEPTED.`);
+      }
+
+      // 'staffProfiles' tablosuna kaydını (yoksa) oluştur (Self-Healing)
+      const existingStaffProfile = await db.select()
+        .from(staffProfiles)
+        .where(eq(staffProfiles.userId, dbUser.id))
+        .get();
+
+      if (!existingStaffProfile) {
+        await db.insert(staffProfiles).values({
+          userId: dbUser.id,
+          branchId: invite.branchId,
+          isActive: true,
+        });
+        console.log(`[StatusAPI] 👤 Staff profile created for userId=${dbUser.id} and branchId=${invite.branchId}`);
+      }
+
+      // 'users' tablosundaki yerel rolü güncelle
+      const localRole = invite.role as "SUPER_ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER";
+      if (dbUser.role !== localRole) {
+        await db.update(users)
+          .set({ role: localRole })
+          .where(eq(users.id, dbUser.id));
+        console.log(`[StatusAPI] 👤 Local user role updated to ${localRole}`);
+        dbUser.role = localRole;
+      }
+
+      // Clerk Backend SDK kullanarak kullanıcının 'publicMetadata'sına bulduğun { role, branchId } bilgilerini STRICTLY yaz.
+      const clerkRole = invite.role.toLowerCase();
+      await client.users.updateUserMetadata(userId, {
+        publicMetadata: {
+          role: clerkRole,
+          branchId: invite.branchId,
+          orgId: orgId,
+        }
+      });
+      console.log(`[StatusAPI] 👑 Clerk publicMetadata updated: role=${clerkRole}, branchId=${invite.branchId}, orgId=${orgId}`);
+
+      return NextResponse.json({ synced: true });
     }
 
     // 2. Eğer rol BOSS ise, askıdaki organizasyonun bağlanıp bağlanmadığını doğrula

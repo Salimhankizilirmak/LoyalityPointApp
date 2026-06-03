@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import { updateUserProfile } from "@/app/actions/user-actions";
 
 export function useProfileSettings() {
   const { user, isLoaded } = useUser();
@@ -26,6 +27,7 @@ export function useProfileSettings() {
   const [initialState, setInitialState] = useState({
     firstName: "",
     lastName: "",
+    username: "",
     phone: "",
     marketingSms: false,
     marketingEmail: false,
@@ -58,6 +60,7 @@ export function useProfileSettings() {
         setInitialState({
           firstName: fName,
           lastName: lName,
+          username: userUsername,
           phone: userPhone,
           marketingSms: smsOptIn,
           marketingEmail: emailOptIn,
@@ -71,6 +74,7 @@ export function useProfileSettings() {
   const isFormChanged =
     firstName !== initialState.firstName ||
     lastName !== initialState.lastName ||
+    username !== initialState.username ||
     phone !== initialState.phone ||
     marketingSms !== initialState.marketingSms ||
     marketingEmail !== initialState.marketingEmail;
@@ -81,7 +85,8 @@ export function useProfileSettings() {
     newLastName: string,
     newPhone: string,
     smsAllowed: boolean,
-    emailAllowed: boolean
+    emailAllowed: boolean,
+    newUsername?: string
   ) => {
     if (!isLoaded || !user) return;
 
@@ -90,21 +95,31 @@ export function useProfileSettings() {
     setSuccess(false);
 
     try {
-      // Clerk profil verilerini ve unsafeMetadata alanlarını tek bir API isteğinde güncelle
-      await user.update({
-        firstName: newFirstName,
-        lastName: newLastName,
-        unsafeMetadata: {
-          ...user.unsafeMetadata,
-          phone: newPhone,
-          marketingSms: smsAllowed,
-          marketingEmail: emailAllowed,
-        },
-      });
+      // Sunucu eylemini çağırarak güncellemeleri delege et (Step-Up Auth bypass)
+      const result = await updateUserProfile(
+        newFirstName,
+        newLastName,
+        newPhone,
+        smsAllowed,
+        emailAllowed,
+        newUsername
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Profil güncellenirken sunucu tarafında bir hata oluştu.");
+      }
+
+      // Kullanıcının Clerk Client session'ının güncellenmesi için reload et
+      await user.reload();
+
+      const updatedUsername = user.username || newUsername?.trim().toLowerCase() || "";
 
       // Yerel durumları güncelle
       setFirstName(newFirstName);
       setLastName(newLastName);
+      if (updatedUsername) {
+        setUsername(updatedUsername);
+      }
       setPhone(newPhone);
       setHasPhone(!!newPhone);
       setMarketingSms(smsAllowed);
@@ -113,6 +128,7 @@ export function useProfileSettings() {
       setInitialState({
         firstName: newFirstName,
         lastName: newLastName,
+        username: updatedUsername || initialState.username,
         phone: newPhone,
         marketingSms: smsAllowed,
         marketingEmail: emailAllowed,

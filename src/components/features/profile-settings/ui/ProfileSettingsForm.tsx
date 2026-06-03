@@ -20,7 +20,8 @@ interface ProfileSettingsFormProps {
     lastName: string,
     phone: string,
     smsAllowed: boolean,
-    emailAllowed: boolean
+    emailAllowed: boolean,
+    username?: string
   ) => Promise<void>;
   isSaving: boolean;
 }
@@ -59,12 +60,13 @@ export function ProfileSettingsForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSave(firstName, lastName, phone, marketingSms, marketingEmail);
+    await onSave(firstName, lastName, phone, marketingSms, marketingEmail, username);
   };
 
   const isFormChanged =
     firstName !== initialFirstName ||
     lastName !== initialLastName ||
+    username !== initialUsername ||
     phone !== initialPhone ||
     marketingSms !== initialMarketingSms ||
     marketingEmail !== initialMarketingEmail;
@@ -110,19 +112,31 @@ export function ProfileSettingsForm({
           />
         </div>
 
-        {/* Read-only Username */}
+        {/* Username */}
         <div className="space-y-1">
           <Label htmlFor="username" className="text-slate-400 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider pl-0.5">Kullanıcı Adı</Label>
           <Input
             id="username"
+            placeholder="kullaniciadi"
             value={username}
-            disabled={true}
-            readOnly={true}
-            className="bg-slate-950/60 border border-slate-900 text-slate-500 rounded-lg min-h-[40px] text-sm disabled:opacity-50 disabled:cursor-not-allowed select-none lowercase"
+            onChange={(e) => setUsername(e.target.value)}
+            disabled={!!initialUsername}
+            readOnly={!!initialUsername}
+            className={`rounded-lg min-h-[40px] text-sm lowercase ${
+              initialUsername
+                ? "bg-slate-950/60 border border-slate-900 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed select-none"
+                : "bg-slate-900/40 border border-slate-800 text-slate-200 focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all"
+            }`}
           />
-          <p className="text-[10px] text-slate-500 pl-0.5">
-            Kullanıcı adınızı değiştirmek için lütfen sistem yöneticinizle irtibata geçin.
-          </p>
+          {initialUsername ? (
+            <p className="text-[10px] text-slate-500 pl-0.5">
+              Kullanıcı adınızı değiştirmek için lütfen sistem yöneticinizle irtibata geçin.
+            </p>
+          ) : (
+            <p className="text-[10px] text-cyan-400 font-medium pl-0.5">
+              Yeni bir kullanıcı adı belirleyin. Bir kez belirledikten sonra kendiniz değiştiremezsiniz.
+            </p>
+          )}
         </div>
 
         {/* Phone Input (Read-only if exists) */}

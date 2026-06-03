@@ -6,7 +6,7 @@ import { useAuth } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function AuthCallbackPage() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, orgId } = useAuth();
   const router = useRouter();
   const [errorTimeout, setErrorTimeout] = useState(false);
   const [synced, setSynced] = useState(false);
@@ -66,11 +66,6 @@ export default function AuthCallbackPage() {
     };
   }, [isLoaded, isSignedIn, router]);
 
-  // Yüklenme durumunda boş ekran yerine stabil iskelet
-  if (!isLoaded) {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center" />;
-  }
-
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4 relative overflow-hidden font-sans select-none">
       {/* Arka Plan Yumuşak Işık Efektleri */}
@@ -113,12 +108,20 @@ export default function AuthCallbackPage() {
               {/* Başlık ve Alt Başlık */}
               <h1 className="text-xl md:text-2xl font-black tracking-tight leading-relaxed mb-4">
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-indigo-300 to-teal-400">
-                  Şirketiniz kuruluyor patron,
+                  {!isLoaded
+                    ? "Oturum bilgileriniz doğrulanıyor..."
+                    : orgId
+                    ? "Şube yetkileriniz tanımlanıyor..."
+                    : "Şirketiniz kuruluyor patron,"}
                 </span>
-                <br />
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-teal-300">
-                  lütfen bekleyin...
-                </span>
+                {isLoaded && !orgId && (
+                  <>
+                    <br />
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-teal-300">
+                      lütfen bekleyin...
+                    </span>
+                  </>
+                )}
               </h1>
 
               <p className="text-slate-400 text-xs md:text-sm font-medium leading-relaxed max-w-sm mx-auto mb-8">
