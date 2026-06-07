@@ -1,7 +1,7 @@
 "use server";
 
 import { adminService } from "@/lib/services/admin-service";
-import { headers } from "next/headers";
+
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -21,10 +21,10 @@ export async function inviteBossAction(companyName: string, email: string): Prom
       return { success: false, error: "Bu işlem için yetkiniz bulunmamaktadır." };
     }
 
-    const headerList = await headers();
-    const host = headerList.get("host") || "localhost:3000";
-    const protocol = host.includes("localhost") ? "http" : "https";
-    const appUrl = `${protocol}://${host}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    if (!appUrl) {
+      throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
+    }
 
     const res = await adminService.inviteBoss(companyName, email, appUrl);
     if (res.success) {

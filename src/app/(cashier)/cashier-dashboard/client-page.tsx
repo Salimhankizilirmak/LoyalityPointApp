@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { useCashierDashboard } from "@/components/features/cashier-dashboard/hooks/useCashierDashboard";
 import { Header } from "@/components/features/cashier-dashboard/ui/Header";
 import { BranchMiniStats } from "@/components/features/cashier-dashboard/ui/BranchMiniStats";
@@ -25,6 +26,7 @@ interface CashierDashboardPageProps {
 }
 
 export default function CashierDashboardPage({ dbUser }: CashierDashboardPageProps) {
+  const router = useRouter();
   const [showMockData, setShowMockData] = useState(false);
   const { state, actions } = useCashierDashboard(showMockData);
   const { user: clerkUser } = useUser();
@@ -81,7 +83,13 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
         setShowAddCustomer={actions.setShowAddCustomer}
         handleAddCustomer={actions.handleAddCustomer}
         showSignOutOverlay={state.showSignOutOverlay}
-        onSignOutCountdownComplete={() => actions.signOut({ redirectUrl: "/" })}
+        signOutAction={actions.signOut}
+        onSignOutCountdownComplete={() => {
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("signing_out", "true");
+          }
+          router.push("/");
+        }}
       />
 
       {/* Ortak Navigasyon Header */}

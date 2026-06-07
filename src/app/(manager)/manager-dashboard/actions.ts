@@ -92,11 +92,10 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
       return { error: "Bu e-posta adresi için zaten bekleyen bir davet mevcut." };
     }
 
-    const { headers } = await import("next/headers");
-    const headersList = await headers();
-    const host = headersList.get("host") || "localhost:3000";
-    const proto = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-    const appUrl = `${proto}://${host}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    if (!appUrl) {
+      throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
+    }
 
     const client = await clerkClient();
     const invitation = await client.invitations.createInvitation({

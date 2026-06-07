@@ -48,7 +48,10 @@ export async function getOrgMembers() {
 
 export async function inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string }) {
   try {
-    return await memberService.inviteEmployee(data);
+    const result = await memberService.inviteEmployee(data);
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/boss-dashboard");
+    return result;
   } catch (error: unknown) {
     const err = error as { errors?: { message: string }[]; message?: string };
     const message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
@@ -120,12 +123,10 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
       throw new Error("Bu e-posta adresi sisteme davet edilemez.");
     }
     
-    // 2. Clerk Org Invitation
-    const { headers } = await import("next/headers");
-    const headersList = await headers();
-    const host = headersList.get("host") || "localhost:3000";
-    const proto = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-    const appUrl = `${proto}://${host}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    if (!appUrl) {
+      throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
+    }
 
     await client.organizations.createOrganizationInvitation({
       organizationId: org.id,

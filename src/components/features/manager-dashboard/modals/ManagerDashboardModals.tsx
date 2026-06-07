@@ -3,6 +3,8 @@
 import { AnimatePresence } from "framer-motion";
 import { InviteModal } from "@/components/features/boss-dashboard/ui/InviteModal";
 import { SignOutOverlay } from "@/components/dashboard/SignOutOverlay";
+import { useRouter } from "next/navigation";
+
 import { AddCustomerModal } from "./AddCustomerModal";
 import { EditPointsModal } from "./EditPointsModal";
 import { Transaction } from "../types";
@@ -42,6 +44,7 @@ export function ManagerDashboardModals({
   handleEditPointsSave,
   isDarkMode
 }: ManagerDashboardModalsProps) {
+  const router = useRouter();
   return (
     <AnimatePresence>
       {showInvite && (
@@ -54,7 +57,12 @@ export function ManagerDashboardModals({
       )}
       {showSignOutOverlay && (
         <SignOutOverlay
-          onCountdownComplete={() => signOut({ redirectUrl: "/" })}
+          onCountdownComplete={async () => {
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("signing_out", "true");
+            }
+            await signOut({ redirectUrl: "/" });
+          }}
         />
       )}
       {showAddCustomer && (

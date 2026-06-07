@@ -14,7 +14,7 @@ export interface LedgerTransaction {
   description: string;
   status: "SUCCESS" | "VOIDED";
   createdAtFormatted: string;
-  createdAt: Date;
+  createdAt: string;
   branchName: string;
 }
 
@@ -178,7 +178,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       description: "REF-XYZ987 nolu 500 TL tutarındaki alışveriş.",
       status: "SUCCESS",
       createdAtFormatted: "01.06.2026 14:30",
-      createdAt: new Date("2026-06-01T14:30:00"),
+      createdAt: new Date("2026-06-01T14:30:00").toISOString(),
       branchName: "Nişantaşı Şubesi",
     },
     {
@@ -191,7 +191,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       description: "150 TL tutarında puan kazanma alışverişi.",
       status: "SUCCESS",
       createdAtFormatted: "28.05.2026 18:15",
-      createdAt: new Date("2026-05-28T18:15:00"),
+      createdAt: new Date("2026-05-28T18:15:00").toISOString(),
       branchName: "Beşiktaş Şubesi",
     },
     {
@@ -204,7 +204,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       description: "REF-VOID45 nolu alışveriş iptal edilmiştir.",
       status: "VOIDED",
       createdAtFormatted: "25.05.2026 12:00",
-      createdAt: new Date("2026-05-25T12:00:00"),
+      createdAt: new Date("2026-05-25T12:00:00").toISOString(),
       branchName: "Kadıköy Şubesi",
     },
     {
@@ -217,7 +217,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       description: "Puan kazanımı.",
       status: "SUCCESS",
       createdAtFormatted: "24.05.2026 15:45",
-      createdAt: new Date("2026-05-24T15:45:00"),
+      createdAt: new Date("2026-05-24T15:45:00").toISOString(),
       branchName: "Ataşehir Şubesi",
     },
     {
@@ -230,7 +230,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       description: "Puan harcama.",
       status: "SUCCESS",
       createdAtFormatted: "22.05.2026 09:30",
-      createdAt: new Date("2026-05-22T09:30:00"),
+      createdAt: new Date("2026-05-22T09:30:00").toISOString(),
       branchName: "Caddebostan Şubesi",
     },
     {
@@ -243,7 +243,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       description: "Parçalı Ödeme.",
       status: "SUCCESS",
       createdAtFormatted: "20.05.2026 19:10",
-      createdAt: new Date("2026-05-20T19:10:00"),
+      createdAt: new Date("2026-05-20T19:10:00").toISOString(),
       branchName: "Bebek Şubesi",
     },
     {
@@ -256,7 +256,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       description: "Puan kazanımı.",
       status: "SUCCESS",
       createdAtFormatted: "18.05.2026 11:20",
-      createdAt: new Date("2026-05-18T11:20:00"),
+      createdAt: new Date("2026-05-18T11:20:00").toISOString(),
       branchName: "Göztepe Şubesi",
     }
   ];

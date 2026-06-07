@@ -67,7 +67,7 @@ export function AllBranchesSection({
           </div>
         </div>
       </div>
-      <QuotaProgressBar bossInfo={bossInfo} realBranchesCount={realBranchesCount} />
+      {/*<QuotaProgressBar bossInfo={bossInfo} realBranchesCount={realBranchesCount} />*/}
       <BranchTable
         branches={displayBranches}
         onDelete={handleDeleteBranch}

@@ -12,6 +12,7 @@ interface CashierDashboardModalsProps {
   handleAddCustomer: (data: { firstName: string; lastName: string; phone: string; email: string }) => Promise<void>;
   showSignOutOverlay?: boolean;
   onSignOutCountdownComplete?: () => void;
+  signOutAction?: () => Promise<void>;
 }
 
 export function CashierDashboardModals({
@@ -20,7 +21,8 @@ export function CashierDashboardModals({
   setShowAddCustomer,
   handleAddCustomer,
   showSignOutOverlay = false,
-  onSignOutCountdownComplete
+  onSignOutCountdownComplete,
+  signOutAction
 }: CashierDashboardModalsProps) {
   return (
     <AnimatePresence>
@@ -80,7 +82,16 @@ export function CashierDashboardModals({
       {showSignOutOverlay && onSignOutCountdownComplete && (
         <SignOutOverlay 
           key="signout-overlay"
-          onCountdownComplete={onSignOutCountdownComplete}
+          onCountdownComplete={async () => {
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("signing_out", "true");
+            }
+            if (signOutAction) {
+              await signOutAction();
+            } else {
+              onSignOutCountdownComplete();
+            }
+          }}
         />
       )}
     </AnimatePresence>

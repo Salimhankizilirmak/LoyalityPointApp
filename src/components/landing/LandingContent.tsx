@@ -8,6 +8,8 @@ import { SignInButton, useAuth, UserButton } from "@clerk/nextjs";
 import { ArrowRight, QrCode, Star, TrendingUp, ShieldCheck, Download } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { DashboardLoadingScreen } from "@/components/dashboard/DashboardLoadingScreen";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -15,8 +17,31 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function LandingContent() {
-  const { isSignedIn } = useAuth();
+  const { isLoaded, userId } = useAuth();
+  const isSignedIn = !!userId;
+  const router = useRouter();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("signing_out") === "true";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isLoaded && userId && !isSigningOut) {
+      router.push("/dashboard");
+    }
+  }, [isLoaded, userId, isSigningOut, router]);
+
+  useEffect(() => {
+    if (isLoaded && !userId) {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("signing_out");
+        setIsSigningOut(false);
+      }
+    }
+  }, [isLoaded, userId]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -36,6 +61,10 @@ export default function LandingContent() {
       }
     }
   };
+
+  if (!isLoaded || isSigningOut || (isLoaded && userId)) {
+    return <DashboardLoadingScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white overflow-hidden selection:bg-emerald-500/30">

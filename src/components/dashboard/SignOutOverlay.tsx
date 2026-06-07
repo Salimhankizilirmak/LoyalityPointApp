@@ -6,25 +6,39 @@ import { LogOut } from "lucide-react";
 
 interface SignOutOverlayProps {
   onCountdownComplete?: () => void;
+  signOutAction?: () => Promise<void>;
 }
 
-export function SignOutOverlay({ onCountdownComplete }: SignOutOverlayProps) {
+export function SignOutOverlay({ onCountdownComplete, signOutAction }: SignOutOverlayProps) {
   const [secondsLeft, setSecondsLeft] = useState(3);
 
+
+  // 2. Geri Sayım Delta-Time Döngüsü: 3 saniye boyunca ekranda kalıp sayaç animasyonunu yürütür
   useEffect(() => {
-    if (secondsLeft <= 0) {
-      if (onCountdownComplete) {
-        onCountdownComplete();
+    let animationFrameId: number;
+    const startTime = performance.now();
+    const totalDuration = 3000; // 3 saniye
+
+    const tick = () => {
+      const now = performance.now();
+      const elapsed = now - startTime;
+      const remaining = Math.max(0, 3 - Math.floor(elapsed / 1000));
+      
+      setSecondsLeft(remaining);
+
+      if (elapsed < totalDuration) {
+        animationFrameId = requestAnimationFrame(tick);
+      } else {
+        if (onCountdownComplete) {
+          console.log("🚨 [TELEMETRİ] SignOutOverlay: 3 saniyelik paralel imha süresi doldu! Yönlendirme tetikleniyor.");
+          onCountdownComplete();
+        }
       }
-      return;
-    }
+    };
 
-    const timer = setTimeout(() => {
-      setSecondsLeft((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [secondsLeft, onCountdownComplete]);
+    animationFrameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [onCountdownComplete]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#07070c]/80 backdrop-blur-xl">

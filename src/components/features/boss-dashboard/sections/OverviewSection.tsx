@@ -47,7 +47,7 @@ export function OverviewSection({
   return (
     <div className="space-y-8">
       <QuotaProgressBar bossInfo={bossInfo} realBranchesCount={realBranchesCount} />
-      <AnalyticsBanner />
+      {/* <AnalyticsBanner /> */}
       <BossOverviewStats
         activeBranches={activeBranchesCount}
         totalEarned={totalEarned}

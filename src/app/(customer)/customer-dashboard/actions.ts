@@ -193,7 +193,7 @@ export async function getCustomerLedgerTransactionsAction() {
       description: string;
       status: "SUCCESS" | "VOIDED";
       createdAtFormatted: string;
-      createdAt: Date;
+      createdAt: string;
       branchName: string;
     }
 
@@ -240,7 +240,7 @@ export async function getCustomerLedgerTransactionsAction() {
         description: `${refId} referanslı parçalı ödeme işlemi.`,
         status: isVoided ? "VOIDED" : "SUCCESS",
         createdAtFormatted: formatter.format(mainTx.createdAt),
-        createdAt: mainTx.createdAt,
+        createdAt: mainTx.createdAt.toISOString(),
         branchName: mainTx.branchName || "Bilinmeyen Şube",
       });
     });
@@ -273,13 +273,13 @@ export async function getCustomerLedgerTransactionsAction() {
         description: tx.description || "",
         status: isVoided ? "VOIDED" : "SUCCESS",
         createdAtFormatted: formatter.format(tx.createdAt),
-        createdAt: tx.createdAt,
+        createdAt: tx.createdAt.toISOString(),
         branchName: tx.branchName || "Bilinmeyen Şube",
       });
     });
 
     // Yeniden kronolojik olarak sırala
-    processedTxs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    processedTxs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return { success: true, transactions: processedTxs };
   } catch (error: unknown) {

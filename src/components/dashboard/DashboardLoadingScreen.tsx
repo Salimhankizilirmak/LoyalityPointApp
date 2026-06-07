@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { Sparkles, Loader2 } from "lucide-react";
 
@@ -23,7 +23,22 @@ export function DashboardLoadingScreen({
   orgName,
   logoUrl
 }: DashboardLoadingScreenProps) {
+  const isSigningOut = typeof window !== "undefined" && sessionStorage.getItem("signing_out") === "true";
+  if (isSigningOut) {
+    return null;
+  }
+
   const [stepIndex, setStepIndex] = useState(0);
+  const mountTimeRef = useRef(performance.now());
+  const mountTime = mountTimeRef.current;
+
+  useEffect(() => {
+    console.log(`🎯 [TELEMETRİ] DashboardLoadingScreen Ekrana Geldi. Kullanıcı: ${userName || 'Anonim'}`);
+    return () => {
+      const duration = performance.now() - mountTime;
+      console.log(`⏱️ [TELEMETRİ] DashboardLoadingScreen Ekrandan Kayboldu. Kalma Süresi: ${duration.toFixed(2)}ms`);
+    };
+  }, [userName]);
 
   useEffect(() => {
     const interval = setInterval(() => {

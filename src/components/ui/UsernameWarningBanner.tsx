@@ -1,17 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 
 interface UsernameWarningBannerProps {
   username?: string | null;
-  settingsUrl?: string;
-  onActionClick?: () => void;
+  onActionClick: () => void;
 }
 
 export default function UsernameWarningBanner({
   username,
-  settingsUrl,
   onActionClick,
 }: UsernameWarningBannerProps) {
   // Eğer kullanıcı adı tanımlıysa hiçbir şey render etme
@@ -39,21 +36,12 @@ export default function UsernameWarningBanner({
           </p>
         </div>
 
-        {onActionClick ? (
-          <button
-            onClick={onActionClick}
-            className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-xs sm:text-sm shadow-[0_0_15px_rgba(99,102,241,0.25)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shrink-0 border border-indigo-400/20"
-          >
-            Kullanıcı Adı Oluştur
-          </button>
-        ) : settingsUrl ? (
-          <Link
-            href={settingsUrl}
-            className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-xs sm:text-sm shadow-[0_0_15px_rgba(99,102,241,0.25)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shrink-0 border border-indigo-400/20"
-          >
-            Kullanıcı Adı Oluştur
-          </Link>
-        ) : null}
+        <button
+          onClick={onActionClick}
+          className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-xs sm:text-sm shadow-[0_0_15px_rgba(99,102,241,0.25)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shrink-0 border border-indigo-400/20"
+        >
+          Kullanıcı Adı Oluştur
+        </button>
       </div>
     </div>
   );

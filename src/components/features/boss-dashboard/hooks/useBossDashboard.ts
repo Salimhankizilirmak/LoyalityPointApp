@@ -29,21 +29,7 @@ interface InvitationItem {
   branchName?: string | null;
 }
 
-interface UseBossDashboardProps {
-  setIsDeleting: (loading: boolean) => void;
-  setDeleteType: (type: "branch" | "staff") => void;
-  setIsTogglingStatus: (loading: boolean) => void;
-  setToggleAction: (action: "activate" | "deactivate" | null) => void;
-  setShowAddBranch: (show: boolean) => void;
-}
-
-export function useBossDashboard({
-  setIsDeleting,
-  setDeleteType,
-  setIsTogglingStatus,
-  setToggleAction,
-  setShowAddBranch
-}: UseBossDashboardProps) {
+export function useBossDashboard() {
   const [showMockData, setShowMockData] = useState(ENABLE_MOCK_DATA);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
@@ -66,6 +52,20 @@ export function useBossDashboard({
   // Loading and Error States
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Visibility states (moved from page.tsx)
+  const [showInvite, setShowInvite] = useState(false);
+  const [showAddBranch, setShowAddBranch] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [reassigningEmployee, setReassigningEmployee] = useState<Employee | null>(null);
+  const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showUsernameWarning, setShowUsernameWarning] = useState(false);
+
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteType, setDeleteType] = useState<"branch" | "staff">("branch");
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [toggleAction, setToggleAction] = useState<"activate" | "deactivate" | null>(null);
 
   const { user } = useUser();
 
@@ -128,6 +128,22 @@ export function useBossDashboard({
       active = false;
     };
   }, [user, refreshData]);
+
+  // Error clearing effect (moved from page.tsx)
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (bossInfo && (!bossInfo.username || bossInfo.username.trim() === "")) {
+      setShowUsernameWarning(true);
+    } else if (bossInfo && bossInfo.username) {
+      setShowUsernameWarning(false);
+    }
+  }, [bossInfo]);
 
   // Filters & Calculations
   const managers = employees.filter(e => e.role === "manager");
@@ -266,43 +282,73 @@ export function useBossDashboard({
   };
 
   return {
-    showMockData,
-    setShowMockData,
-    isDarkMode,
-    setIsDarkMode,
-    activeTab,
-    setActiveTab,
-    displayBranches,
-    displayEmployees,
-    displayCustomers,
-    bossInfo,
-    allOrgs,
-    activeOrgId,
-    pointRate,
-    validityMonths,
-    savingSettings,
-    settingsSaved,
-    loadingId,
-    error,
-    setError,
-    managers,
-    realBranchesCount,
-    isQuotaLimitReached,
-    hasNoUsername,
-    totalEarned,
-    totalSpent,
-    activeBranchesCount,
-    refreshData,
-    handleReassignMember,
-    handleSelectOrg,
-    handleUpdateMember,
-    handleRemoveMember,
-    handleDeleteBranch,
-    handleToggleBranchStatus,
-    handleCreateBranch,
-    handleChangeManager,
-    handleSaveSettings,
-    handleAddCustomer,
-    invitations
+    state: {
+      showMockData,
+      isDarkMode,
+      activeTab,
+      displayBranches,
+      displayEmployees,
+      displayCustomers,
+      bossInfo,
+      allOrgs,
+      activeOrgId,
+      pointRate,
+      validityMonths,
+      savingSettings,
+      settingsSaved,
+      loadingId,
+      error,
+      managers,
+      realBranchesCount,
+      isQuotaLimitReached,
+      hasNoUsername,
+      totalEarned,
+      totalSpent,
+      activeBranchesCount,
+      invitations,
+      
+      // Moved states
+      showInvite,
+      showAddBranch,
+      editingBranch,
+      reassigningEmployee,
+      showSignOutOverlay,
+      showProfileModal,
+      showUsernameWarning,
+      isDeleting,
+      deleteType,
+      isTogglingStatus,
+      toggleAction
+    },
+    actions: {
+      setShowMockData,
+      setIsDarkMode,
+      setActiveTab,
+      setError,
+      refreshData,
+      handleReassignMember,
+      handleSelectOrg,
+      handleUpdateMember,
+      handleRemoveMember,
+      handleDeleteBranch,
+      handleToggleBranchStatus,
+      handleCreateBranch,
+      handleChangeManager,
+      handleSaveSettings,
+      handleAddCustomer,
+      
+      // Moved setters
+      setShowInvite,
+      setShowAddBranch,
+      setEditingBranch,
+      setReassigningEmployee,
+      setShowSignOutOverlay,
+      setShowProfileModal,
+      setShowUsernameWarning,
+      setIsDeleting,
+      setDeleteType,
+      setIsTogglingStatus,
+      setToggleAction
+    }
   };
 }

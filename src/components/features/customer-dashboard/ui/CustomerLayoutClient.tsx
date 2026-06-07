@@ -1,18 +1,15 @@
 "use client";
 
 import { useState, ReactNode } from "react";
-import { useOrganization, useClerk } from "@clerk/nextjs";
+import { useOrganization, useClerk, useAuth } from "@clerk/nextjs";
 import { DashboardLoadingScreen } from "@/components/dashboard/DashboardLoadingScreen";
-import { SignOutOverlay } from "@/components/dashboard/SignOutOverlay";
 import UsernameWarningBanner from "@/components/ui/UsernameWarningBanner";
-import { UsernameWarningModal } from "@/components/ui/UsernameWarningModal";
-import { saveCustomerUsernameAction } from "@/app/(customer)/customer-dashboard/actions";
+import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
 
 interface CustomerLayoutClientProps {
   children: ReactNode;
   username?: string | null;
   isAuthLoading: boolean;
-  showSignOutOverlay: boolean;
   userFullName: string | null;
 }
 
@@ -20,12 +17,12 @@ export function CustomerLayoutClient({
   children,
   username,
   isAuthLoading,
-  showSignOutOverlay,
   userFullName,
 }: CustomerLayoutClientProps) {
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
   const { organization } = useOrganization();
   const { signOut } = useClerk();
+  const { isLoaded } = useAuth();
 
   // 1. GİRİŞ YÜKLEME BARİKATI
   if (isAuthLoading) {
@@ -38,12 +35,13 @@ export function CustomerLayoutClient({
     );
   }
 
-  // 2. ÇIKIŞ GÜVENLİK BARİKATI
-  if (showSignOutOverlay) {
+  if (!isLoaded) {
     return (
-      <SignOutOverlay
-        onCountdownComplete={() => signOut({ redirectUrl: "/" })}
-      />
+      <div className="relative min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+        <div className="flex-1 flex flex-col">
+          {children}
+        </div>
+      </div>
     );
   }
 
@@ -52,7 +50,7 @@ export function CustomerLayoutClient({
       {/* Kullanıcı Adı Kalkanı Banner */}
       <UsernameWarningBanner
         username={username}
-        onActionClick={() => setShowProfileModal(true)}
+        onActionClick={() => setShowProfileSettings(true)}
       />
       
       {/* Ana Gövde */}
@@ -60,11 +58,10 @@ export function CustomerLayoutClient({
         {children}
       </div>
 
-      {/* Kullanıcı Adı Kalkanı Modal */}
-      <UsernameWarningModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        saveAction={saveCustomerUsernameAction}
+      <ProfileSettingsModal
+        isOpen={showProfileSettings}
+        onClose={() => setShowProfileSettings(false)}
+        isDarkMode={true}
       />
     </div>
   );

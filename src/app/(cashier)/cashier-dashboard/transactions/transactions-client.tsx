@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -151,6 +151,7 @@ interface TransactionsClientPageProps {
 }
 
 export function TransactionsClientPage({ cashierInfo }: TransactionsClientPageProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const customerIdParam = searchParams?.get("customerId") || "";
 
@@ -426,7 +427,13 @@ export function TransactionsClientPage({ cashierInfo }: TransactionsClientPagePr
         setShowAddCustomer={() => {}}
         handleAddCustomer={async () => {}}
         showSignOutOverlay={showSignOutOverlay}
-        onSignOutCountdownComplete={() => signOut({ redirectUrl: "/" })}
+        signOutAction={signOut}
+        onSignOutCountdownComplete={() => {
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("signing_out", "true");
+          }
+          router.push("/");
+        }}
       />
 
       {/* Ortak Navigasyon Header */}

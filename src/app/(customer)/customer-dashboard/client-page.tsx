@@ -3,8 +3,8 @@
 import { useCustomerDashboard } from "@/components/features/customer-dashboard/hooks/useCustomerDashboard";
 import { DashboardLoadingScreen } from "@/components/dashboard/DashboardLoadingScreen";
 import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
+import { CustomerDashboardModals } from "@/components/features/customer-dashboard/modals/CustomerDashboardModals";
 import { SidebarNavigation } from "@/components/features/customer-dashboard/ui/SidebarNavigation";
-import { BottomNavigationBar } from "@/components/features/customer-dashboard/ui/BottomNavigationBar";
 import { DigitalWalletCard } from "@/components/features/customer-dashboard/ui/DigitalWalletCard";
 import { AntiFraudQR } from "@/components/features/customer-dashboard/ui/AntiFraudQR";
 import { LiveLedgerTimeline } from "@/components/features/customer-dashboard/ui/LiveLedgerTimeline";
@@ -35,6 +35,7 @@ export function CustomerDashboardClientPage({
     totalPages,
     loading, 
     showProfileModal, 
+    showSignOutOverlay,
     pts, 
     user, 
     isLoaded, 
@@ -47,6 +48,7 @@ export function CustomerDashboardClientPage({
     setActiveTab, 
     setCurrentPage,
     setShowProfileModal, 
+    setShowSignOutOverlay,
     signOut,
     setIsMockData,
     toggleTheme
@@ -54,8 +56,8 @@ export function CustomerDashboardClientPage({
 
   if (loading || !isLoaded) {
     const displayName = user 
-      ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.emailAddresses[0].emailAddress.split("@")[0]) 
-      : null;
+      ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.emailAddresses?.[0]?.emailAddress?.split("@")[0] || null)) 
+      : (initialCustomerData ? `${initialCustomerData.firstName} ${initialCustomerData.lastName}` : null);
     return (
       <DashboardLoadingScreen
         userName={displayName}
@@ -79,6 +81,9 @@ export function CustomerDashboardClientPage({
         isDarkMode={true}
       />
 
+      {/* Ortak Modaller ve Çıkış Overlay'i */}
+      <CustomerDashboardModals state={state} actions={actions} />
+
       {/* MASAÜSTÜ SOL DİKEY MENÜ */}
       <SidebarNavigation
         activeTab={activeTab}
@@ -90,7 +95,7 @@ export function CustomerDashboardClientPage({
         setIsMockData={setIsMockData}
         isDarkMode={isDarkMode}
         toggleTheme={toggleTheme}
-        signOut={signOut}
+        signOut={async () => setShowSignOutOverlay(true)}
         setShowProfileModal={setShowProfileModal}
       />
 
@@ -137,12 +142,6 @@ export function CustomerDashboardClientPage({
           )}
         </div>
 
-        {/* MOBİL ALT NAVİGASYON ŞERİDİ */}
-        <BottomNavigationBar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          setShowProfileModal={setShowProfileModal}
-        />
       </main>
     </div>
   );

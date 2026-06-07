@@ -127,15 +127,9 @@ export class StaffService extends BaseService {
       throw new Error(`'${targetBranch.name}' şubesi şu an pasif durumdadır. Pasif şubelere personel davet edilemez.`);
     }
 
-    const { headers } = await import("next/headers");
-    let appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    try {
-      const headersList = await headers();
-      const host = headersList.get("host") || "localhost:3000";
-      const proto = headersList.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-      appUrl = `${proto}://${host}`;
-    } catch (e) {
-      console.log("[StaffService] Could not resolve request headers, using env fallback.");
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    if (!appUrl) {
+      throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
     try {

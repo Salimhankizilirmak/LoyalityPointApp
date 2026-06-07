@@ -37,7 +37,7 @@ export default function AuthCallbackPage() {
             setSynced(true);
             clearInterval(intervalId);
             clearTimeout(timeoutId);
-            
+
             // Pürüzsüz geçiş için animasyona zaman tanıyıp /dashboard'a uçur
             setTimeout(() => {
               router.push("/dashboard");
@@ -84,7 +84,7 @@ export default function AuthCallbackPage() {
           >
             {/* Cam Panel Kartı */}
             <div className="bg-slate-950/40 backdrop-blur-2xl border border-indigo-500/10 rounded-[32px] p-8 md:p-12 shadow-2xl shadow-indigo-950/20 text-center relative overflow-hidden">
-              
+
               {/* Dalgalı / Pulsing Animasyonu */}
               <div className="relative w-24 h-24 mx-auto mb-8 flex items-center justify-center">
                 {/* Dış Halka Nabızları */}
@@ -98,7 +98,7 @@ export default function AuthCallbackPage() {
                   transition={{ duration: 2.2, delay: 0.7, repeat: Infinity, ease: "easeOut" }}
                   className="absolute inset-0 rounded-full border border-teal-500"
                 />
-                
+
                 {/* Merkez Küre */}
                 <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-teal-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
                   <div className="w-4 h-4 rounded-full bg-white animate-pulse" />
@@ -111,8 +111,8 @@ export default function AuthCallbackPage() {
                   {!isLoaded
                     ? "Oturum bilgileriniz doğrulanıyor..."
                     : orgId
-                    ? "Şube yetkileriniz tanımlanıyor..."
-                    : "Şirketiniz kuruluyor patron,"}
+                      ? "Şube yetkileriniz tanımlanıyor..."
+                      : "Şirketiniz kuruluyor patron,"}
                 </span>
                 {isLoaded && !orgId && (
                   <>
@@ -125,7 +125,7 @@ export default function AuthCallbackPage() {
               </h1>
 
               <p className="text-slate-400 text-xs md:text-sm font-medium leading-relaxed max-w-sm mx-auto mb-8">
-                Güvenli multi-tenant veritabanı alanınız ve şubeleriniz optimize ediliyor.
+                Şubeleriniz optimize ediliyor.
               </p>
 
               {/* Hata ve Çıkış/Yeniden Dene Fallback'i */}

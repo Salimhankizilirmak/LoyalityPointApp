@@ -313,6 +313,30 @@ export async function POST(req: Request) {
                 eq(invitations.organizationId, orgId),
                 eq(invitations.status, "PENDING")
               ));
+          } else if (!pendingOrg && orgId) {
+            // 🛡️ KRİTİK KORUMA: Turso'da org kaydı yoksa Clerk'ten adı çekip anında insert et.
+            // Bu durum; webhook sırasının ters gelmesi veya org'un harici oluşturulması
+            // senaryolarında yaşanır. Sistemi kırma — org satırını kendi oluştur.
+            let clerkOrgName = `Org-${orgId}`;
+            try {
+              const client = await clerkClient();
+              const clerkOrg = await client.organizations.getOrganization({ organizationId: orgId });
+              clerkOrgName = clerkOrg.name;
+            } catch (clerkFetchErr) {
+              console.warn(`[ClerkWebhook] ⚠️ Could not fetch org name from Clerk, using fallback: ${clerkFetchErr}`);
+            }
+
+            await tx.insert(organizations).values({
+              id: orgId,
+              name: clerkOrgName,
+              bossId: dbUser.id,
+              bossEmail: email,
+              branchLimit: 3,
+              isActive: true,
+              status: "ACTIVE",
+            }).onConflictDoNothing();
+
+            console.log(`[ClerkWebhook] 🏗️ Created missing org in Turso: ${orgId} (${clerkOrgName}) → BOSS ${dbUser.id}`);
           }
         });
 

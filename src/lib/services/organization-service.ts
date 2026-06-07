@@ -1,18 +1,23 @@
 import { BaseService } from "./base-service";
-import { organizations, branches } from "@/db/schema";
+import { organizations, branches, loyaltyRules } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { revalidatePath, unstable_cache } from "next/cache";
+import { revalidatePath, unstable_cache, unstable_noStore } from "next/cache";
 import { CACHE_TAGS, purgeCacheTag } from "@/lib/cache-registry";
 import { db } from "@/db";
 
 // Önbellek yardımcı fonksiyonları
 const getCachedOrgProfileDetails = (orgId: string) => unstable_cache(
   async (id: string) => {
-    const [dbOrg, branchCountResult] = await Promise.all([
+    const [dbOrg, branchCountResult, loyaltyRule] = await Promise.all([
       db.select().from(organizations).where(eq(organizations.id, id)).get(),
-      db.select({ count: sql<number>`COUNT(*)` }).from(branches).where(eq(branches.orgId, id)).get()
+      db.select({ count: sql<number>`COUNT(*)` }).from(branches).where(eq(branches.orgId, id)).get(),
+      db.select().from(loyaltyRules).where(eq(loyaltyRules.organizationId, id)).get(),
     ]);
-    return { dbOrg, branchCount: branchCountResult?.count ?? 0 };
+    return {
+      dbOrg,
+      branchCount: branchCountResult?.count ?? 0,
+      earnRatio: loyaltyRule?.earnRatio ?? 10,
+    };
   },
   [`org-profile-details-${orgId}`],
   {
@@ -32,11 +37,13 @@ const getCachedOrgBranches = (orgId: string) => unstable_cache(
 
 export class OrganizationService extends BaseService {
   async getAllBossOrganizations() {
+    unstable_noStore();
     const { dbUser } = await this.requireRole(["BOSS", "SUPER_ADMIN"]);
     return await this.db.select().from(organizations).where(eq(organizations.bossId, dbUser.id)).all();
   }
 
   async getBossProfile() {
+    unstable_noStore();
     const user = await this.getCurrentUser();
     let orgData = null;
     let allOrgs: { id: string; name: string }[] = [];
@@ -71,21 +78,34 @@ export class OrganizationService extends BaseService {
       }
 
       // Detaylar cached fonksiyondan getirilir
-      const { dbOrg, branchCount } = await getCachedOrgProfileDetails(orgId)(orgId);
+      const { dbOrg, branchCount, earnRatio } = await getCachedOrgProfileDetails(orgId)(orgId);
 
       if (!dbOrg) {
-        throw new Error("Bu organizasyon sistemde aktif değil veya onaylanmamış. Lütfen Sistem Yöneticisi ile iletişime geçin.");
+        // Webhook gecikmesi veya senkronizasyon kopukluğu: sistemi patlatma,
+        // güvenli fallback objesi üret. Kullanıcı yenilediğinde gerçek veri gelir.
+        console.warn(
+          `[getBossProfile] ⚠️ Org ${orgId} not found in local DB. Returning safe fallback. Webhook may be delayed.`
+        );
+        orgData = {
+          id: orgId,
+          name: orgName,
+          slug: orgSlug,
+          pointRate: 10,
+          validityMonths: 12,
+          branchLimit: 3,
+          currentBranches: 0,
+        };
+      } else {
+        orgData = {
+          id: orgId,
+          name: dbOrg.name || orgName,
+          slug: orgSlug,
+          pointRate: earnRatio,
+          validityMonths: 12,
+          branchLimit: dbOrg.branchLimit ?? 2,
+          currentBranches: branchCount,
+        };
       }
-
-      orgData = {
-        id: orgId,
-        name: dbOrg.name || orgName,
-        slug: orgSlug,
-        pointRate: 10,
-        validityMonths: 12,
-        branchLimit: dbOrg.branchLimit ?? 2,
-        currentBranches: branchCount,
-      };
     }
 
     return {

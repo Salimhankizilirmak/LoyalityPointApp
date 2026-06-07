@@ -1,7 +1,6 @@
 import { checkLayoutGuard } from "@/lib/layout-guard";
 import { resolveActiveBranchContext } from "@/lib/branch-context";
-import { BranchSelector } from "@/components/ui/BranchSelector";
-import UsernameWarningBanner from "@/components/ui/UsernameWarningBanner";
+import { BossLayoutClient } from "./layout-client";
 import { ReactNode } from "react";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
@@ -14,6 +13,7 @@ interface BossLayoutProps {
 /**
  * Server Component layout – Aktif şube bağlamını sunucu tarafında çözer.
  * Kural 2: Tek şube varsa BranchSelector render edilmez, çerez sunucu tarafında peşin mühürlenir.
+ * Mimari: UsernameWarningBanner → onActionClick → modal (settingsUrl Link kaldırıldı).
  */
 export default async function BossLayout({ children }: BossLayoutProps) {
   let dbUser = null;
@@ -27,18 +27,12 @@ export default async function BossLayout({ children }: BossLayoutProps) {
   const ctx = await resolveActiveBranchContext();
 
   return (
-    <div className="relative min-h-screen">
-      {/* Branch Selector – sadece çoklu şube varsa göster */}
-      {ctx && ctx.isMultiBranch && (
-        <div className="fixed top-3 right-4 z-50">
-          <BranchSelector
-            activeBranchId={ctx.activeBranchId}
-            branches={ctx.allBranches}
-          />
-        </div>
-      )}
-      <UsernameWarningBanner username={dbUser?.username} settingsUrl="/boss-dashboard/settings" />
+    <BossLayoutClient
+      isMultiBranch={ctx?.isMultiBranch}
+      activeBranchId={ctx?.activeBranchId}
+      allBranches={ctx?.allBranches}
+    >
       {children}
-    </div>
+    </BossLayoutClient>
   );
 }

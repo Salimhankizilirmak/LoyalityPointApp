@@ -27,9 +27,9 @@ export function AnalyticsBanner() {
           </p>
         </div>
       </div>
-      <button className="px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-bold uppercase tracking-wider transition-all group-hover:bg-cyan-500 group-hover:text-[#0a0a0f] shrink-0">
+      {/* <button className="px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-bold uppercase tracking-wider transition-all group-hover:bg-cyan-500 group-hover:text-[#0a0a0f] shrink-0">
         Detaylı Analiz Gör
-      </button>
+      </button> */}
       <div className="absolute top-0 bottom-0 right-0 w-[4px] bg-gradient-to-b from-cyan-500 via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
     </motion.div>
   );

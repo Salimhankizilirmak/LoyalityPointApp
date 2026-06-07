@@ -6,6 +6,7 @@ import { UpdateQuotaModal } from "./UpdateQuotaModal";
 import { AddOrgModal } from "./AddOrgModal";
 import { SignOutOverlay } from "@/components/dashboard/SignOutOverlay";
 import { Organization } from "../types";
+import { useRouter } from "next/navigation";
 
 interface SuperAdminModalsProps {
   state: {
@@ -29,6 +30,7 @@ interface SuperAdminModalsProps {
 export function SuperAdminModals({ state, actions }: SuperAdminModalsProps) {
   const { showInvite, showAddOrg, editingQuotaOrg, showSignOutOverlay, isDarkMode } = state;
   const { setShowInvite, setShowAddOrg, setEditingQuotaOrg, loadData, handleAddOrgMock, signOut } = actions;
+  const router = useRouter();
 
   return (
     <AnimatePresence mode="wait">
@@ -64,7 +66,12 @@ export function SuperAdminModals({ state, actions }: SuperAdminModalsProps) {
 
       {showSignOutOverlay && (
         <SignOutOverlay
-          onCountdownComplete={() => signOut({ redirectUrl: "/" })}
+          onCountdownComplete={async () => {
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("signing_out", "true");
+            }
+            await signOut({ redirectUrl: "/" });
+          }}
         />
       )}
     </AnimatePresence>

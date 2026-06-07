@@ -26,7 +26,6 @@ export default async function CustomerLayout({ children }: CustomerLayoutProps) 
     <CustomerLayoutClient 
       username={dbUser?.username}
       isAuthLoading={false}
-      showSignOutOverlay={false}
       userFullName={userFullName}
     >
       {children}
