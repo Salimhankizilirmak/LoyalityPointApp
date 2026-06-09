@@ -23,10 +23,12 @@ export function CustomerDashboardModals({ state, actions }: CustomerDashboardMod
       {showSignOutOverlay && (
         <SignOutOverlay
           onCountdownComplete={async () => {
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("signing_out", "true");
+            try {
+              await signOut({ redirectUrl: "/" });
+            } catch (error) {
+              console.error("Sign out error:", error);
+              alert("Oturum kapatılırken bir hata oluştu. Lütfen tekrar deneyin.");
             }
-            await signOut({ redirectUrl: "/" });
           }}
         />
       )}

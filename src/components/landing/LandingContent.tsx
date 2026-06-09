@@ -21,27 +21,12 @@ export default function LandingContent() {
   const isSignedIn = !!userId;
   const router = useRouter();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isSigningOut, setIsSigningOut] = useState(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("signing_out") === "true";
-    }
-    return false;
-  });
 
   useEffect(() => {
-    if (isLoaded && userId && !isSigningOut) {
+    if (isLoaded && userId) {
       router.push("/dashboard");
     }
-  }, [isLoaded, userId, isSigningOut, router]);
-
-  useEffect(() => {
-    if (isLoaded && !userId) {
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem("signing_out");
-        setIsSigningOut(false);
-      }
-    }
-  }, [isLoaded, userId]);
+  }, [isLoaded, userId, router]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -62,7 +47,7 @@ export default function LandingContent() {
     }
   };
 
-  if (!isLoaded || isSigningOut || (isLoaded && userId)) {
+  if (!isLoaded || (isLoaded && userId)) {
     return <DashboardLoadingScreen />;
   }
 

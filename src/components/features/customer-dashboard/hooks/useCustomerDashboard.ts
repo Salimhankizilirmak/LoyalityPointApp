@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useClerk, useUser, useOrganization } from "@clerk/nextjs";
 import { syncCustomerData, getCustomerLedgerTransactionsAction } from "@/app/(customer)/customer-dashboard/actions";
 
@@ -44,6 +44,10 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
   const [loading, setLoading] = useState(!initialCustomerData);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
+
+  const isCancelled = useRef(false);
+  const pollIntervalRef = useRef<any>(null);
+  const qrIntervalRef = useRef<any>(null);
 
   // Sayfalama State'i
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,6 +100,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
   // 60 Saniye Geri Sayım ve Token Yenileme Motoru
   useEffect(() => {
     const interval = setInterval(() => {
+      if (isCancelled.current) return;
       setTimeLeft((prev) => {
         if (prev <= 1) {
           generateNewToken();
@@ -104,39 +109,65 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(interval);
+    qrIntervalRef.current = interval;
+    return () => {
+      clearInterval(interval);
+      qrIntervalRef.current = null;
+    };
   }, []);
 
   // Sunucu Eylemleri ile Verileri Yükle
   const loadLedgerData = async () => {
+    if (isCancelled.current) return;
     try {
       const res = await getCustomerLedgerTransactionsAction();
+      if (isCancelled.current) return;
       if (res.success && res.transactions) {
         setLedgerTransactions(res.transactions as unknown as LedgerTransaction[]);
       }
     } catch (err) {
+      if (isCancelled.current) return;
+      
+      // Oturum kapanırken Next.js redirect dönerse bu hatayı sessizce yut
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes("unexpected response")) return;
+      
       console.error("Error loading ledger transactions:", err);
     }
   };
 
   useEffect(() => {
     async function loadData() {
+      if (isCancelled.current) return;
       try {
         if (!customerData) {
           const data = await syncCustomerData();
+          if (isCancelled.current) return;
           if (data) setCustomerData(data as CustomerData);
         }
         await loadLedgerData();
       } catch (err) {
+        if (isCancelled.current) return;
+        
+        // Oturum kapanırken Next.js redirect dönerse bu hatayı sessizce yut
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        if (errorMessage.includes("unexpected response")) return;
+        
         console.error("Error loading customer dashboard data:", err);
       } finally {
-        setLoading(false);
+        if (!isCancelled.current) {
+          setLoading(false);
+        }
       }
     }
     loadData();
     // 30 saniyede bir canlı ledger verilerini güncelle
     const pollInterval = setInterval(loadLedgerData, 30000);
-    return () => clearInterval(pollInterval);
+    pollIntervalRef.current = pollInterval;
+    return () => {
+      clearInterval(pollInterval);
+      pollIntervalRef.current = null;
+    };
   }, [customerData]);
 
   // Tema Geçiş Fonksiyonu
@@ -278,6 +309,21 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
     setCurrentPage(1); // Sekme değiştiğinde sayfa 1'e sıfırlanır
   };
 
+  const handleSetShowSignOutOverlay = (show: boolean) => {
+    setShowSignOutOverlay(show);
+    if (show) {
+      isCancelled.current = true;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      if (qrIntervalRef.current) {
+        clearInterval(qrIntervalRef.current);
+        qrIntervalRef.current = null;
+      }
+    }
+  };
+
   return {
     state: {
       activeTab,
@@ -302,7 +348,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       setActiveTab: handleSetActiveTab,
       setCurrentPage,
       setShowProfileModal,
-      setShowSignOutOverlay,
+      setShowSignOutOverlay: handleSetShowSignOutOverlay,
       signOut,
       setCustomerData,
       refreshLedger: loadLedgerData,
