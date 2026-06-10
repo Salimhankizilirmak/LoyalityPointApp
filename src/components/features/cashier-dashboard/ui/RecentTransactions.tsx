@@ -5,13 +5,14 @@ import { GlassPanel } from "@/components/ui/GlassPanel";
 import { getRecentBranchTransactionsAction, voidTransactionAction } from "@/app/(cashier)/cashier-dashboard/actions";
 import { History, RefreshCw, Star, Gift, Clock, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { MOCK_TRANSACTIONS } from "@/lib/constants/mock-data";
 
 interface RecentTransactionsProps {
   refreshTrigger?: number;
   showMockData?: boolean;
 }
 
-interface RecentTxRow {
+export interface RecentTxRow {
   id: string;
   organizationId: string;
   branchId: string;
@@ -27,100 +28,6 @@ interface RecentTxRow {
   status: "SUCCESS" | "VOIDED";
   parentTransactionId?: string | null;
 }
-
-const MOCK_TRANSACTIONS: RecentTxRow[] = [
-  {
-    id: "mock-1",
-    organizationId: "org-1",
-    branchId: "branch-1",
-    customerId: "c-1",
-    cashierId: "cashier-1",
-    type: "EARN",
-    amountSpent: 12500,
-    pointsAmount: 12,
-    createdAtFormatted: "Bugün, 21:05",
-    customerName: "Alperen Şongüt",
-    customerPhone: "0532 111 2233",
-    cashierName: "Salimhan Kızılırmak",
-    status: "SUCCESS"
-  },
-  {
-    id: "mock-2",
-    organizationId: "org-1",
-    branchId: "branch-1",
-    customerId: "c-2",
-    cashierId: "cashier-1",
-    type: "BURN",
-    amountSpent: null,
-    pointsAmount: 50,
-    createdAtFormatted: "Bugün, 19:40",
-    customerName: "Cihan Demir",
-    customerPhone: "0543 222 3344",
-    cashierName: "Salimhan Kızılırmak",
-    status: "SUCCESS"
-  },
-  {
-    id: "mock-3",
-    organizationId: "org-1",
-    branchId: "branch-1",
-    customerId: "c-3",
-    cashierId: "cashier-1",
-    type: "EARN",
-    amountSpent: 45000,
-    pointsAmount: 45,
-    createdAtFormatted: "Dün, 18:20",
-    customerName: "Merve Yılmaz",
-    customerPhone: "0555 333 4455",
-    cashierName: "Salimhan Kızılırmak",
-    status: "SUCCESS"
-  },
-  {
-    id: "mock-4",
-    organizationId: "org-1",
-    branchId: "branch-1",
-    customerId: "c-1",
-    cashierId: "cashier-1",
-    type: "EARN",
-    amountSpent: 20000,
-    pointsAmount: 20,
-    createdAtFormatted: "Dün, 14:15",
-    customerName: "Alperen Şongüt",
-    customerPhone: "0532 111 2233",
-    cashierName: "Salimhan Kızılırmak",
-    status: "VOIDED"
-  },
-  {
-    id: "mock-5",
-    organizationId: "org-1",
-    branchId: "branch-1",
-    customerId: "c-4",
-    cashierId: "cashier-1",
-    type: "VOID",
-    amountSpent: -20000,
-    pointsAmount: -20,
-    createdAtFormatted: "Dün, 14:16",
-    customerName: "Alperen Şongüt",
-    customerPhone: "0532 111 2233",
-    cashierName: "Salimhan Kızılırmak",
-    status: "SUCCESS",
-    parentTransactionId: "mock-4"
-  },
-  {
-    id: "mock-6",
-    organizationId: "org-1",
-    branchId: "branch-1",
-    customerId: "c-5",
-    cashierId: "cashier-1",
-    type: "EARN",
-    amountSpent: 10000,
-    pointsAmount: 10,
-    createdAtFormatted: "Dün, 11:00",
-    customerName: "Ahmet Yılmaz",
-    customerPhone: "0533 444 5566",
-    cashierName: "Salimhan Kızılırmak",
-    status: "SUCCESS"
-  }
-];
 
 export function RecentTransactions({ refreshTrigger, showMockData }: RecentTransactionsProps) {
   const [transactions, setTransactions] = useState<Array<RecentTxRow>>([]);

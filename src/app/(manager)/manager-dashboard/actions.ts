@@ -5,8 +5,9 @@ import { customerService } from "@/lib/services/customer-service";
 
 export async function getBranchTransactions() {
   try {
+    const { pointsService } = await import("@/lib/services/points-service");
     return await pointsService.getBranchTransactions();
-  } catch {
+  } catch (error) {
     return [];
   }
 }
@@ -53,7 +54,14 @@ import { eq, and } from "drizzle-orm";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
 export async function getManagerProfile() {
-  return await managerService.getMyBranchData();
+  try {
+    const { managerService } = await import("@/lib/services/manager-service");
+    return await managerService.getMyBranchData();
+  } catch (error) {
+    console.warn("[ManagerAction Guard] ⚠️ Stale session profile fallback activated.");
+    // Hydration'ı ve Promise.all'u kırmayacak güvenli boş shadow obje
+    return { branchId: "", branchName: "Bilinmeyen Şube", orgId: "" };
+  }
 }
 
 export async function addCustomerAction(firstName: string, lastName: string, phone: string, email: string) {
@@ -132,7 +140,12 @@ import {
 } from "@/app/(boss)/boss-dashboard/actions";
 
 export async function getOrgMembers() {
-  return await getOrgMembersAction();
+  try {
+    const { staffService } = await import("@/lib/services/staff-service");
+    return await staffService.getOrgMembers();
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function updateMemberName(id: string, firstName: string, lastName: string) {

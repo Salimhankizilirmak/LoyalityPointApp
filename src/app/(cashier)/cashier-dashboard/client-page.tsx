@@ -4,13 +4,13 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useCashierDashboard } from "@/components/features/cashier-dashboard/hooks/useCashierDashboard";
+import { getCashierAcceptedCustomersAction } from "@/app/(cashier)/cashier-dashboard/actions";
 import { Header } from "@/components/features/cashier-dashboard/ui/Header";
 import { BranchMiniStats } from "@/components/features/cashier-dashboard/ui/BranchMiniStats";
 import { CustomerSearchPanel } from "@/components/features/cashier-dashboard/ui/CustomerSearchPanel";
 import { InviteCustomerCard } from "@/components/features/cashier-dashboard/ui/InviteCustomerCard";
 import { RecentSalesSection } from "@/components/features/cashier-dashboard/sections";
 import { CashierDashboardModals } from "@/components/features/cashier-dashboard/modals/CashierDashboardModals";
-import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
 import { InviteProgressModal } from "@/components/features/cashier-dashboard/modals/InviteProgressModal";
 import { TransactionProgressModal } from "@/components/features/cashier-dashboard/modals/TransactionProgressModal";
 import { CashierTransactionModal } from "@/components/features/cashier-dashboard/modals/CashierTransactionModal";
@@ -39,7 +39,16 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
     return true;
   });
 
-  const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [acceptedCustomers, setAcceptedCustomers] = useState<any[]>([]);
+
+  const loadAcceptedCustomers = async () => {
+    const res = await getCashierAcceptedCustomersAction();
+    if (res.success && res.customers) setAcceptedCustomers(res.customers);
+  };
+
+  useEffect(() => {
+    loadAcceptedCustomers();
+  }, []);
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
@@ -73,6 +82,11 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
     setIsActionModalOpen(true);
   };
 
+  const handleInviteCustomer = async () => {
+    await actions.handleInviteCustomer();
+    await loadAcceptedCustomers();
+  };
+
   return (
     <div className={`min-h-screen flex flex-col font-sans select-none antialiased transition-colors duration-300 ${isDarkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-800"
       }`}>
@@ -85,9 +99,6 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
         showSignOutOverlay={state.showSignOutOverlay}
         signOutAction={actions.signOut}
         onSignOutCountdownComplete={() => {
-          if (typeof window !== "undefined") {
-            sessionStorage.setItem("signing_out", "true");
-          }
           router.push("/");
         }}
       />
@@ -101,7 +112,6 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
         setShowMockData={setShowMockData}
         clerkUser={clerkUser}
         setShowSignOutOverlay={actions.setShowSignOutOverlay}
-        setShowProfileSettings={setShowProfileSettings}
       />
 
       {/* Ana Gövde */}
@@ -176,7 +186,7 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
                   isFormValid={state.isInviteFormValid}
                   isEmailValid={state.isInviteEmailValid}
                   submitting={state.inviteSubmitting}
-                  onSubmit={actions.handleInviteCustomer}
+                  onSubmit={handleInviteCustomer}
                   isDarkMode={isDarkMode}
                 />
               </div>
@@ -189,17 +199,12 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
               refreshTrigger={state.stats.totalTxToday}
               showMockData={showMockData}
             />
+
           </div>
         </div>
       </main>
 
       {/* Modaller */}
-      <ProfileSettingsModal
-        isOpen={showProfileSettings}
-        onClose={() => setShowProfileSettings(false)}
-        isDarkMode={isDarkMode}
-      />
-
       <CashierTransactionModal
         isOpen={isActionModalOpen && !state.lastTxReceipt}
         onClose={() => setIsActionModalOpen(false)}

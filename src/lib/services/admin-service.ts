@@ -86,7 +86,8 @@ export class AdminService extends BaseService {
     // SENARYO A (Yeni Patron - Simetrik Kiracı Kurulumu)
     let clerkOrg: { id: string } | null = null;
     let localOrgCreated = false;
-    let clerkInv: { id: string; url?: string } | null = null;
+    let invitedViaFallback = false;
+    let clerkInviteIdToSave = "";
 
     try {
       // 1. Clerk üzerinde organizasyonu peşin olarak oluştur
@@ -106,27 +107,63 @@ export class AdminService extends BaseService {
       });
       localOrgCreated = true;
 
-      // 3. Kullanıcıya doğrudan kurumsal organizasyon yönetici daveti yerine genel davet oluştur
-      clerkInv = await client.invitations.createInvitation({
-        emailAddress: emailLower,
-        redirectUrl: `${appUrl}/sign-up`,
-        ignoreExisting: true,     // Zombi davetiye duplicate_record kilidini kök kesen zırh
-        // @ts-expect-error - skipEmailDelivery Clerk SDK tiplerinde eksik olabilir
-        skipEmailDelivery: true,
-        notify: false,
-        publicMetadata: {
-          orgId: clerkOrg.id,
-          role: "boss",
-        },
-      });
+      try {
+        // ─── 1. BİRİNCİL MOTOR: CLERK ORGANİZASYON DAVETİ ──────────────────
+        // E-posta teslimatı tamamen Clerk'in kurumsal sunucuları tarafından otomatik üstlenilir.
+        const clerkOrgInv = await client.organizations.createOrganizationInvitation({
+          organizationId: clerkOrg.id,
+          emailAddress: emailLower,
+          role: "org:admin", // Boss, organizasyonun ana yöneticisi/sahibidir
+          publicMetadata: {
+            role: "boss",
+            orgId: clerkOrg.id,
+          },
+          redirectUrl: `${appUrl}/dashboard`,
+        });
+        
+        clerkInviteIdToSave = clerkOrgInv.id;
+        console.log(`[AdminService] 🏢 Boss invited successfully via primary Clerk Organization API to org: ${clerkOrg.id}`);
+      } catch (clerkErr: any) {
+        // Clerk kurumsal e-posta limit hatası veya kota kısıtlaması kontrolü
+        const isEmailLimitError = 
+          clerkErr?.errors?.some((e: any) => e.code === "resource_limit_exceeded" || e.message?.toLowerCase().includes("limit")) ||
+          clerkErr.message?.toLowerCase().includes("limit");
 
-      if (!clerkInv.url) {
-        throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
+        if (!isEmailLimitError) {
+          throw clerkErr; // Limit dışındaki kritik hataları yukarı fırlat
+        }
+
+        // ─── 2. İSTİSNA / FALLBACK MOTORU: GLOBAL DAVET + NODEMAILER ──────
+        console.warn(`[AdminService] ⚠️ Clerk invitation limit reached. Activating NodeMailer protection shield for: ${emailLower}`);
+        
+        const globalInv = await client.invitations.createInvitation({
+          emailAddress: emailLower,
+          redirectUrl: `${appUrl}/sign-up`,
+          ignoreExisting: true,
+          // @ts-expect-error - skipEmailDelivery Clerk SDK tiplerinde eksik olabilir
+          skipEmailDelivery: true,
+          notify: false,
+          publicMetadata: {
+            orgId: clerkOrg.id,
+            role: "boss",
+          },
+        });
+
+        if (!globalInv.url) {
+          throw new Error("Fallback modunda Clerk davetiye bağlantısı oluşturamadı.");
+        }
+
+        clerkInviteIdToSave = globalInv.id;
+        invitedViaFallback = true;
+
+        // Yerel SMTP sunucusu (NodeMailer) koruma kalkanı olarak devreye girer
+        await emailService.sendBossInvitationEmail(emailLower, globalInv.url);
+        console.log(`[AdminService] 🛡️ Fallback NodeMailer invitation email delivered securely to: ${emailLower}`);
       }
 
-      // Yerel veritabanına davetiye kaydı ekle
+      // ─── 3. YEREL VERİTABANI GÖLGE KAYDI ─────────────────────────────────
       await this.db.insert(invitations).values({
-        clerkInviteId: clerkInv.id,
+        clerkInviteId: clerkInviteIdToSave,
         email: emailLower,
         organizationId: clerkOrg.id,
         role: "BOSS",
@@ -134,10 +171,7 @@ export class AdminService extends BaseService {
         invitedBy: dbUser.id,
       });
 
-      // 4. Nodemailer ile e-posta gönder
-      await emailService.sendBossInvitationEmail(emailLower, clerkInv.url);
-
-      console.log(`[AdminService] 📩 Invitation ${clerkInv.id} created and sent successfully to ${emailLower}`);
+      console.log(`[AdminService] 📩 Invitation ${clerkInviteIdToSave} created and sent successfully to ${emailLower}`);
 
       revalidatePath("/admin");
 
@@ -150,10 +184,17 @@ export class AdminService extends BaseService {
       console.error("[AdminService] Scenario A failed, performing rollback:", error);
 
       // Rollback Clerk invitation
-      if (clerkInv && clerkInv.id) {
+      if (clerkInviteIdToSave) {
         try {
-          await client.invitations.revokeInvitation(clerkInv.id);
-          console.log(`[AdminService] 🔄 Rolled back Clerk invitation: ${clerkInv.id}`);
+          if (invitedViaFallback) {
+            await client.invitations.revokeInvitation(clerkInviteIdToSave);
+          } else if (clerkOrg) {
+            await client.organizations.revokeOrganizationInvitation({
+              organizationId: clerkOrg.id,
+              invitationId: clerkInviteIdToSave,
+            });
+          }
+          console.log(`[AdminService] 🔄 Rolled back Clerk invitation: ${clerkInviteIdToSave}`);
         } catch (revErr) {
           console.error("[AdminService] Failed to revoke Clerk invitation during rollback:", revErr);
         }

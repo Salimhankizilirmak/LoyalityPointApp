@@ -212,6 +212,11 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     if (role === "cashier") {
+      const activeBranch = req.cookies.get("active_branch_id")?.value;
+      if (!activeBranch) {
+        console.log(`[Middleware] ⚠️ Cashier missing active_branch_id cookie. Bypassing direct redirect to avoid loop.`);
+        return NextResponse.next();
+      }
       return NextResponse.redirect(new URL("/cashier-dashboard", req.url));
     }
 

@@ -30,19 +30,28 @@ export default function AuthCallbackPage() {
     const checkSyncStatus = async () => {
       try {
         const res = await fetch("/api/auth/status");
-        if (res.ok) {
-          const data = (await res.json()) as { synced: boolean };
-          if (data.synced) {
-            console.log("[AuthCallback] ✅ User synced, stopping polling.");
-            setSynced(true);
-            clearInterval(intervalId);
-            clearTimeout(timeoutId);
+        
+        // Kesin hata kalkanı: Sunucu senkronizasyonun imkansız olduğunu bildirdiyse polling'i anında kır
+        if (!res.ok) {
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+          const errData = await res.json();
+          console.error("[AuthCallback] 🛑 Synchronization broken strictly by server:", errData.error);
+          setErrorTimeout(true);
+          return;
+        }
 
-            // Pürüzsüz geçiş için animasyona zaman tanıyıp /dashboard'a uçur
-            setTimeout(() => {
-              router.push("/dashboard");
-            }, 600);
-          }
+        const data = (await res.json()) as { synced: boolean };
+        if (data.synced) {
+          console.log("[AuthCallback] ✅ User synced, stopping polling.");
+          setSynced(true);
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+
+          // Pürüzsüz geçiş için animasyona zaman tanıyıp /dashboard'a uçur
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 600);
         }
       } catch (err) {
         console.error("[AuthCallback] Error polling status:", err);

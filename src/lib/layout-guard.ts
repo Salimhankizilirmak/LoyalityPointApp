@@ -1,7 +1,7 @@
 import { auth, createClerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { users, organizations, invitations } from "@/db/schema";
+import { users, organizations, invitations, branches } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 
 
@@ -189,6 +189,16 @@ export async function checkLayoutGuard() {
               .get();
 
             if (!existingProfile) {
+              const branchCheck = await tx.select()
+                .from(branches)
+                .where(eq(branches.id, invitedBranchId))
+                .get();
+
+              if (!branchCheck) {
+                console.warn(`[LayoutGuard] ⚠️ Stale branch ${invitedBranchId} check failed. Bypassing staff insertion to prevent constraint crash.`);
+                return;
+              }
+
               await tx.insert(staffProfiles).values({
                 userId: dbUser.id,
                 branchId: invitedBranchId,

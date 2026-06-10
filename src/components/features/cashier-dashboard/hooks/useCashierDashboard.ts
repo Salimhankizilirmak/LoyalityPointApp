@@ -11,6 +11,8 @@ import {
   getBranchStatus,
   getCustomerRecentTransactionsAction
 } from "@/app/(cashier)/cashier-dashboard/actions";
+import { MOCK_CASHIER_STATS, MOCK_AUDIT_TRANSACTIONS, MOCK_CASHIER_CUSTOMER } from "@/lib/constants/mock-data";
+
 
 export interface CustomerData {
   id: string;
@@ -63,10 +65,11 @@ export function useCashierDashboard(showMockData?: boolean) {
   const [txError, setTxError] = useState("");
   const [searchError, setSearchError] = useState("");
   const [stats, setStats] = useState({
-    totalTxToday: showMockData ? 24 : 0,
-    ptsGivenToday: showMockData ? 1420 : 0,
-    newMembersToday: showMockData ? 5 : 0
+    totalTxToday: showMockData ? MOCK_CASHIER_STATS.totalTxToday : 0,
+    ptsGivenToday: showMockData ? MOCK_CASHIER_STATS.ptsGivenToday : 0,
+    newMembersToday: showMockData ? MOCK_CASHIER_STATS.newMembersToday : 0
   });
+
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [branchStatus, setBranchStatus] = useState<{ isActive: boolean; isDeleted: boolean } | null>(null);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
@@ -93,7 +96,7 @@ export function useCashierDashboard(showMockData?: boolean) {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (showMockData) {
-        setStats({ totalTxToday: 24, ptsGivenToday: 1420, newMembersToday: 5 });
+        setStats(MOCK_CASHIER_STATS);
       } else {
         setStats({ totalTxToday: 0, ptsGivenToday: 0, newMembersToday: 0 });
       }
@@ -150,91 +153,8 @@ export function useCashierDashboard(showMockData?: boolean) {
     setAuditLoading(true);
     if (showMockData) {
       await new Promise((resolve) => setTimeout(resolve, 300));
-      const mockTxs: TransactionData[] = [
-        {
-          id: "audit-1",
-          type: "EARN",
-          amountSpent: 15000,
-          pointsAmount: 15,
-          status: "SUCCESS",
-          createdAtFormatted: "01.06.2026 11:30",
-        },
-        {
-          id: "audit-2",
-          type: "BURN",
-          amountSpent: null,
-          pointsAmount: -50,
-          status: "SUCCESS",
-          createdAtFormatted: "30.05.2026 15:45",
-        },
-        {
-          id: "audit-3",
-          type: "EARN",
-          amountSpent: 20000,
-          pointsAmount: 20,
-          status: "VOIDED",
-          createdAtFormatted: "28.05.2026 09:15",
-        },
-        {
-          id: "audit-4",
-          type: "VOID",
-          amountSpent: -20000,
-          pointsAmount: -20,
-          status: "SUCCESS",
-          parentTransactionId: "audit-3",
-          createdAtFormatted: "28.05.2026 09:20",
-        },
-        {
-          id: "audit-5",
-          type: "EARN",
-          amountSpent: 8000,
-          pointsAmount: 8,
-          status: "SUCCESS",
-          createdAtFormatted: "25.05.2026 17:10",
-        },
-        {
-          id: "audit-6",
-          type: "EARN",
-          amountSpent: 12000,
-          pointsAmount: 12,
-          status: "SUCCESS",
-          createdAtFormatted: "22.05.2026 14:20",
-        },
-        {
-          id: "audit-7",
-          type: "BURN",
-          amountSpent: null,
-          pointsAmount: -30,
-          status: "SUCCESS",
-          createdAtFormatted: "20.05.2026 10:15",
-        },
-        {
-          id: "audit-8",
-          type: "EARN",
-          amountSpent: 5000,
-          pointsAmount: 5,
-          status: "SUCCESS",
-          createdAtFormatted: "18.05.2026 16:40",
-        },
-        {
-          id: "audit-9",
-          type: "EARN",
-          amountSpent: 30000,
-          pointsAmount: 30,
-          status: "SUCCESS",
-          createdAtFormatted: "15.05.2026 12:00",
-        },
-        {
-          id: "audit-10",
-          type: "BURN",
-          amountSpent: null,
-          pointsAmount: -10,
-          status: "SUCCESS",
-          createdAtFormatted: "12.05.2026 09:30",
-        }
-      ];
       // Limite göre kes
-      setAuditTransactions(mockTxs.slice(0, limit));
+      setAuditTransactions(MOCK_AUDIT_TRANSACTIONS.slice(0, limit));
       setAuditLoading(false);
       return;
     }
@@ -259,18 +179,11 @@ export function useCashierDashboard(showMockData?: boolean) {
     setTxError("");
     if (showMockData) {
       await new Promise((resolve) => setTimeout(resolve, 400));
-      const mockId = "mock_cust_1";
       setCustomer({
-        id: mockId,
-        name: "Ahmet Yılmaz",
+        ...MOCK_CASHIER_CUSTOMER,
         phone: phone.trim(),
-        pts: 450,
-        tier: "Gold",
-        totalTx: 12,
-        avatar: "A",
-        createdAt: "15.01.2026",
       });
-      fetchAuditTransactions(mockId);
+      fetchAuditTransactions(MOCK_CASHIER_CUSTOMER.id);
       setScanInput("");
       setScanning(false);
       return;

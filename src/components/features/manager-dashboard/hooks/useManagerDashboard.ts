@@ -76,7 +76,11 @@ export function useManagerDashboard() {
       ]);
       
       setInvitations(invitesList);
-      setBranchInfo({ id: profile.branchId, name: profile.branchName, orgId: profile.orgId || "" });
+      setBranchInfo({ 
+        id: profile?.branchId || "", 
+        name: profile?.branchName || "Yükleniyor...", 
+        orgId: profile?.orgId || "" 
+      });
       
       const mappedTxs: Transaction[] = (txs as { id: string; customerFirstName?: string | null; customerLastName?: string | null; transactionType: string; amount: number; createdAt: Date | null; status?: string; parentTransactionId?: string | null }[]).map(t => ({
         id: t.id,

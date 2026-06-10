@@ -3,6 +3,18 @@
 import { useState } from "react";
 
 import { Save, CheckCircle, Shield, Settings, User, Edit3, X, Check } from "lucide-react";
+import { StaffManagement } from "./StaffManagement";
+import { InvitationsAuditFeed } from "@/components/features/invitations/ui/InvitationsAuditFeed";
+import { Employee } from "../types";
+
+interface InvitationItem {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: Date | number | null;
+  branchName?: string | null;
+}
 
 interface BossProfileSettingsProps {
   pointRate: number;
@@ -14,6 +26,14 @@ interface BossProfileSettingsProps {
   onUpdateName: (firstName: string, lastName: string) => Promise<void>;
   savingSettings: boolean;
   settingsSaved: boolean;
+  employees?: Employee[];
+  handleUpdateMember?: (id: string, fName: string, lName: string) => Promise<void>;
+  handleRemoveMember?: (id: string) => Promise<void>;
+  setReassigningEmployee?: (employee: Employee | null) => void;
+  setShowInvite?: (show: boolean) => void;
+  loadingId?: string | null;
+  hasNoUsername?: boolean;
+  invitations?: InvitationItem[];
 }
 
 export function BossProfileSettings({
@@ -25,7 +45,15 @@ export function BossProfileSettings({
   onSaveSettings,
   onUpdateName,
   savingSettings,
-  settingsSaved
+  settingsSaved,
+  employees,
+  handleUpdateMember,
+  handleRemoveMember,
+  setReassigningEmployee,
+  setShowInvite,
+  loadingId,
+  hasNoUsername,
+  invitations
 }: BossProfileSettingsProps) {
   const [localRate, setLocalRate] = useState(pointRate);
   const [localValidity, setLocalValidity] = useState(validityMonths);
@@ -57,8 +85,8 @@ export function BossProfileSettings({
             <Settings size={20} />
           </div>
           <div>
-            <h2 className={`font-bold text-lg ${isDarkMode ? "text-white" : "text-slate-900"}`}>Organizasyon Ayarları</h2>
-            <p className="text-slate-500 text-xs">Puan kazanım oranlarını ve geçerlilik sürelerini belirleyin.</p>
+            <h2 className={`font-bold text-lg ${isDarkMode ? "text-white" : "text-slate-900"}`}>Mağaza Yönetimi & Ayarlar</h2>
+            <p className="text-slate-500 text-xs">Organizasyon ayarlarını, puan mekanizmasını ve şube ekiplerini yönetin.</p>
           </div>
         </div>
 
@@ -177,6 +205,26 @@ export function BossProfileSettings({
           </div>
         </div>
       </div>
+      {/* 🏢 Mağaza Yönetimi Altına Eklenen Ekip ve Yönetici Davet Bölümü */}
+      {employees && (
+        <div className="col-span-1 lg:col-span-2 mt-8 space-y-6 border-t border-slate-700/30 pt-8">
+          <StaffManagement
+            employees={employees}
+            isDarkMode={isDarkMode}
+            onUpdate={handleUpdateMember || (async () => {})}
+            onRemove={handleRemoveMember || (async () => {})}
+            onReassign={setReassigningEmployee || (() => {})}
+            onInvite={() => setShowInvite?.(true)}
+            loadingId={loadingId || null}
+            hasNoUsername={hasNoUsername || false}
+          />
+          {invitations && (
+            <div className="mt-8">
+              <InvitationsAuditFeed invitations={invitations} isDarkMode={isDarkMode} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

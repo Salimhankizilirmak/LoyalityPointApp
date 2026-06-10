@@ -35,7 +35,6 @@ export function ManagerLayoutClient({
       )}
       <UsernameWarningBanner
         username={username}
-        onActionClick={() => setShowProfileSettings(true)}
       />
       {children}
       <ProfileSettingsModal

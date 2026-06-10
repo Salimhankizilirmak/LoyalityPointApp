@@ -20,7 +20,6 @@ interface HeaderProps {
     emailAddresses: { emailAddress: string; }[];
   } | null | undefined;
   setShowSignOutOverlay: (val: boolean) => void;
-  setShowProfileSettings: (val: boolean) => void;
 }
 
 export function Header({
@@ -31,7 +30,6 @@ export function Header({
   setShowMockData,
   clerkUser,
   setShowSignOutOverlay,
-  setShowProfileSettings,
 }: HeaderProps) {
   const pathname = usePathname();
 
@@ -167,7 +165,6 @@ export function Header({
             user={clerkUser}
             signOut={() => setShowSignOutOverlay(true)}
             isDarkMode={isDarkMode}
-            onSettingsClick={() => setShowProfileSettings(true)}
           />
         </div>
       </div>

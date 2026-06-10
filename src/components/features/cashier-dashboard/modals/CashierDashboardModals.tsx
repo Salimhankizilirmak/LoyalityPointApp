@@ -83,9 +83,6 @@ export function CashierDashboardModals({
         <SignOutOverlay 
           key="signout-overlay"
           onCountdownComplete={async () => {
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("signing_out", "true");
-            }
             if (signOutAction) {
               await signOutAction();
             } else {

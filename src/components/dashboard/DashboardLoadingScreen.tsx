@@ -23,14 +23,13 @@ export function DashboardLoadingScreen({
   orgName,
   logoUrl
 }: DashboardLoadingScreenProps) {
-  const isSigningOut = typeof window !== "undefined" && sessionStorage.getItem("signing_out") === "true";
-  if (isSigningOut) {
-    return null;
-  }
-
   const [stepIndex, setStepIndex] = useState(0);
-  const mountTimeRef = useRef(performance.now());
+  const mountTimeRef = useRef(0);
   const mountTime = mountTimeRef.current;
+
+  useEffect(() => {
+    mountTimeRef.current = typeof window !== "undefined" ? performance.now() : 0;
+  }, []);
 
   useEffect(() => {
     console.log(`🎯 [TELEMETRİ] DashboardLoadingScreen Ekrana Geldi. Kullanıcı: ${userName || 'Anonim'}`);

@@ -3,6 +3,7 @@
 import React from "react";
 import { Calendar } from "lucide-react";
 import { Transaction } from "../types";
+import { MOCK_DAILY_VOLUMES } from "@/lib/constants/mock-data";
 
 interface WeeklyTrendChartProps {
   transactions: Transaction[];
@@ -22,8 +23,7 @@ export function WeeklyTrendChart({ transactions, isDarkMode, showMockData }: Wee
   // Veri olgunluk kontrolü: 7 günlük gerçek işlem verisi var mı?
   const isDataMature = transactions.length >= 7;
 
-  // Ham mock veri dizisi
-  const mockDailyVolumes = [350, 480, 520, 410, 680, 720, 890];
+
 
   // Gerçek veriden son 7 günün hacimlerini hesapla
   const realDailyVolumes = Array.from({ length: 7 }, (_, i) => {
@@ -31,7 +31,7 @@ export function WeeklyTrendChart({ transactions, isDarkMode, showMockData }: Wee
     return baseVal;
   });
 
-  const dailyVolumes = showMockData ? mockDailyVolumes : realDailyVolumes;
+  const dailyVolumes = showMockData ? MOCK_DAILY_VOLUMES : realDailyVolumes;
 
   // Mock toggle'ı kapalıysa ve gerçek veri olgun değilse neon-glassmorphic uyarı panelini render et
   if (!showMockData && !isDataMature) {

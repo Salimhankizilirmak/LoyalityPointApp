@@ -175,31 +175,57 @@ export async function GET() {
             })
             .where(eq(organizations.id, pendingOrg.id));
           
-          console.log(`[StatusAPI] ⛓️ Self-healing: Linked BOSS ${dbUser.id} to organization ${pendingOrg.id}`);
-          
-          // Clerk tarafında da publicMetadata'yı güncelle ve üyelik oluştur
-          try {
-            await client.users.updateUserMetadata(userId, {
-              publicMetadata: {
-                role: "boss",
-                orgId: pendingOrg.id,
-              }
-            });
-            
-            await client.organizations.createOrganizationMembership({
-              organizationId: pendingOrg.id,
-              userId: userId,
-              role: "org:admin",
-            });
-            console.log(`[StatusAPI] 👑 Self-healing: Created Clerk membership & publicMetadata updated.`);
-          } catch (clerkErr) {
-            console.warn(`[StatusAPI] ⚠️ Self-healing Clerk updates skipped or partially failed:`, clerkErr);
-          }
-          
           dbOrg = pendingOrg;
-        } else {
-          console.warn(`[StatusAPI] ⚠️ No pending organization found for BOSS user email: ${email}`);
-          return NextResponse.json({ synced: false });
+        } else if (orgId) {
+          // JIT Fallback Recovery: DB sıfırlanmış ama Clerk session token hala canlıysa organizasyonu yeniden yarat
+          console.log(`[StatusAPI] 🛠️ DB cleared but Clerk session alive. Re-creating organization dynamically for orgId: ${orgId}`);
+          try {
+            const clerkOrg = await client.organizations.getOrganization({ organizationId: orgId });
+            const insertedOrgs = await db.insert(organizations).values({
+              id: orgId,
+              name: clerkOrg.name,
+              bossId: dbUser.id,
+              bossEmail: email,
+              branchLimit: 3,
+              isActive: true,
+              status: "ACTIVE",
+            })
+            .onConflictDoUpdate({
+              target: organizations.id,
+              set: { bossId: dbUser.id, bossEmail: email, status: "ACTIVE" }
+            })
+            .returning();
+            
+            dbOrg = insertedOrgs[0];
+          } catch (clerkFetchErr) {
+            console.error(`[StatusAPI] ❌ Failed to dynamically recreate organization via Clerk API:`, clerkFetchErr);
+          }
+        }
+
+        if (!dbOrg) {
+          console.warn(`[StatusAPI] 🛑 Hard recovery failed. No matching organization found on DB or Clerk for BOSS: ${email}`);
+          return NextResponse.json({ synced: false, error: "Şirket kaydınız bulunamadı. Lütfen sistem yöneticinizle iletişime geçin." }, { status: 404 });
+        }
+          
+        console.log(`[StatusAPI] ⛓️ Self-healing: Linked BOSS ${dbUser.id} to organization ${dbOrg.id}`);
+        
+        // Clerk tarafında da publicMetadata'yı güncelle ve üyelik oluştur
+        try {
+          await client.users.updateUserMetadata(userId, {
+            publicMetadata: {
+              role: "boss",
+              orgId: dbOrg.id,
+            }
+          });
+          
+          await client.organizations.createOrganizationMembership({
+            organizationId: dbOrg.id,
+            userId: userId,
+            role: "org:admin",
+          });
+          console.log(`[StatusAPI] 👑 Self-healing: Created Clerk membership & publicMetadata updated.`);
+        } catch (clerkErr) {
+          console.warn(`[StatusAPI] ⚠️ Self-healing Clerk updates skipped or partially failed:`, clerkErr);
         }
       }
 

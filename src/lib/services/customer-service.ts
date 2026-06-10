@@ -1,6 +1,6 @@
 import { BaseService } from "./base-service";
-import { users, customerProfiles, organizations, customers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, customerProfiles, organizations, customers, invitations } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 export class CustomerService extends BaseService {
   async syncCustomerData() {
@@ -16,6 +16,16 @@ export class CustomerService extends BaseService {
         role: "CUSTOMER",
       }).returning();
       dbUser = inserted[0];
+    }
+
+    // JIT Self-Healing: Webhook gecikmesine karşı ilk girişte davetiye durumunu mühürle
+    if (dbUser.email) {
+      await this.db.update(invitations)
+        .set({ status: "ACCEPTED" })
+        .where(and(
+          eq(invitations.email, dbUser.email.toLowerCase()),
+          eq(invitations.status, "PENDING")
+        ));
     }
 
     const meta = (user.publicMetadata || {}) as Record<string, unknown>;

@@ -50,7 +50,6 @@ export function CustomerLayoutClient({
       {/* Kullanıcı Adı Kalkanı Banner */}
       <UsernameWarningBanner
         username={username}
-        onActionClick={() => setShowProfileSettings(true)}
       />
       
       {/* Ana Gövde */}

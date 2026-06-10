@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useClerk, useUser, useOrganization } from "@clerk/nextjs";
 import { syncCustomerData, getCustomerLedgerTransactionsAction } from "@/app/(customer)/customer-dashboard/actions";
+import { MOCK_CUSTOMER_DATA, MOCK_LEDGER_TRANSACTIONS } from "@/lib/constants/mock-data";
 
 export interface LedgerTransaction {
   id: string;
@@ -186,115 +187,10 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
     }
   };
 
-  // Mock Müşteri Verisi Tanımı
-  const mockCustomerData: CustomerData = {
-    id: "mock_cust_123",
-    clerkId: "mock_clerk_123",
-    firstName: "Alperen",
-    lastName: "Songüt",
-    email: "alperen@mockcustomer.com",
-    phone: "+905554443322",
-    currentPoints: 45000, // 450.00 TL puan
-  };
-
-  // Mock Ledger Timeline Tanımı
-  const mockLedgerTransactions: LedgerTransaction[] = [
-    {
-      id: "mock_tx_1",
-      refId: "REF-XYZ987",
-      type: "SPLIT_PAYMENT",
-      amountSpent: 50.00,
-      pointsAmount: -450,
-      totalCartAmount: 500.00,
-      description: "REF-XYZ987 nolu 500 TL tutarındaki alışveriş.",
-      status: "SUCCESS",
-      createdAtFormatted: "01.06.2026 14:30",
-      createdAt: new Date("2026-06-01T14:30:00").toISOString(),
-      branchName: "Nişantaşı Şubesi",
-    },
-    {
-      id: "mock_tx_2",
-      refId: "REF-ABC123",
-      type: "EARN",
-      amountSpent: 150.00,
-      pointsAmount: 15,
-      totalCartAmount: 150.00,
-      description: "150 TL tutarında puan kazanma alışverişi.",
-      status: "SUCCESS",
-      createdAtFormatted: "28.05.2026 18:15",
-      createdAt: new Date("2026-05-28T18:15:00").toISOString(),
-      branchName: "Beşiktaş Şubesi",
-    },
-    {
-      id: "mock_tx_3",
-      refId: "REF-VOID45",
-      type: "SPLIT_PAYMENT",
-      amountSpent: 100.00,
-      pointsAmount: -100,
-      totalCartAmount: 200.00,
-      description: "REF-VOID45 nolu alışveriş iptal edilmiştir.",
-      status: "VOIDED",
-      createdAtFormatted: "25.05.2026 12:00",
-      createdAt: new Date("2026-05-25T12:00:00").toISOString(),
-      branchName: "Kadıköy Şubesi",
-    },
-    {
-      id: "mock_tx_4",
-      refId: "REF-KRT555",
-      type: "EARN",
-      amountSpent: 300.00,
-      pointsAmount: 30,
-      totalCartAmount: 300.00,
-      description: "Puan kazanımı.",
-      status: "SUCCESS",
-      createdAtFormatted: "24.05.2026 15:45",
-      createdAt: new Date("2026-05-24T15:45:00").toISOString(),
-      branchName: "Ataşehir Şubesi",
-    },
-    {
-      id: "mock_tx_5",
-      refId: "REF-BRN111",
-      type: "BURN",
-      amountSpent: 0.00,
-      pointsAmount: -200,
-      totalCartAmount: 200.00,
-      description: "Puan harcama.",
-      status: "SUCCESS",
-      createdAtFormatted: "22.05.2026 09:30",
-      createdAt: new Date("2026-05-22T09:30:00").toISOString(),
-      branchName: "Caddebostan Şubesi",
-    },
-    {
-      id: "mock_tx_6",
-      refId: "REF-XYZ111",
-      type: "SPLIT_PAYMENT",
-      amountSpent: 120.00,
-      pointsAmount: -80,
-      totalCartAmount: 200.00,
-      description: "Parçalı Ödeme.",
-      status: "SUCCESS",
-      createdAtFormatted: "20.05.2026 19:10",
-      createdAt: new Date("2026-05-20T19:10:00").toISOString(),
-      branchName: "Bebek Şubesi",
-    },
-    {
-      id: "mock_tx_7",
-      refId: "REF-XYZ222",
-      type: "EARN",
-      amountSpent: 80.00,
-      pointsAmount: 8,
-      totalCartAmount: 80.00,
-      description: "Puan kazanımı.",
-      status: "SUCCESS",
-      createdAtFormatted: "18.05.2026 11:20",
-      createdAt: new Date("2026-05-18T11:20:00").toISOString(),
-      branchName: "Göztepe Şubesi",
-    }
-  ];
 
   // Aktif Veri Seçimi (Mock vs Gerçek)
-  const activeCustomerData = isMockData ? mockCustomerData : customerData;
-  const activeLedgerTransactions = isMockData ? mockLedgerTransactions : ledgerTransactions;
+  const activeCustomerData = isMockData ? MOCK_CUSTOMER_DATA : customerData;
+  const activeLedgerTransactions = isMockData ? MOCK_LEDGER_TRANSACTIONS : ledgerTransactions;
   const pts = activeCustomerData ? Math.floor(activeCustomerData.currentPoints / 100) : 450;
 
   // Sayfalama Hesaplaması

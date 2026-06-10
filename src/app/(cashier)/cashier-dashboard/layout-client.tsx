@@ -34,7 +34,6 @@ export function CashierLayoutClient({
       )}
       <UsernameWarningBanner
         username={username}
-        onActionClick={() => setShowProfileSettings(true)}
       />
       {children}
       <ProfileSettingsModal

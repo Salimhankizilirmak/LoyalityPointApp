@@ -91,6 +91,17 @@ export async function POST(req: Request) {
       }
     }
 
+    // Davet edilen tüm roller için (CUSTOMER, CASHIER, MANAGER) yerel davetiyeyi ACCEPTED yap
+    if (email) {
+      await db.update(invitations)
+        .set({ status: "ACCEPTED" })
+        .where(and(
+          eq(invitations.email, email.trim().toLowerCase()),
+          eq(invitations.status, "PENDING")
+        ));
+      console.log(`[ClerkWebhook] 🏁 Local pending invitations auto-accepted for email: ${email}`);
+    }
+
     if (role === "boss") {
       try {
         const client = await clerkClient();

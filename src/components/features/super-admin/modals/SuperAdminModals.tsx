@@ -67,9 +67,6 @@ export function SuperAdminModals({ state, actions }: SuperAdminModalsProps) {
       {showSignOutOverlay && (
         <SignOutOverlay
           onCountdownComplete={async () => {
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("signing_out", "true");
-            }
             await signOut({ redirectUrl: "/" });
           }}
         />

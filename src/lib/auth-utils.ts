@@ -169,6 +169,16 @@ export async function getDashboardRedirectPath(
         }).onConflictDoNothing();
       }
     } else if (branchId) {
+      const branchExists = await db.select()
+        .from(branches)
+        .where(eq(branches.id, branchId))
+        .get();
+
+      if (!branchExists) {
+        console.warn(`[JIT Staff Sync] ⚠️ Stale branchId (${branchId}) detected in Clerk metadata. Redirecting to auth-callback for self-healing.`);
+        return "/auth-callback";
+      }
+
       await db.insert(staffProfiles).values({
         userId: dbUser.id,
         branchId,

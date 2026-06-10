@@ -2,9 +2,10 @@
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { users, branches, organizations, invitations, loyaltyTransactions, customers } from "@/db/schema";
-import { eq, and, or, like, desc, asc, gte, lte, sql, type SQL } from "drizzle-orm";
+import { eq, and, or, like, desc, asc, gte, lte, gt, sql, type SQL } from "drizzle-orm";
 import { loyaltyService } from "@/lib/services/loyalty-service";
 import { staffService } from "@/lib/services/staff-service";
 import { randomBytes } from "crypto";
@@ -31,7 +32,12 @@ async function resolveCashierContext() {
     .from(branches)
     .where(eq(branches.id, branchId))
     .get();
-  if (!branch) throw new Error("Şube bulunamadı.");
+    
+  if (!branch) {
+    const cookieStore = await cookies();
+    cookieStore.delete("active_branch_id");
+    redirect("/dashboard");
+  }
 
   return { dbUser, branchId, orgId: branch.orgId };
 }
@@ -113,6 +119,9 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
       status: "PENDING",
       invitedBy: dbUser.id,
     });
+
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/cashier-dashboard");
 
     return { success: true };
   } catch (error: unknown) {
@@ -336,14 +345,33 @@ export async function burnPointsAction(customerId: string, pointsToBurn: number,
  */
 export async function getBranchStatus() {
   try {
-    const cookieStore = await cookies();
-    const branchId = cookieStore.get("active_branch_id")?.value;
-    if (!branchId) return { isDeleted: true };
+    const { userId } = await auth();
+    if (!userId) return { isDeleted: true };
 
+    const { staffProfiles } = await import("@/db/schema");
+
+    // ─── B2B COMPLIANCE GUARD: Tek gerçek kaynak veritabanı profilidir ───
+    const staffProfile = await db.select({
+      branchId: staffProfiles.branchId
+    })
+    .from(staffProfiles)
+    .innerJoin(users, eq(staffProfiles.userId, users.id))
+    .where(eq(users.clerkId, userId))
+    .get();
+
+    if (!staffProfile || !staffProfile.branchId) {
+      console.error(`[getBranchStatus] ❌ No valid staff profile or branch assignment found for clerk user: ${userId}`);
+      return { isDeleted: true };
+    }
+
+    // Sorgulamayı kesinlikle çerezden gelen veriyle değil, DB'deki gerçek şube ID'si ile yap
     const branch = await db.select({
       isActive: branches.isActive,
       orgId: branches.orgId,
-    }).from(branches).where(eq(branches.id, branchId)).get();
+    })
+    .from(branches)
+    .where(eq(branches.id, staffProfile.branchId))
+    .get();
 
     if (!branch) return { isDeleted: true };
 
@@ -352,11 +380,19 @@ export async function getBranchStatus() {
       .where(eq(organizations.id, branch.orgId))
       .get();
 
+    // Eğer çerezdeki veri veritabanındaki gerçek şube ID'si ile uyuşmuyorsa, çerezi strictly güncelle/düzelt
+    const cookieStore = await cookies();
+    const currentCookieBranchId = cookieStore.get("active_branch_id")?.value;
+    if (currentCookieBranchId !== staffProfile.branchId) {
+      cookieStore.set("active_branch_id", staffProfile.branchId, { path: "/", httpOnly: true });
+    }
+
     return {
       isActive: (branch.isActive && (org?.isActive ?? false)),
       isDeleted: false,
     };
-  } catch {
+  } catch (error) {
+    console.error("[getBranchStatus Error]:", error);
     return { isDeleted: true };
   }
 }
@@ -481,11 +517,26 @@ export async function getFilteredTransactionsAction(filters: {
     // Şube bazlı RBAC Gating koruması
     await staffService.requireBranchAccess(dbUser.id, dbUser.role, branchId);
 
-    const limit = filters.limit || 10;
+    const limit = filters.limit || 20;
     const page = filters.page || 1;
     const offset = (page - 1) * limit;
 
-    const conditions: SQL[] = [eq(loyaltyTransactions.branchId, branchId)];
+    // Kasiyerin kendi organizasyonunun dışına çıkmasını engellemek için aktif şubenin orgId bilgisini bul
+    const currentBranch = await db.select({ orgId: branches.orgId }).from(branches).where(eq(branches.id, branchId)).get();
+    const currentOrgId = currentBranch?.orgId || "";
+
+    // Son 6 aya ait milisaniye zaman damgası hesabı (Performans Guard)
+    const sixMonthsAgoMs = Date.now() - 6 * 30 * 24 * 60 * 60 * 1000;
+
+    // Sorgu koşullarını organizasyon izolasyonu ve zaman guardı ile başlat
+    const conditions: SQL[] = [
+      eq(invitations.organizationId, currentOrgId),
+      eq(invitations.role, "CUSTOMER"),
+      or(
+        gt(loyaltyTransactions.createdAt, new Date(sixMonthsAgoMs)),
+        sql`${loyaltyTransactions.id} IS NULL`
+      ) as SQL
+    ];
 
     if (filters.customerId && filters.customerId.trim() !== "") {
       conditions.push(eq(loyaltyTransactions.customerId, filters.customerId.trim()));
@@ -495,9 +546,9 @@ export async function getFilteredTransactionsAction(filters: {
       const q = `%${filters.query.trim()}%`;
       const orCond = or(
         like(customers.name, q),
-        like(customers.phoneNumber, q),
-        like(users.name, q),
-        like(users.email, q)
+        like(invitations.email, q),
+        like(invitations.phoneNumber, q),
+        like(users.name, q)
       );
       if (orCond) {
         conditions.push(orCond);
@@ -533,7 +584,7 @@ export async function getFilteredTransactionsAction(filters: {
     } else if (sortBy === "customerName") {
       orderByColumn = sortOrder === "asc" ? asc(customers.name) : desc(customers.name);
     } else {
-      orderByColumn = sortOrder === "asc" ? asc(loyaltyTransactions.createdAt) : desc(loyaltyTransactions.createdAt);
+      orderByColumn = sortOrder === "asc" ? asc(invitations.createdAt) : desc(invitations.createdAt);
     }
 
     // 1. Dinamik LeftJoin Sorgusu
@@ -555,10 +606,13 @@ export async function getFilteredTransactionsAction(filters: {
         cashierName: users.name,
         cashierClerkId: users.clerkId,
         cashierEmail: users.email,
+        customerEmail: invitations.email,
+        invitationPhone: invitations.phoneNumber,
       })
-      .from(loyaltyTransactions)
-      .leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id))
-      .leftJoin(users, eq(loyaltyTransactions.cashierId, users.id))
+      .from(invitations)
+      .leftJoin(users, eq(invitations.email, users.email))
+      .leftJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .leftJoin(loyaltyTransactions, eq(customers.id, loyaltyTransactions.customerId))
       .where(queryCondition)
       .orderBy(orderByColumn)
       .limit(limit)
@@ -567,10 +621,11 @@ export async function getFilteredTransactionsAction(filters: {
 
     // 2. Toplam kayıt sayısı (Sayfalama kontrolleri için)
     const countResult = await db
-      .select({ count: sql<number>`count(${loyaltyTransactions.id})` })
-      .from(loyaltyTransactions)
-      .leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id))
-      .leftJoin(users, eq(loyaltyTransactions.cashierId, users.id))
+      .select({ count: sql<number>`count(${invitations.id})` })
+      .from(invitations)
+      .leftJoin(users, eq(invitations.email, users.email))
+      .leftJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .leftJoin(loyaltyTransactions, eq(customers.id, loyaltyTransactions.customerId))
       .where(queryCondition)
       .get();
 
@@ -583,20 +638,20 @@ export async function getFilteredTransactionsAction(filters: {
     });
 
     const transactions = rawTransactions.map((tx) => ({
-      id: tx.id,
-      organizationId: tx.organizationId,
-      branchId: tx.branchId,
-      customerId: tx.customerId,
-      cashierId: tx.cashierId,
-      type: tx.type,
+      id: tx.id || `temp-invite-${tx.invitationPhone || tx.customerEmail}`,
+      organizationId: tx.organizationId || currentOrgId,
+      branchId: tx.branchId || branchId,
+      customerId: tx.customerId || "",
+      cashierId: tx.cashierId || "",
+      type: tx.type || "EARN",
       amountSpent: tx.amountSpent,
-      pointsAmount: tx.pointsAmount,
-      status: tx.status,
+      pointsAmount: tx.pointsAmount || 0,
+      status: tx.status || "SUCCESS",
       parentTransactionId: tx.parentTransactionId,
-      createdAtFormatted: formatter.format(tx.createdAt),
-      customerName: tx.customerName ?? "Anonim Müşteri",
-      customerPhone: tx.customerPhone ?? "Bilinmeyen Telefon",
-      cashierName: tx.cashierName ?? tx.cashierEmail ?? "Pasif Personel",
+      createdAtFormatted: tx.createdAt ? formatter.format(tx.createdAt) : "Davet Bekliyor",
+      customerName: tx.customerName || tx.customerEmail.split("@")[0],
+      customerPhone: tx.customerPhone || tx.invitationPhone || "Belirtilmemiş",
+      cashierName: tx.cashierName || tx.cashierEmail || "Sistem",
       cashierEmail: tx.cashierEmail ?? "Belirtilmemiş",
     }));
 
@@ -752,6 +807,121 @@ export async function getCustomerRecentTransactionsAction(customerId: string, li
       success: false,
       error: "Müşteri işlem geçmişi alınamadı. Lütfen tekrar deneyin.",
     };
+  }
+}
+
+export async function getCashierPendingInvitationsAction() {
+  try {
+    const { branchId } = await resolveCashierContext();
+    const pendingInvites = await db.select()
+      .from(invitations)
+      .where(and(eq(invitations.branchId, branchId), eq(invitations.status, "PENDING")))
+      .all();
+    return { success: true, invitations: pendingInvites };
+  } catch (error) {
+    return { success: false, invitations: [] };
+  }
+}
+
+export async function getCashierAcceptedCustomersAction() {
+  try {
+    const { branchId, orgId: organizationId } = await resolveCashierContext();
+    
+    const result = await db
+      .select({
+        id: customers.id,
+        name: customers.name,
+        phoneNumber: customers.phoneNumber,
+        totalPoints: customers.totalPoints,
+        createdAt: customers.createdAt,
+      })
+      .from(invitations)
+      .innerJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .where(and(
+        eq(invitations.branchId, branchId),
+        eq(invitations.role, "CUSTOMER"),
+        eq(invitations.status, "ACCEPTED"),
+        eq(customers.organizationId, organizationId)
+      ))
+      .all();
+
+    const serialized = result.map((item) => ({
+      ...item,
+      createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : String(item.createdAt),
+    }));
+
+    return { success: true, customers: serialized };
+  } catch (error) {
+    return { success: false, customers: [] };
+  }
+}
+
+export async function getBranchCustomerInvitationsAction() {
+  try {
+    const { branchId } = await resolveCashierContext();
+
+    const result = await db
+      .select({
+        id: invitations.id,
+        email: invitations.email,
+        phoneNumber: invitations.phoneNumber,
+        status: invitations.status,
+        createdAt: invitations.createdAt,
+        customerName: customers.name,
+        totalPoints: customers.totalPoints,
+      })
+      .from(invitations)
+      .leftJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .where(and(
+        eq(invitations.branchId, branchId),
+        eq(invitations.role, "CUSTOMER")
+      ))
+      .all();
+
+    const serialized = result.map((item) => ({
+      ...item,
+      createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : String(item.createdAt),
+    }));
+
+    return { success: true, invitations: serialized };
+  } catch (error) {
+    return { success: false, invitations: [] };
+  }
+}
+
+export async function getTransactionsWithCustomers(page: number = 1) {
+  try {
+    const { branchId, orgId } = await resolveCashierContext();
+    const limitVal = 20;
+    const offsetVal = (page - 1) * limitVal;
+
+    const result = await db
+      .select({
+        id: customers.id,
+        name: customers.name,
+        phoneNumber: customers.phoneNumber,
+        totalPoints: customers.totalPoints,
+        createdAt: customers.createdAt,
+      })
+      .from(invitations)
+      .innerJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .where(and(
+        eq(invitations.branchId, branchId),
+        eq(invitations.role, "CUSTOMER"),
+        eq(invitations.status, "ACCEPTED")
+      ))
+      .limit(limitVal)
+      .offset(offsetVal)
+      .all();
+
+    const serialized = result.map((item) => ({
+      ...item,
+      createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : String(item.createdAt),
+    }));
+
+    return { success: true, customers: serialized };
+  } catch (error) {
+    return { success: false, customers: [] };
   }
 }
 

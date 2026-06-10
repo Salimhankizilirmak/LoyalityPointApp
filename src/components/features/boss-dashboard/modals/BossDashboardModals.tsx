@@ -119,102 +119,7 @@ export function BossDashboardModals({
         />
       )}
 
-      {/* ─── Profil & Ayarlar Modal ─────────────────────────────────────────── */}
-      {showProfileModal && (
-        <motion.div
-          key="profile-modal-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] flex items-start justify-center p-4 pt-16 bg-slate-950/80 backdrop-blur-sm overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowProfileModal(false);
-          }}
-        >
-          <motion.div
-            key="profile-modal-content"
-            initial={{ scale: 0.96, opacity: 0, y: 10 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.96, opacity: 0, y: 10 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="w-full max-w-5xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className={`rounded-3xl border shadow-2xl overflow-hidden ${
-                isDarkMode
-                  ? "bg-[#0f172a] border-slate-800"
-                  : "bg-slate-50 border-slate-200"
-              }`}
-            >
-              {/* Modal Header */}
-              <div
-                className={`flex items-center justify-between px-8 py-5 border-b ${
-                  isDarkMode
-                    ? "border-slate-800 bg-slate-900/60"
-                    : "border-slate-100 bg-white"
-                }`}
-              >
-                <div>
-                  <h2
-                    className={`font-bold text-lg ${
-                      isDarkMode ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    Profil &amp; Ayarlar
-                  </h2>
-                  <p className="text-slate-500 text-xs mt-0.5">
-                    Hesap bilgilerini ve organizasyon ayarlarını yönet
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowProfileModal(false)}
-                  aria-label="Profil modalını kapat"
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                    isDarkMode
-                      ? "hover:bg-slate-800 text-slate-400"
-                      : "hover:bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
 
-              {/* Modal Body */}
-              <div className="p-8">
-                <BossProfileSettings
-                  pointRate={pointRate}
-                  validityMonths={validityMonths}
-                  bossName={bossInfo?.name || ""}
-                  orgName={bossInfo?.orgName || ""}
-                  isDarkMode={isDarkMode}
-                  onSaveSettings={handleSaveSettings}
-                  onUpdateName={async (f, l) => {
-                    if (userId) {
-                      await handleUpdateMember(userId, f, l);
-                      setShowProfileModal(false);
-                      router.push("/boss-dashboard");
-                      router.refresh();
-                    }
-                  }}
-                  savingSettings={savingSettings}
-                  settingsSaved={settingsSaved}
-                />
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
 
       {/* ─── Silme Yükleme Perdesi ─────────────────────────────────────────── */}
       {isDeleting && (
@@ -306,9 +211,6 @@ export function BossDashboardModals({
       {showSignOutOverlay && (
         <SignOutOverlay
           onCountdownComplete={async () => {
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("signing_out", "true");
-            }
             await signOut({ redirectUrl: "/" });
           }}
         />
