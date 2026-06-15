@@ -5,7 +5,7 @@ export interface Organization {
   email: string;
   branches: number;
   created: string;
-  status: "active" | "inactive";
+  status: string;
   customers: number;
   txVolume: number;
   managerCount?: number;

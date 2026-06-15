@@ -66,8 +66,34 @@ export async function POST(req: Request) {
     const firstName = ((data as Record<string, unknown>).first_name as string) || "";
     const lastName = ((data as Record<string, unknown>).last_name as string) || "";
     const name = `${firstName} ${lastName}`.trim() || null;
-    const username = data.username || null;
     const imageUrl = ((data as Record<string, unknown>).image_url as string) || null;
+
+    const metadata = data.public_metadata as { phone?: string; role?: string } | undefined;
+    let finalUsername = "";
+
+    if (metadata?.phone) {
+      const normalizedUsername = metadata.phone.replace(/[^0-9]/g, "");
+      if (normalizedUsername) {
+        try {
+          const client = await clerkClient();
+          await client.users.updateUser(clerkId, {
+            username: normalizedUsername,
+          });
+          finalUsername = normalizedUsername;
+          console.log(`[ClerkWebhook] 📱 Clerk username successfully updated to phone: ${normalizedUsername}`);
+        } catch (clerkUpdateErr) {
+          console.error("[ClerkWebhook] Clerk phone username update failed, using email fallback:", clerkUpdateErr);
+          finalUsername = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
+        }
+      }
+    } else if (data.username) {
+      finalUsername = data.username;
+    } else {
+      finalUsername = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
+    }
+
+    const username = finalUsername;
+    data.username = finalUsername;
 
     console.log(`[ClerkWebhook] 👤 New user created event details: ClerkId=${clerkId}, Email=${email}, Username=${username}, MetadataRole=${role}, Name=${name}, ImageUrl=${imageUrl}`);
 
@@ -203,18 +229,7 @@ export async function POST(req: Request) {
               console.error(`[ClerkWebhook] ⚠️ Failed to create Clerk org membership in background:`, membershipErr);
             }
           }
-          // 3c. Phone → Username otomatik set
-          // DB transaction commit sonrası yapılır — hata webhook'u bozmaz.
-          const phoneForUsername = (data.public_metadata?.phone as string) || "";
-          if (phoneForUsername && /^90[0-9]{10}$/.test(phoneForUsername)) {
-            try {
-              await client.users.updateUser(clerkId, { username: phoneForUsername });
-              console.log(`[ClerkWebhook] 📱 Username set to phone number for BOSS ${clerkId}: ${phoneForUsername}`);
-            } catch (usernameErr: unknown) {
-              // unique constraint veya başka hata — sessizce logla, webhook'u patlatma
-              console.warn(`[ClerkWebhook] ⚠️ Could not set username (phone) for BOSS ${clerkId}:`, usernameErr instanceof Error ? usernameErr.message : usernameErr);
-            }
-          }
+
         })();
 
         return NextResponse.json({ success: true, message: "BOSS synced and organization linked." });
@@ -226,23 +241,7 @@ export async function POST(req: Request) {
       console.log(`[ClerkWebhook] ℹ️ User is not BOSS (role="${role || "none"}"), skipping org bind.`);
     }
 
-    // ─── Non-BOSS kullanıcılar için Phone → Username otomatik set ─────────────
-    // BOSS için yukarıdaki void bloğunda yapıldı. Burası CUSTOMER / CASHIER / MANAGER için.
-    // DB sync organizationMembership.created'da gerçekleştiğinden, sadece username'i set ediyoruz.
-    if (role !== "boss") {
-      const phoneForUsername = (data.public_metadata?.phone as string) || "";
-      if (phoneForUsername && /^90[0-9]{10}$/.test(phoneForUsername)) {
-        void (async () => {
-          try {
-            const client = await clerkClient();
-            await client.users.updateUser(clerkId, { username: phoneForUsername });
-            console.log(`[ClerkWebhook] 📱 Username set to phone number for ${role || "user"} ${clerkId}: ${phoneForUsername}`);
-          } catch (usernameErr: unknown) {
-            console.warn(`[ClerkWebhook] ⚠️ Could not set username (phone) for ${clerkId}:`, usernameErr instanceof Error ? usernameErr.message : usernameErr);
-          }
-        })();
-      }
-    }
+
   }
 
   if (type === "user.updated") {

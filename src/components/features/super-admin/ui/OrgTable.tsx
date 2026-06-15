@@ -14,7 +14,7 @@ interface Org {
   branches: number;
   branchLimit?: number;
   created: string;
-  status: "active" | "inactive";
+  status: string;
   customers: number;
   txVolume: number;
   managerCount?: number;
@@ -93,8 +93,15 @@ export function OrgTable({ orgs, onToggle, onEditQuota }: OrgTableProps) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((org, i) => (
-              <motion.tr key={org.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
+            {sorted.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="text-center py-8 text-slate-500 font-medium">
+                  Kayıtlı aktif işletme bulunamadı
+                </td>
+              </tr>
+            ) : (
+              sorted.map((org, i) => (
+                <motion.tr key={org.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
                 className="group" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-2.5">
@@ -129,18 +136,18 @@ export function OrgTable({ orgs, onToggle, onEditQuota }: OrgTableProps) {
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={() => onToggle(org.id, org.status === "active")}
+                      onClick={() => onToggle(org.id, org.status?.toLowerCase() === "active")}
                       className={`relative w-10 h-5 rounded-full transition-all duration-300 ${
-                        org.status === "active" ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.4)]" : "bg-slate-700"
+                        org.status?.toLowerCase() === "active" ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.4)]" : "bg-slate-700"
                       }`}
                     >
                       <motion.div 
-                        animate={{ x: org.status === "active" ? 22 : 2 }}
+                        animate={{ x: org.status?.toLowerCase() === "active" ? 22 : 2 }}
                         className="absolute top-1 w-3 h-3 rounded-full bg-white shadow-sm"
                       />
                     </button>
-                    <span className={`text-[10px] font-bold uppercase tracking-tight ${org.status === "active" ? "text-indigo-400" : "text-slate-500"}`}>
-                      {org.status === "active" ? "Aktif" : "Pasif"}
+                    <span className={`text-[10px] font-bold uppercase tracking-tight ${org.status?.toLowerCase() === "active" ? "text-indigo-400" : "text-slate-500"}`}>
+                      {org.status?.toLowerCase() === "active" ? "Aktif" : "Pasif"}
                     </span>
                   </div>
                 </td>
@@ -170,7 +177,8 @@ export function OrgTable({ orgs, onToggle, onEditQuota }: OrgTableProps) {
                   </div>
                 </td>
               </motion.tr>
-            ))}
+            ))
+          )}
           </tbody>
         </table>
       </div>
