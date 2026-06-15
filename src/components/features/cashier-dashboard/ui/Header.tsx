@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { MapPin, Sun, Moon, Database } from "lucide-react";
+import { MapPin, Sun, Moon } from "lucide-react";
 import { UserMenu } from "@/components/ui/UserMenu";
 
 interface HeaderProps {
   isDarkMode: boolean;
   setIsDarkMode: (val: boolean) => void;
   branchName: string;
-  showMockData: boolean;
-  setShowMockData: (val: boolean) => void;
+
   clerkUser: {
     firstName: string | null;
     lastName: string | null;
@@ -19,17 +18,16 @@ interface HeaderProps {
     imageUrl: string;
     emailAddresses: { emailAddress: string; }[];
   } | null | undefined;
-  setShowSignOutOverlay: (val: boolean) => void;
+  signOut: () => void;
 }
 
 export function Header({
   isDarkMode,
   setIsDarkMode,
   branchName,
-  showMockData,
-  setShowMockData,
+
   clerkUser,
-  setShowSignOutOverlay,
+  signOut,
 }: HeaderProps) {
   const pathname = usePathname();
 
@@ -129,41 +127,12 @@ export function Header({
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
-          {/* Mock Data Switch */}
-          <div
-            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all ${
-              isDarkMode
-                ? "bg-slate-800/50 border-slate-700"
-                : "bg-slate-50 border-slate-200"
-            }`}
-          >
-            <Database
-              size={12}
-              className={showMockData ? "text-cyan-500" : "text-slate-400"}
-            />
-            <button
-              onClick={() => setShowMockData(!showMockData)}
-              className="relative w-8 h-4 rounded-full transition-colors duration-200"
-              style={{
-                background: showMockData
-                  ? "#0891b2"
-                  : isDarkMode
-                  ? "#334155"
-                  : "#e2e8f0",
-              }}
-              aria-label="Veri Kaynağı Değiştir"
-            >
-              <motion.div
-                animate={{ x: showMockData ? 16 : 2 }}
-                className="absolute top-1 w-2 h-2 rounded-full bg-white shadow-sm"
-              />
-            </button>
-          </div>
+
 
           {/* User Menu */}
           <UserMenu
             user={clerkUser}
-            signOut={() => setShowSignOutOverlay(true)}
+            signOut={signOut}
             isDarkMode={isDarkMode}
           />
         </div>

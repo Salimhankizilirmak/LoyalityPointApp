@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Shield, Database, Moon, Sun } from "lucide-react";
+import { Shield, Moon, Sun } from "lucide-react";
 import { useUser, useOrganization } from "@clerk/nextjs";
 import { UserMenu } from "@/components/ui/UserMenu";
 
@@ -12,8 +12,7 @@ type TabType = "organizations" | "bosses";
 
 interface DashboardHeaderProps {
   user: UserResource | null | undefined;
-  showMockData: boolean;
-  setShowMockData: (v: boolean) => void;
+
   isDarkMode: boolean;
   setIsDarkMode: (v: boolean) => void;
   signOut: () => void;
@@ -23,8 +22,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ 
   user,
-  showMockData, 
-  setShowMockData, 
+ 
   isDarkMode, 
   setIsDarkMode, 
   signOut,
@@ -71,7 +69,7 @@ export function DashboardHeader({
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <span className={`font-bold text-sm tracking-tight ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                  {organization?.name || "Novexis Tech"}
+                  {organization?.name || "Novexis Yönetim Paneli"}
                 </span>
                 <span className="px-2 py-0.5 rounded-md border border-indigo-500/30 bg-indigo-500/10 text-[10px] font-black text-indigo-400 tracking-wider uppercase shadow-[0_0_12px_rgba(99,102,241,0.4)]">
                   Süper Admin
@@ -116,23 +114,7 @@ export function DashboardHeader({
             {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
           </button>
 
-          {/* Mock Toggle */}
-          <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all ${
-            isDarkMode ? "bg-white/5 border-white/5" : "bg-slate-100 border-slate-200"
-          }`}>
-            <Database size={12} className={showMockData ? "text-cyan-400" : "text-slate-500"} />
-            <button 
-              onClick={() => setShowMockData(!showMockData)}
-              className="relative w-8 h-4 rounded-full transition-colors duration-200"
-              style={{ background: showMockData ? CYAN : "#cbd5e1" }}
-            >
-              <motion.div 
-                animate={{ x: showMockData ? 16 : 2 }}
-                className="absolute top-1 w-2 h-2 rounded-full bg-white shadow-sm"
-              />
-            </button>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Mock</span>
-          </div>
+
 
           {/* User Profile & Menu */}
           <UserMenu 

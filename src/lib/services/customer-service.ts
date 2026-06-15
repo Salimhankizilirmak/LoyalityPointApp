@@ -1,4 +1,5 @@
 import { BaseService } from "./base-service";
+import { normalizePhoneToUsername, isValidTurkishPhone } from "@/lib/utils";
 import { users, customerProfiles, organizations, customers, invitations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -95,10 +96,13 @@ export class CustomerService extends BaseService {
     // Ensure customer_profiles table record exists
     let profile = await this.db.select().from(customerProfiles).where(eq(customerProfiles.userId, dbUser.id)).get();
     if (!profile) {
+      console.log(`[syncCustomerData] Creating new root customer record for phone: ${primaryPhone}`);
       const insertedProfile = await this.db.insert(customerProfiles).values({
         userId: dbUser.id,
         orgId: orgId,
         currentPoints: customerRecord.totalPoints || 0,
+        kvkkStatus: true,
+        kvkkAcceptedAt: Date.now(),
       }).returning();
       profile = insertedProfile[0];
     } else {
@@ -231,13 +235,19 @@ export class CustomerService extends BaseService {
     if (!appUrl) {
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
-    
+
+    // Telefon numarasını Clerk username-safe formata normalize et
+    const normalizedPhone = normalizePhoneToUsername(data.phone);
+    if (!isValidTurkishPhone(data.phone)) {
+      throw new Error("Geçersiz telefon numarası formatı");
+    }
+
     await client.invitations.createInvitation({
       emailAddress: data.email,
       publicMetadata: { 
         firstName: data.firstName,
         lastName: data.lastName,
-        phone: data.phone,
+        phone: normalizedPhone,
         role: "customer",
         org_id: orgId,
       },

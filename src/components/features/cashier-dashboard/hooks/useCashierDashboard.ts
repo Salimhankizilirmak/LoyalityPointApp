@@ -11,7 +11,7 @@ import {
   getBranchStatus,
   getCustomerRecentTransactionsAction
 } from "@/app/(cashier)/cashier-dashboard/actions";
-import { MOCK_CASHIER_STATS, MOCK_AUDIT_TRANSACTIONS, MOCK_CASHIER_CUSTOMER } from "@/lib/constants/mock-data";
+
 
 
 export interface CustomerData {
@@ -52,7 +52,7 @@ export interface TransactionData {
 
 export type TxType = "EARN" | "BURN" | null;
 
-export function useCashierDashboard(showMockData?: boolean) {
+export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; isDeleted: boolean } | null) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [customer, setCustomer] = useState<CustomerData | null>(null);
@@ -65,13 +65,13 @@ export function useCashierDashboard(showMockData?: boolean) {
   const [txError, setTxError] = useState("");
   const [searchError, setSearchError] = useState("");
   const [stats, setStats] = useState({
-    totalTxToday: showMockData ? MOCK_CASHIER_STATS.totalTxToday : 0,
-    ptsGivenToday: showMockData ? MOCK_CASHIER_STATS.ptsGivenToday : 0,
-    newMembersToday: showMockData ? MOCK_CASHIER_STATS.newMembersToday : 0
+    totalTxToday: 0,
+    ptsGivenToday: 0,
+    newMembersToday: 0
   });
 
   const [showAddCustomer, setShowAddCustomer] = useState(false);
-  const [branchStatus, setBranchStatus] = useState<{ isActive: boolean; isDeleted: boolean } | null>(null);
+  const [branchStatus, setBranchStatus] = useState<{ isActive: boolean; isDeleted: boolean } | null>(initialBranchStatus || null);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const { signOut } = useClerk();
 
@@ -93,17 +93,6 @@ export function useCashierDashboard(showMockData?: boolean) {
   // Last Transaction Receipt State
   const [lastTxReceipt, setLastTxReceipt] = useState<TransactionReceipt | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (showMockData) {
-        setStats(MOCK_CASHIER_STATS);
-      } else {
-        setStats({ totalTxToday: 0, ptsGivenToday: 0, newMembersToday: 0 });
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [showMockData]);
-
   // Polling for branch status: Increased interval to 180 seconds to protect Turso DB quotas
   useEffect(() => {
     let active = true;
@@ -124,13 +113,15 @@ export function useCashierDashboard(showMockData?: boolean) {
       }
     };
     
-    checkStatus();
+    if (!initialBranchStatus) {
+      checkStatus();
+    }
     const interval = setInterval(checkStatus, 180000); // 180s check (3 minutes)
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [initialBranchStatus]);
 
   // Global Toast auto-dismiss (3 seconds)
   useEffect(() => {
@@ -151,13 +142,6 @@ export function useCashierDashboard(showMockData?: boolean) {
 
   const fetchAuditTransactions = useCallback(async (customerId: string, limit: number = 10) => {
     setAuditLoading(true);
-    if (showMockData) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      // Limite göre kes
-      setAuditTransactions(MOCK_AUDIT_TRANSACTIONS.slice(0, limit));
-      setAuditLoading(false);
-      return;
-    }
     try {
       const res = await getCustomerRecentTransactionsAction(customerId, limit);
       if (res.success && res.transactions) {
@@ -170,24 +154,13 @@ export function useCashierDashboard(showMockData?: boolean) {
     } finally {
       setAuditLoading(false);
     }
-  }, [showMockData]);
+  }, []);
 
   const handleScan = useCallback(async (phone: string) => {
     if (!phone) return;
     setScanning(true);
     setSearchError("");
     setTxError("");
-    if (showMockData) {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      setCustomer({
-        ...MOCK_CASHIER_CUSTOMER,
-        phone: phone.trim(),
-      });
-      fetchAuditTransactions(MOCK_CASHIER_CUSTOMER.id);
-      setScanInput("");
-      setScanning(false);
-      return;
-    }
     try {
       const result = await searchCustomerAction(phone);
       if ("error" in result) {
@@ -222,41 +195,11 @@ export function useCashierDashboard(showMockData?: boolean) {
     } finally {
       setScanning(false);
     }
-  }, [showMockData, fetchAuditTransactions]);
+  }, [fetchAuditTransactions]);
 
   const handleTx = useCallback(async () => {
     if (!customer || !txType || !amount) return;
     setTxError("");
-    if (showMockData) {
-      startTransition(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        const change = txType === "EARN" ? ptsPreview : -Number(amount);
-        const newTotal = customer.pts + change;
-        
-        setLastTxReceipt({
-          customerName: customer.name,
-          customerPhone: customer.phone,
-          txType,
-          amount,
-          ptsPreview,
-          oldPoints: customer.pts,
-          newPoints: newTotal,
-          timestamp: new Date().toLocaleTimeString("tr-TR")
-        });
-
-        setStats(s => ({
-          ...s,
-          totalTxToday: s.totalTxToday + 1,
-          ptsGivenToday: s.ptsGivenToday + (txType === "EARN" ? ptsPreview : 0)
-        }));
-        
-        setAmount("");
-        setCustomer(prev => prev ? { ...prev, pts: newTotal } : null);
-        setTxType(null);
-        setTxSuccess(true);
-      });
-      return;
-    }
 
     startTransition(async () => {
       try {
@@ -311,7 +254,7 @@ export function useCashierDashboard(showMockData?: boolean) {
         setTxError("İşlem sırasında beklenmedik bir hata oluştu.");
       }
     });
-  }, [customer, txType, amount, totalCartAmount, ptsPreview, router, showMockData]);
+  }, [customer, txType, amount, totalCartAmount, ptsPreview, router]);
 
   // Invite Customer Form Actions
   const setInviteField = useCallback((field: keyof typeof inviteForm, value: string) => {
@@ -334,15 +277,6 @@ export function useCashierDashboard(showMockData?: boolean) {
     setInviteSubmitting(true);
     setToastMessage(null);
 
-    if (showMockData) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setToastMessage({ text: "Davetiye başarıyla e-posta adresine gönderildi.", type: "success" });
-      setStats(s => ({ ...s, newMembersToday: s.newMembersToday + 1 }));
-      resetInviteForm();
-      setInviteSubmitting(false);
-      return;
-    }
-
     try {
       const res = await registerCustomerAction(
         `${inviteForm.firstName} ${inviteForm.lastName}`.trim(),
@@ -361,7 +295,7 @@ export function useCashierDashboard(showMockData?: boolean) {
     } finally {
       setInviteSubmitting(false);
     }
-  }, [inviteForm, isInviteFormValid, inviteSubmitting, resetInviteForm, showMockData]);
+  }, [inviteForm, isInviteFormValid, inviteSubmitting, resetInviteForm]);
 
   // Deprecated handleAddCustomer compatibility
   const handleAddCustomer = useCallback(async (data: { firstName: string; lastName: string; phone: string; email: string }) => {

@@ -4,7 +4,7 @@ import * as path from "path";
 
 async function run() {
   console.log("============================================================");
-  console.log("🚀 AURA LOYALTY PLATFORM - AUTO VERIFY & SHIP PIPELINE");
+  console.log("🚀 LOYALTY PLATFORM - AUTO VERIFY & SHIP PIPELINE");
   console.log("============================================================");
 
   try {

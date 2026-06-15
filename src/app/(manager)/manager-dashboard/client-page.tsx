@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useClerk, useUser, useOrganization } from "@clerk/nextjs";
-import { DashboardLoadingScreen } from "@/components/dashboard/DashboardLoadingScreen";
 import { useManagerDashboard } from "@/components/features/manager-dashboard/hooks/useManagerDashboard";
 import { ManagerHeader } from "@/components/features/manager-dashboard/ui/ManagerHeader";
 import { ManagerDashboardModals } from "@/components/features/manager-dashboard/modals/ManagerDashboardModals";
@@ -15,33 +14,22 @@ const TABS = ["Genel Bakış", "Müşteriler", "Ekibim"];
 interface ManagerDashboardClientProps {
   initialManagerName: string;
   initialBranchName: string;
+  initialData?: any;
 }
 
 export function ManagerDashboardClient({
   initialManagerName,
-  initialBranchName
+  initialBranchName,
+  initialData
 }: ManagerDashboardClientProps) {
-  const { user, isLoaded } = useUser();
+  const { user } = useUser();
   const { signOut } = useClerk();
   const { organization } = useOrganization();
   const [showInvite, setShowInvite] = useState(false);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const dashboard = useManagerDashboard();
-
-  if (!isLoaded || (user && !dashboard.branchInfo)) {
-    const displayName = user 
-      ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.emailAddresses[0].emailAddress.split("@")[0]) 
-      : null;
-    return (
-      <DashboardLoadingScreen
-        userName={initialManagerName || displayName}
-        orgName={initialBranchName || dashboard.branchInfo?.name || (user?.publicMetadata?.orgName as string) || null}
-        logoUrl={organization?.imageUrl || null}
-      />
-    );
-  }
+  const dashboard = useManagerDashboard(initialData);
 
   const managerName = initialManagerName || user?.fullName || "Yönetici";
   const branchName = initialBranchName || dashboard.branchInfo?.name || "Yükleniyor...";
@@ -58,10 +46,10 @@ export function ManagerDashboardClient({
         handleEditPointsSave={dashboard.handleEditPointsSave} isDarkMode={dashboard.isDarkMode}
       />
       <ManagerHeader 
-        user={user} showMockData={dashboard.showMockData} setShowMockData={dashboard.setShowMockData}
+        user={user}
         isDarkMode={dashboard.isDarkMode} setIsDarkMode={dashboard.setIsDarkMode}
         activeTab={dashboard.activeTab} setActiveTab={dashboard.setActiveTab}
-        signOut={() => setShowSignOutOverlay(true)} tabs={TABS}
+        signOut={() => signOut({ redirectUrl: "/" })} tabs={TABS}
         managerName={managerName} branchName={branchName}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -73,7 +61,7 @@ export function ManagerDashboardClient({
             {dashboard.activeTab === 0 && (
               <TransactionsSection 
                 transactions={dashboard.transactions} cashiers={dashboard.cashiers}
-                isDarkMode={dashboard.isDarkMode} showMockData={dashboard.showMockData}
+                isDarkMode={dashboard.isDarkMode}
                 onEditTransaction={setEditingTransaction}
               />
             )}

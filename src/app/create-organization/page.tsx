@@ -60,7 +60,6 @@ export default function CreateOrganizationPage() {
           </div>
           <div className="space-y-2">
             <h1 className="text-3xl font-black tracking-tight">Fermanızı Oluşturun</h1>
-            <p className="text-neutral-400">Sadakat sistemine hoş geldiniz. İşletmenizi kurarak başlayın.</p>
           </div>
         </div>
 

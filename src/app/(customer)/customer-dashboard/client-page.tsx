@@ -1,7 +1,6 @@
 "use client";
 
 import { useCustomerDashboard } from "@/components/features/customer-dashboard/hooks/useCustomerDashboard";
-import { DashboardLoadingScreen } from "@/components/dashboard/DashboardLoadingScreen";
 import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
 import { CustomerDashboardModals } from "@/components/features/customer-dashboard/modals/CustomerDashboardModals";
 import { SidebarNavigation } from "@/components/features/customer-dashboard/ui/SidebarNavigation";
@@ -19,12 +18,14 @@ interface CustomerDashboardClientPageProps {
     id: string;
     clerkId: string;
   } | null;
+  initialLedgerTransactions?: any[];
 }
 
 export function CustomerDashboardClientPage({
   initialCustomerData,
+  initialLedgerTransactions,
 }: CustomerDashboardClientPageProps) {
-  const { state, actions } = useCustomerDashboard(initialCustomerData);
+  const { state, actions } = useCustomerDashboard(initialCustomerData, initialLedgerTransactions);
   
   const { 
     activeTab, 
@@ -38,9 +39,7 @@ export function CustomerDashboardClientPage({
     showSignOutOverlay,
     pts, 
     user, 
-    isLoaded, 
     organization, 
-    isMockData,
     isDarkMode
   } = state;
 
@@ -50,22 +49,8 @@ export function CustomerDashboardClientPage({
     setShowProfileModal, 
     setShowSignOutOverlay,
     signOut,
-    setIsMockData,
     toggleTheme
   } = actions;
-
-  if (loading || !isLoaded) {
-    const displayName = user 
-      ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.emailAddresses?.[0]?.emailAddress?.split("@")[0] || null)) 
-      : (initialCustomerData ? `${initialCustomerData.firstName} ${initialCustomerData.lastName}` : null);
-    return (
-      <DashboardLoadingScreen
-        userName={displayName}
-        orgName={organization?.name || "Sadakat Paneli"}
-        logoUrl={organization?.imageUrl || null}
-      />
-    );
-  }
 
   // Kullanıcı Bilgileri
   const userFullName = user?.fullName || (customerData ? `${customerData.firstName} ${customerData.lastName}` : "Sadakat Üyesi");
@@ -91,11 +76,9 @@ export function CustomerDashboardClientPage({
         userFullName={userFullName}
         userEmail={userEmail}
         userAvatar={userAvatar}
-        isMockData={isMockData}
-        setIsMockData={setIsMockData}
         isDarkMode={isDarkMode}
         toggleTheme={toggleTheme}
-        signOut={async () => setShowSignOutOverlay(true)}
+        signOut={() => signOut({ redirectUrl: "/" })}
         setShowProfileModal={setShowProfileModal}
       />
 

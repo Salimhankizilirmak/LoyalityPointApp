@@ -23,12 +23,12 @@ interface CashierDashboardPageProps {
     email: string;
     branchName: string;
   };
+  initialBranchStatus: { isActive: boolean; isDeleted: boolean } | null;
 }
 
-export default function CashierDashboardPage({ dbUser }: CashierDashboardPageProps) {
+export default function CashierDashboardPage({ dbUser, initialBranchStatus }: CashierDashboardPageProps) {
   const router = useRouter();
-  const [showMockData, setShowMockData] = useState(false);
-  const { state, actions } = useCashierDashboard(showMockData);
+  const { state, actions } = useCashierDashboard(initialBranchStatus);
   const { user: clerkUser } = useUser();
 
   // Mismatch ve geçiş flaşını önlemek için lazy initialization motorunu kullanıyoruz
@@ -96,22 +96,14 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
         showAddCustomer={false}
         setShowAddCustomer={actions.setShowAddCustomer}
         handleAddCustomer={actions.handleAddCustomer}
-        showSignOutOverlay={state.showSignOutOverlay}
-        signOutAction={actions.signOut}
-        onSignOutCountdownComplete={() => {
-          router.push("/");
-        }}
       />
 
-      {/* Ortak Navigasyon Header */}
       <Header
         isDarkMode={isDarkMode}
         setIsDarkMode={toggleTheme}
         branchName={dbUser.branchName}
-        showMockData={showMockData}
-        setShowMockData={setShowMockData}
         clerkUser={clerkUser}
-        setShowSignOutOverlay={actions.setShowSignOutOverlay}
+        signOut={() => actions.signOut({ redirectUrl: "/" })}
       />
 
       {/* Ana Gövde */}
@@ -197,9 +189,7 @@ export default function CashierDashboardPage({ dbUser }: CashierDashboardPagePro
           <div className="w-full border-t border-indigo-500/10 pt-4 mt-6">
             <RecentSalesSection
               refreshTrigger={state.stats.totalTxToday}
-              showMockData={showMockData}
             />
-
           </div>
         </div>
       </main>

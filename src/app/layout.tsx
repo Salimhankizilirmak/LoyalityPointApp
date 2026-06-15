@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import { trTR } from '@clerk/localizations'
+import { auth } from "@clerk/nextjs/server";
 import RootAuthBoundary from "@/components/providers/RootAuthBoundary";
 import "./globals.css";
 
@@ -34,6 +35,14 @@ export const metadata: Metadata = {
     siteName: "LoyaltyPoints",
     locale: "tr_TR",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "LoyaltyPoints Dashboard",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -53,11 +62,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Dinamik render sürecini ve sunucu tarafı oturum kontrolünü garantiye almak için:
+  await auth();
+
   return (
     <ClerkProvider localization={trTR} afterSignOutUrl="/">
       <html

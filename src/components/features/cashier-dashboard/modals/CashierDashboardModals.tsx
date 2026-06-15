@@ -3,7 +3,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Lock } from "lucide-react";
 import { AddCustomerModal } from "@/components/features/manager-dashboard/modals/AddCustomerModal";
-import { SignOutOverlay } from "@/components/dashboard/SignOutOverlay";
 
 interface CashierDashboardModalsProps {
   branchStatus: { isActive: boolean; isDeleted: boolean } | null;
@@ -78,19 +77,6 @@ export function CashierDashboardModals({
         />
       )}
 
-      {/* 4. Sign Out Overlay (for modular coverage) */}
-      {showSignOutOverlay && onSignOutCountdownComplete && (
-        <SignOutOverlay 
-          key="signout-overlay"
-          onCountdownComplete={async () => {
-            if (signOutAction) {
-              await signOutAction();
-            } else {
-              onSignOutCountdownComplete();
-            }
-          }}
-        />
-      )}
     </AnimatePresence>
   );
 }

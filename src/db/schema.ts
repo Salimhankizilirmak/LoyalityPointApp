@@ -50,6 +50,8 @@ export const customerProfiles = sqliteTable("customer_profiles", {
   orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   currentPoints: integer("current_points").default(0).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),
+  kvkkStatus: integer("kvkk_status", { mode: "boolean" }).notNull().default(false),
+  kvkkAcceptedAt: integer("kvkk_accepted_at"),
 });
 
 export const pointsTransactions = sqliteTable("points_transactions", {

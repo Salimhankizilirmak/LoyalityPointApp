@@ -13,7 +13,6 @@ interface TransactionsSectionProps {
   transactions: Transaction[];
   cashiers: Employee[];
   isDarkMode: boolean;
-  showMockData: boolean;
   onEditTransaction: (tx: Transaction) => void;
 }
 
@@ -21,7 +20,6 @@ export function TransactionsSection({
   transactions,
   cashiers,
   isDarkMode,
-  showMockData,
   onEditTransaction
 }: TransactionsSectionProps) {
   // CSV Export handler
@@ -99,7 +97,6 @@ export function TransactionsSection({
         <WeeklyTrendChart 
           transactions={transactions} 
           isDarkMode={isDarkMode} 
-          showMockData={showMockData}
         />
 
         {/* Kasiyer Performans KPI Şeridi */}

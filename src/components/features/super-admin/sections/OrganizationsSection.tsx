@@ -29,9 +29,9 @@ export function OrganizationsSection({ state, actions }: OrganizationsSectionPro
   const { handleToggle, setEditingQuotaOrg } = actions;
 
   const STAT_CARDS_DATA = [
-    { icon: Building2, label: "Toplam Organizasyon", value: String(orgs.length), sub: `${activeOrgsCount} aktif · ${orgs.length - activeOrgsCount} pasif`, accent: "#22d3ee" },
-    { icon: Users, label: "Toplam Müşteri", value: fmt(totalCustomers), sub: "Tüm tenantlar", accent: "#818cf8" },
-    { icon: TrendingUp, label: "İşlem Hacmi", value: fmtTL(totalVolume), sub: "Tüm şubeler", accent: "#34d399" },
+    { icon: Building2, label: "Toplam Organizasyon", value: String(orgs.length), sub: `${activeOrgsCount} Aktif · ${orgs.length - activeOrgsCount} Pasif`, accent: "#22d3ee" },
+    { icon: Users, label: "Toplam Müşteri", value: fmt(totalCustomers), sub: "Tüm İşletmeler", accent: "#818cf8" },
+    { icon: TrendingUp, label: "İşlem Hacmi", value: fmtTL(totalVolume), sub: "Tüm Şubeler", accent: "#34d399" },
     { icon: Server, label: "Sistem Durumu", value: "Stabil", sub: "Son 30 gün uptime %99.9", accent: "#f59e0b" },
   ];
 

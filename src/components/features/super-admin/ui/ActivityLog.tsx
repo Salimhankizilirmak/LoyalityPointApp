@@ -36,11 +36,11 @@ export function ActivityLog({ logs }: ActivityLogProps) {
         style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.3)" }}>
         <div className="flex items-center gap-2">
           <Terminal size={13} className="text-indigo-400" />
-          <span className="text-slate-300 text-xs font-semibold tracking-wider uppercase">Activity Log</span>
+          <span className="text-slate-300 text-xs font-semibold tracking-wider uppercase">Sistem Günlüğü</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-          <span className="text-indigo-400 text-xs font-mono">LIVE</span>
+          <span className="text-indigo-400 text-xs font-mono">CANLI</span>
         </div>
       </div>
       <div ref={ref} className="flex-1 overflow-y-auto p-3 space-y-1 font-mono text-xs" style={{ maxHeight: 340 }}>

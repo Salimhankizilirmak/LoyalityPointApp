@@ -13,7 +13,7 @@ import { GlassPanel } from "@/components/ui/GlassPanel";
 import { getFilteredTransactionsAction, voidTransactionAction, getBranchCustomerInvitationsAction } from "../actions";
 import { CashierDashboardModals } from "@/components/features/cashier-dashboard/modals/CashierDashboardModals";
 import { Header } from "@/components/features/cashier-dashboard/ui/Header";
-import { INITIAL_MOCK_TRANSACTIONS } from "@/lib/constants/mock-data";
+
 
 interface CashierInfo {
   name: string;
@@ -57,8 +57,6 @@ export function TransactionsClientPage({ cashierInfo }: TransactionsClientPagePr
   // Theme and UI States
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
-  const [showMockData, setShowMockData] = useState(false);
-  const [mockTxs, setMockTxs] = useState<Transaction[]>(INITIAL_MOCK_TRANSACTIONS);
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"transactions" | "customers">("transactions");
   const [invitations, setInvitations] = useState<any[]>([]);
@@ -116,79 +114,7 @@ export function TransactionsClientPage({ cashierInfo }: TransactionsClientPagePr
     setLoading(true);
     setError("");
 
-    if (showMockData) {
-      let filtered = [...mockTxs];
 
-      if (customerIdParam) {
-        filtered = filtered.filter(t => t.customerId === customerIdParam);
-      } else {
-        if (query.trim() !== "") {
-          const q = query.toLowerCase().trim();
-          filtered = filtered.filter(t =>
-            t.customerName.toLowerCase().includes(q) ||
-            t.customerPhone.includes(q) ||
-            (t.cashierEmail && t.cashierEmail.toLowerCase().includes(q)) ||
-            t.cashierName.toLowerCase().includes(q)
-          );
-        }
-
-        if (type !== "ALL") {
-          filtered = filtered.filter(t => t.type === type);
-        }
-
-        if (status !== "ALL") {
-          filtered = filtered.filter(t => t.status === status);
-        }
-
-        if (startDate) {
-          const start = new Date(startDate).setHours(0, 0, 0, 0);
-          filtered = filtered.filter(t => {
-            const parts = t.createdAtFormatted.split(" ");
-            const dateParts = parts[0].split(".");
-            const d = new Date(Number(dateParts[2]), Number(dateParts[1]) - 1, Number(dateParts[0])).getTime();
-            return d >= start;
-          });
-        }
-
-        if (endDate) {
-          const end = new Date(endDate).setHours(23, 59, 59, 999);
-          filtered = filtered.filter(t => {
-            const parts = t.createdAtFormatted.split(" ");
-            const dateParts = parts[0].split(".");
-            const d = new Date(Number(dateParts[2]), Number(dateParts[1]) - 1, Number(dateParts[0])).getTime();
-            return d <= end;
-          });
-        }
-      }
-
-      filtered.sort((a, b) => {
-        if (sortBy === "createdAt") {
-          const valA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const valB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return sortOrder === "asc" ? valA - valB : valB - valA;
-        }
-
-        const key = (sortBy === "customerName" ? "customerName" : sortBy) as keyof Transaction;
-        const valA = a[key];
-        const valB = b[key];
-
-        if (valA === null || valA === undefined) return 1;
-        if (valB === null || valB === undefined) return -1;
-
-        if (valA < valB) return sortOrder === "asc" ? -1 : 1;
-        if (valA > valB) return sortOrder === "asc" ? 1 : -1;
-        return 0;
-      });
-
-      const total = filtered.length;
-      const start = (page - 1) * limit;
-      const paginated = filtered.slice(start, start + limit);
-
-      setTransactions(paginated);
-      setTotalCount(total);
-      setLoading(false);
-      return;
-    }
 
     const startMs = !customerIdParam && startDate ? new Date(startDate).setHours(0, 0, 0, 0) : undefined;
     const endMs = !customerIdParam && endDate ? new Date(endDate).setHours(23, 59, 59, 999) : undefined;
@@ -218,7 +144,7 @@ export function TransactionsClientPage({ cashierInfo }: TransactionsClientPagePr
     } finally {
       setLoading(false);
     }
-  }, [query, startDate, endDate, type, status, page, sortBy, sortOrder, limit, showMockData, mockTxs, customerIdParam]);
+  }, [query, startDate, endDate, type, status, page, sortBy, sortOrder, limit, customerIdParam]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -235,54 +161,7 @@ export function TransactionsClientPage({ cashierInfo }: TransactionsClientPagePr
     setVoidingId(txId);
     setError("");
 
-    if (showMockData) {
-      const targetIndex = mockTxs.findIndex(t => t.id === txId);
-      if (targetIndex !== -1) {
-        const target = mockTxs[targetIndex];
-        if (target.status === "VOIDED" || target.type === "VOID") {
-          setError("Bu işlem zaten iptal edilmiş.");
-          setVoidingId(null);
-          return;
-        }
 
-        const updated = [...mockTxs];
-        updated[targetIndex] = {
-          ...target,
-          status: "VOIDED"
-        };
-
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat("tr-TR", {
-          timeZone: "Europe/Istanbul",
-          dateStyle: "short",
-          timeStyle: "short",
-        });
-
-        const voidRecord: Transaction = {
-          id: `mock-void-${Date.now()}`,
-          organizationId: target.organizationId,
-          branchId: target.branchId,
-          customerId: target.customerId,
-          cashierId: target.cashierId,
-          type: "VOID",
-          amountSpent: target.amountSpent ? -target.amountSpent : null,
-          pointsAmount: -target.pointsAmount,
-          status: "SUCCESS",
-          parentTransactionId: target.id,
-          createdAtFormatted: formatter.format(now).replace(",", ""),
-          createdAt: now,
-          customerName: target.customerName,
-          customerPhone: target.customerPhone,
-          cashierName: target.cashierName,
-          cashierEmail: target.cashierEmail
-        };
-
-        updated.unshift(voidRecord);
-        setMockTxs(updated);
-      }
-      setVoidingId(null);
-      return;
-    }
 
     try {
       const res = await voidTransactionAction(txId);
@@ -344,11 +223,6 @@ export function TransactionsClientPage({ cashierInfo }: TransactionsClientPagePr
         showAddCustomer={false}
         setShowAddCustomer={() => { }}
         handleAddCustomer={async () => { }}
-        showSignOutOverlay={showSignOutOverlay}
-        signOutAction={signOut}
-        onSignOutCountdownComplete={() => {
-          router.push("/");
-        }}
       />
 
       {/* Ortak Navigasyon Header */}
@@ -356,10 +230,8 @@ export function TransactionsClientPage({ cashierInfo }: TransactionsClientPagePr
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         branchName={cashierInfo.branchName}
-        showMockData={showMockData}
-        setShowMockData={setShowMockData}
         clerkUser={clerkUser}
-        setShowSignOutOverlay={setShowSignOutOverlay}
+        signOut={() => signOut({ redirectUrl: "/" })}
       />
 
       {/* 📊 Ana Bölüm Grid */}

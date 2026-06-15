@@ -46,7 +46,7 @@ export async function getOrgMembers() {
   return await memberService.getOrgMembers();
 }
 
-export async function inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string }) {
+export async function inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string; phone: string }) {
   try {
     const result = await memberService.inviteEmployee(data);
     const { revalidatePath } = await import("next/cache");
@@ -184,87 +184,48 @@ export async function setActiveOrganization(orgId: string) {
   return { success: true };
 }
 
-export async function saveUsernameAction(prevState: unknown, formData: FormData) {
-  const { auth, clerkClient } = await import("@clerk/nextjs/server");
+export async function getTopCustomersAction() {
+  const { auth } = await import("@clerk/nextjs/server");
   const { userId } = await auth();
+  if (!userId) throw new Error("Oturum bulunamadı");
 
-  if (!userId) {
-    return { success: false, error: "Yetkisiz işlem. Oturum bulunamadı." };
+  const { db } = await import("@/db");
+  const { users, organizations, customers } = await import("@/db/schema");
+  const { eq, desc } = await import("drizzle-orm");
+
+  const boss = await db.select().from(users).where(eq(users.clerkId, userId)).get();
+  if (!boss || boss.role !== "BOSS") {
+    throw new Error("Sadece yetkili patronlar bu veriyi görebilir.");
   }
 
-  const usernameInput = formData.get("username") as string;
-  if (!usernameInput || usernameInput.trim() === "") {
-    return { success: false, error: "Kullanıcı adı boş bırakılamaz." };
-  }
+  const org = await db.select().from(organizations).where(eq(organizations.bossId, boss.id)).get();
+  if (!org) throw new Error("Organizasyon bulunamadı.");
 
-  const username = usernameInput.trim().toLowerCase();
+  const topCustomers = await db.select()
+    .from(customers)
+    .where(eq(customers.organizationId, org.id))
+    .orderBy(desc(customers.totalPoints))
+    .limit(3)
+    .all();
 
-  // Regex doğrulama: Sadece küçük harf, rakam, alt çizgi ve nokta. En az 3, en fazla 30 karakter.
-  const usernameRegex = /^[a-z0-9_.]+$/;
-  if (!usernameRegex.test(username)) {
-    return { success: false, error: "Kullanıcı adı sadece küçük harf, rakam, alt çizgi (_) ve nokta (.) içerebilir." };
-  }
+  const maskPhone = (phone: string) => {
+    const trimmed = phone.trim();
+    if (trimmed.length < 7) return trimmed;
+    return `${trimmed.slice(0, 4)} *** **${trimmed.slice(-2)}`;
+  };
 
-  if (username.length < 3 || username.length > 30) {
-    return { success: false, error: "Kullanıcı adı 3 ile 30 karakter arasında olmalıdır." };
-  }
-
-  try {
-    const client = await clerkClient();
-
-    // 1. Clerk üzerinde kullanıcıyı güncelle (Primary Source)
-    try {
-      await client.users.updateUser(userId, {
-        username: username,
-      });
-      console.log(`[SetupUsername] 🏆 Clerk username updated successfully for ${userId}`);
-    } catch (clerkErr) {
-      console.error(`[SetupUsername] ❌ Clerk username update failed:`, clerkErr);
-      
-      const clerkErrObj = clerkErr as { status?: number; errors?: Array<{ code?: string; message?: string }> };
-      const errCode = clerkErrObj.errors?.[0]?.code || "";
-      const errMsg = clerkErrObj.errors?.[0]?.message || "";
-      
-      if (errCode === "form_identifier_exists" || errMsg.includes("exists") || errMsg.includes("taken") || clerkErrObj.status === 422) {
-        return { 
-          success: false, 
-          error: "Bu kullanıcı adı dünyada başka bir işletme tarafından alınmış. Lütfen farklı bir ad deneyin." 
-        };
-      }
-      
-      return { 
-        success: false, 
-        error: errMsg || "Clerk üzerinde kullanıcı adı güncellenirken hata oluştu." 
-      };
-    }
-
-    // 2. Turso Veritabanını güncelle
-    const { db } = await import("@/db");
-    const { users } = await import("@/db/schema");
-    const { eq } = await import("drizzle-orm");
-
-    try {
-      await db.update(users)
-        .set({ username })
-        .where(eq(users.clerkId, userId));
-      console.log(`[SetupUsername] 🗄️ Turso DB users table updated successfully for clerkId: ${userId}`);
-    } catch (dbErr) {
-      console.error(`[SetupUsername] ❌ Turso DB update failed:`, dbErr);
-      return { success: false, error: "Kullanıcı adı kaydedildi fakat yerel veritabanı senkronizasyonunda hata oluştu." };
-    }
-
-    // 3. Cache temizle ve yönlendir
-    const { CACHE_TAGS, purgeCacheTag } = await import("@/lib/cache-registry");
-    const { revalidatePath } = await import("next/cache");
-
-    purgeCacheTag(CACHE_TAGS.userOwnership(userId));
-    revalidatePath("/boss-dashboard");
-    revalidatePath("/boss-dashboard", "layout");
-
-    return { success: true, error: "" };
-  } catch (err) {
-    console.error(`[SetupUsername] ❌ Global setup error:`, err);
-    return { success: false, error: "Beklenmedik bir hata oluştu. Lütfen tekrar deneyin." };
-  }
+  return topCustomers.map((c, index) => {
+    const earned = c.totalPoints;
+    const level = earned > 15000 ? "Platinum" : earned > 8000 ? "Gold" : "Silver";
+    return {
+      rank: index + 1,
+      name: c.name,
+      phone: maskPhone(c.phoneNumber),
+      earned,
+      spent: 0,
+      level
+    };
+  });
 }
+
 

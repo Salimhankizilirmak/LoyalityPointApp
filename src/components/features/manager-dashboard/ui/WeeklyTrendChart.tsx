@@ -3,15 +3,14 @@
 import React from "react";
 import { Calendar } from "lucide-react";
 import { Transaction } from "../types";
-import { MOCK_DAILY_VOLUMES } from "@/lib/constants/mock-data";
+
 
 interface WeeklyTrendChartProps {
   transactions: Transaction[];
   isDarkMode: boolean;
-  showMockData: boolean;
 }
 
-export function WeeklyTrendChart({ transactions, isDarkMode, showMockData }: WeeklyTrendChartProps) {
+export function WeeklyTrendChart({ transactions, isDarkMode }: WeeklyTrendChartProps) {
 
   // Son 7 günü hesapla
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -31,10 +30,10 @@ export function WeeklyTrendChart({ transactions, isDarkMode, showMockData }: Wee
     return baseVal;
   });
 
-  const dailyVolumes = showMockData ? MOCK_DAILY_VOLUMES : realDailyVolumes;
+  const dailyVolumes = realDailyVolumes;
 
-  // Mock toggle'ı kapalıysa ve gerçek veri olgun değilse neon-glassmorphic uyarı panelini render et
-  if (!showMockData && !isDataMature) {
+  // Gerçek veri olgun değilse neon-glassmorphic uyarı panelini render et
+  if (!isDataMature) {
     return (
       <div
         className={`rounded-3xl p-6 border transition-all duration-300 ${

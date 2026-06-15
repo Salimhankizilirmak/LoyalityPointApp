@@ -5,7 +5,6 @@ import { InviteModal } from "../ui/InviteModal";
 import { AddBranchModal } from "../ui/AddBranchModal";
 import { ChangeManagerModal } from "../ui/ChangeManagerModal";
 import { ReassignBranchModal } from "../ui/ReassignBranchModal";
-import { SignOutOverlay } from "@/components/dashboard/SignOutOverlay";
 import { BossProfileSettings } from "../ui/BossProfileSettings";
 import { Branch, Employee, BossInfo } from "../types";
 import { useRouter } from "next/navigation";
@@ -205,15 +204,6 @@ export function BossDashboardModals({
             </p>
           </motion.div>
         </motion.div>
-      )}
-
-      {/* ─── Çıkış Perdesi ────────────────────────────────────────────────── */}
-      {showSignOutOverlay && (
-        <SignOutOverlay
-          onCountdownComplete={async () => {
-            await signOut({ redirectUrl: "/" });
-          }}
-        />
       )}
     </AnimatePresence>
   );

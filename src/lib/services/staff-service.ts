@@ -1,4 +1,5 @@
 import { BaseService } from "./base-service";
+import { normalizePhoneToUsername, isValidTurkishPhone } from "@/lib/utils";
 import { users, staffProfiles, branches, organizations, userBranches } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 
@@ -88,7 +89,7 @@ export class StaffService extends BaseService {
     return [...activeMembers, ...pendingInvites.flat()];
   }
 
-  async inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string }) {
+  async inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string; phone: string }) {
     const session = await this.getSession();
 
     // Davet eden kullanıcının lokal veritabanındaki kaydını sorgula
@@ -132,86 +133,65 @@ export class StaffService extends BaseService {
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
+    // Telefon numarasını normalize et ve doğrula
+    const normalizedPhone = normalizePhoneToUsername(data.phone);
+    if (!isValidTurkishPhone(data.phone)) {
+      throw new Error("Geçersiz telefon numarası formatı");
+    }
+
     try {
-      const clerkInv = await client.organizations.createOrganizationInvitation({
-        organizationId: orgId,
-        emailAddress: data.email,
-        inviterUserId: session.userId!,
-        role: "org:member",
+      // ─── CLERK GLOBAL DAVET + NODEMAILER ─────────────────────────────────
+      // ignoreExisting: true ve skipEmailDelivery: true ile Clerk e-postası engellenip
+      // sadece davet kaydı ve link oluşturulur, gönderim Nodemailer ile yapılır.
+      const clerkInv = await client.invitations.createInvitation({
+        emailAddress: emailLower,
+        redirectUrl: `${appUrl}/sign-up`,
+        ignoreExisting: true,
+        // @ts-expect-error - skipEmailDelivery Clerk SDK tip dosyalarında eksik olabilir
+        skipEmailDelivery: true,
+        notify: false,
         publicMetadata: {
+          orgId: orgId,
           role: data.role,
           branch_id: targetBranch.id,
           branchName: data.branch,
           org_id: orgId,
+          phone: normalizedPhone,
         },
-        redirectUrl: `${appUrl}/dashboard`,
       });
+
+      if (!clerkInv.url) {
+        throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
+      }
 
       // Davetiyeyi yerel veritabanına ekle
       const { invitations: localInvitations } = await import("@/db/schema");
       await this.db.insert(localInvitations).values({
         clerkInviteId: clerkInv.id,
         email: emailLower,
+        phoneNumber: normalizedPhone,
         organizationId: orgId,
         branchId: targetBranch.id,
-        role: data.role.toUpperCase() as "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER",
+        role: data.role.toUpperCase() as "BOSS" | "MANAGER" | "CASHIER",
         status: "PENDING",
         invitedBy: dbUser.id,
       });
+
+      // Nodemailer servisimizi kullanarak daveti e-postayla gönderiyoruz
+      const { emailService } = await import("./email-service");
+      const { getEmployeeInvitationTemplate } = await import("@/lib/templates/email-templates");
+      const html = getEmployeeInvitationTemplate(clerkInv.url, data.role, data.branch);
+      await emailService.sendMail({
+        to: emailLower,
+        subject: `Loyalty - Personel Davetiyeniz (${data.role === "manager" ? "Şube Yöneticisi" : "Şube Kasiyeri"})`,
+        html,
+      });
+
+      return { success: true };
     } catch (err) {
-      const error = err as { code?: string; message?: string };
-      console.warn("[StaffService] Clerk organization invitation failed, trying global invitation with Nodemailer fallback:", error.message || error);
-      
-      const isEmailLimitError = 
-        error.code === "api_response_error" ||
-        error.message?.includes("limit") ||
-        error.message?.includes("mail") ||
-        error.message?.includes("ClerkAPIResponseError") ||
-        JSON.stringify(error).includes("limit");
-
-      if (isEmailLimitError) {
-        // E-posta gönderimini devre dışı bırakarak global davetiye oluşturuyoruz (kotaya takılmaz)
-        const clerkInv = await client.invitations.createInvitation({
-          emailAddress: emailLower,
-          redirectUrl: `${appUrl}/sign-up`,
-          ignoreExisting: true,
-          // @ts-expect-error - skipEmailDelivery Clerk SDK tip dosyalarında eksik olabilir
-          skipEmailDelivery: true,
-          notify: false,
-          publicMetadata: {
-            orgId: orgId,
-            role: data.role,
-            branch_id: targetBranch.id,
-            branchName: data.branch,
-            org_id: orgId,
-          },
-        });
-
-        if (!clerkInv.url) {
-          throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
-        }
-
-        // Davetiyeyi yerel veritabanına ekle
-        const { invitations: localInvitations } = await import("@/db/schema");
-        await this.db.insert(localInvitations).values({
-          clerkInviteId: clerkInv.id,
-          email: emailLower,
-          organizationId: orgId,
-          branchId: targetBranch.id,
-          role: data.role.toUpperCase() as "BOSS" | "MANAGER" | "CASHIER",
-          status: "PENDING",
-          invitedBy: dbUser.id,
-        });
-
-        // Nodemailer servisimizi kullanarak daveti e-postayla gönderiyoruz
-        const { emailService } = await import("./email-service");
-        await emailService.sendEmployeeInvitationEmail(emailLower, clerkInv.url, data.role, data.branch);
-      } else {
-        throw err;
-      }
+      console.error("[StaffService] Staff invitation failed:", err);
+      throw err;
     }
-
-    return { success: true };
   }
 
   async removeMember(memberId: string) {

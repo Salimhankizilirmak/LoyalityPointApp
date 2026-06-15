@@ -3,11 +3,13 @@ import * as schema from "@/db/schema";
 import { eq, sql, desc, or, lt, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { emailService } from "./email-service";
+import { getBossInvitationTemplate } from "@/lib/templates/email-templates";
+import { normalizePhoneToUsername, isValidTurkishPhone } from "@/lib/utils";
 
 const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches, invitations } = schema;
 
 export class AdminService extends BaseService {
-  async inviteBoss(companyName: string, bossEmail: string, appUrl: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message: string }> {
+  async inviteBoss(companyName: string, bossEmail: string, appUrl: string, bossPhone: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message: string }> {
     const { dbUser } = await this.requireRole(["SUPER_ADMIN"]);
 
     if (!companyName?.trim()) {
@@ -15,6 +17,12 @@ export class AdminService extends BaseService {
     }
     if (!bossEmail?.trim() || !bossEmail.includes("@")) {
       throw new Error("Geçerli bir e-posta adresi girilmelidir.");
+    }
+
+    // Telefon numarasını normalize et ve doğrula
+    const normalizedPhone = normalizePhoneToUsername(bossPhone);
+    if (!isValidTurkishPhone(bossPhone)) {
+      throw new Error("Geçersiz telefon numarası formatı");
     }
 
     const emailLower = bossEmail.trim().toLowerCase();
@@ -107,64 +115,43 @@ export class AdminService extends BaseService {
       });
       localOrgCreated = true;
 
-      try {
-        // ─── 1. BİRİNCİL MOTOR: CLERK ORGANİZASYON DAVETİ ──────────────────
-        // E-posta teslimatı tamamen Clerk'in kurumsal sunucuları tarafından otomatik üstlenilir.
-        const clerkOrgInv = await client.organizations.createOrganizationInvitation({
-          organizationId: clerkOrg.id,
-          emailAddress: emailLower,
-          role: "org:admin", // Boss, organizasyonun ana yöneticisi/sahibidir
-          publicMetadata: {
-            role: "boss",
-            orgId: clerkOrg.id,
-          },
-          redirectUrl: `${appUrl}/dashboard`,
-        });
-        
-        clerkInviteIdToSave = clerkOrgInv.id;
-        console.log(`[AdminService] 🏢 Boss invited successfully via primary Clerk Organization API to org: ${clerkOrg.id}`);
-      } catch (clerkErr: any) {
-        // Clerk kurumsal e-posta limit hatası veya kota kısıtlaması kontrolü
-        const isEmailLimitError = 
-          clerkErr?.errors?.some((e: any) => e.code === "resource_limit_exceeded" || e.message?.toLowerCase().includes("limit")) ||
-          clerkErr.message?.toLowerCase().includes("limit");
+      // ─── CLERK GLOBAL DAVET + NODEMAILER ─────────────────────────────────
+      // ignoreExisting: true ve skipEmailDelivery: true ile Clerk e-postası engellenip
+      // sadece davet kaydı ve link oluşturulur, gönderim Nodemailer ile yapılır.
+      const globalInv = await client.invitations.createInvitation({
+        emailAddress: emailLower,
+        redirectUrl: `${appUrl}/sign-up`,
+        ignoreExisting: true,
+        // @ts-expect-error - skipEmailDelivery Clerk SDK tiplerinde eksik olabilir
+        skipEmailDelivery: true,
+        notify: false,
+        publicMetadata: {
+          orgId: clerkOrg.id,
+          role: "boss",
+          phone: normalizedPhone,
+        },
+      });
 
-        if (!isEmailLimitError) {
-          throw clerkErr; // Limit dışındaki kritik hataları yukarı fırlat
-        }
-
-        // ─── 2. İSTİSNA / FALLBACK MOTORU: GLOBAL DAVET + NODEMAILER ──────
-        console.warn(`[AdminService] ⚠️ Clerk invitation limit reached. Activating NodeMailer protection shield for: ${emailLower}`);
-        
-        const globalInv = await client.invitations.createInvitation({
-          emailAddress: emailLower,
-          redirectUrl: `${appUrl}/sign-up`,
-          ignoreExisting: true,
-          // @ts-expect-error - skipEmailDelivery Clerk SDK tiplerinde eksik olabilir
-          skipEmailDelivery: true,
-          notify: false,
-          publicMetadata: {
-            orgId: clerkOrg.id,
-            role: "boss",
-          },
-        });
-
-        if (!globalInv.url) {
-          throw new Error("Fallback modunda Clerk davetiye bağlantısı oluşturamadı.");
-        }
-
-        clerkInviteIdToSave = globalInv.id;
-        invitedViaFallback = true;
-
-        // Yerel SMTP sunucusu (NodeMailer) koruma kalkanı olarak devreye girer
-        await emailService.sendBossInvitationEmail(emailLower, globalInv.url);
-        console.log(`[AdminService] 🛡️ Fallback NodeMailer invitation email delivered securely to: ${emailLower}`);
+      if (!globalInv.url) {
+        throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
       }
+
+      clerkInviteIdToSave = globalInv.id;
+      invitedViaFallback = true; // Rollback aşamasında revokeInvitation çağrılabilmesi için true set edilir.
+
+      // Yerel SMTP sunucusu (NodeMailer) koruma kalkanı olarak devreye girer
+      await emailService.sendMail({
+        to: emailLower,
+        subject: "Loyalty - Kurumsal Davetiyeniz",
+        html: getBossInvitationTemplate(globalInv.url),
+      });
+      console.log(`[AdminService] 🛡️ Nodemailer invitation email delivered securely to: ${emailLower}`);
 
       // ─── 3. YEREL VERİTABANI GÖLGE KAYDI ─────────────────────────────────
       await this.db.insert(invitations).values({
         clerkInviteId: clerkInviteIdToSave,
         email: emailLower,
+        phoneNumber: normalizedPhone,
         organizationId: clerkOrg.id,
         role: "BOSS",
         status: "PENDING",
@@ -569,6 +556,7 @@ export class AdminService extends BaseService {
       clerkInv = await client.invitations.createInvitation({
         emailAddress: emailLower,
         redirectUrl: `${appUrl}/sign-up`,
+        ignoreExisting: true,
         // @ts-expect-error - Clerk SDK
         skipEmailDelivery: true,
         notify: false,
@@ -582,7 +570,11 @@ export class AdminService extends BaseService {
         throw new Error("Clerk sahiplik devri davetiyesi bağlantısı oluşturamadı.");
       }
 
-      await emailService.sendBossInvitationEmail(emailLower, clerkInv.url);
+      await emailService.sendMail({
+        to: emailLower,
+        subject: "Loyalty - Kurumsal Davetiyeniz",
+        html: getBossInvitationTemplate(clerkInv.url),
+      });
 
       console.log(`[AdminService] 📩 Sahiplik Devri: Davetiye ${clerkInv.id} oluşturuldu ve ${emailLower} adresine gönderildi.`);
       

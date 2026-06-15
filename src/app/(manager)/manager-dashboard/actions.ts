@@ -49,7 +49,7 @@ export async function deleteCustomer(id: string) {
 
 import { managerService } from "@/lib/services/manager-service";
 import { db } from "@/db";
-import { users, invitations } from "@/db/schema";
+import { users, invitations, organizations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
@@ -71,6 +71,13 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
     }
     if (!email.includes("@")) {
       return { error: "Geçerli bir e-posta adresi giriniz." };
+    }
+
+    // Telefon normalize + doğrulama (server-side, tek gerçek kaynak)
+    const { normalizePhoneToUsername, isValidTurkishPhone } = await import("@/lib/utils");
+    const normalizedPhone = normalizePhoneToUsername(phone.trim());
+    if (!isValidTurkishPhone(phone.trim())) {
+      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
     }
 
     const { userId } = await auth();
@@ -112,6 +119,7 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
         role: "customer",
         branchId,
         orgId,
+        phone: normalizedPhone,
       },
       redirectUrl: `${appUrl}/sign-up`,
     });
@@ -119,7 +127,7 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
     await db.insert(invitations).values({
       clerkInviteId: invitation.id,
       email: email.trim().toLowerCase(),
-      phoneNumber: phone.trim(),
+      phoneNumber: normalizedPhone,
       organizationId: orgId,
       branchId,
       role: "CUSTOMER",
@@ -127,8 +135,33 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
       invitedBy: dbUserLocal.id,
     });
 
+    // Organizasyon bilgilerini dinamik olarak sorgula
+    const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+
+    if (org) {
+      const { emailService } = await import("@/lib/services/email-service");
+      const { getCustomerInvitationTemplate } = await import("@/lib/templates/email-templates");
+      const customerFullname = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const html = getCustomerInvitationTemplate(
+        email.trim().toLowerCase(),
+        customerFullname,
+        org.name
+      );
+      await emailService.sendMail({
+        to: email.trim().toLowerCase(),
+        subject: `${org.name} Sadakat Programı Daveti`,
+        html,
+      }).catch((err) => {
+        console.error("[EmailService] Yönetici davet e-postası gönderim hatası:", err);
+      });
+    }
+
     return { success: true };
   } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "";
+    if (msg.includes("Geçersiz telefon")) {
+      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
+    }
     return { error: (error instanceof Error ? error.message : "Kayıt hatası") };
   }
 }

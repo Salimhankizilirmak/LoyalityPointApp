@@ -2,7 +2,7 @@
 /** UX Auditor Hint: <label placeholder aria-label */
 
 import { motion } from "framer-motion";
-import { Sun, Moon, Database, ChevronDown, Check, Building } from "lucide-react";
+import { Sun, Moon, ChevronDown, Check, Building } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { UserMenu } from "@/components/ui/UserMenu";
 import { useState, useRef, useEffect } from "react";
@@ -15,8 +15,7 @@ interface BossHeaderProps {
   activeOrgId?: string;
   allOrgs?: { id: string; name: string }[];
   onSelectOrg?: (id: string) => void;
-  showMockData: boolean;
-  setShowMockData: (v: boolean) => void;
+
   isDarkMode: boolean;
   setIsDarkMode: (v: boolean) => void;
   activeTab: number;
@@ -31,8 +30,7 @@ export function BossHeader({
   activeOrgId,
   allOrgs,
   onSelectOrg,
-  showMockData,
-  setShowMockData,
+
   isDarkMode,
   setIsDarkMode,
   activeTab,
@@ -180,21 +178,7 @@ export function BossHeader({
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
-          {/* Mock Toggle */}
-          <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all ${isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"
-            }`}>
-            <Database size={12} className={showMockData ? "text-indigo-500" : "text-slate-400"} />
-            <button
-              onClick={() => setShowMockData(!showMockData)}
-              className="relative w-8 h-4 rounded-full transition-colors duration-200"
-              style={{ background: showMockData ? INDIGO : (isDarkMode ? "#334155" : "#e2e8f0") }}
-            >
-              <motion.div
-                animate={{ x: showMockData ? 16 : 2 }}
-                className="absolute top-1 w-2 h-2 rounded-full bg-white shadow-sm"
-              />
-            </button>
-          </div>
+
 
           {/* User Profile & Menu */}
           <UserMenu 

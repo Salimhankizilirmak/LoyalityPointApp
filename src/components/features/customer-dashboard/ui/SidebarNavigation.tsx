@@ -9,8 +9,7 @@ interface SidebarNavigationProps {
   userFullName: string;
   userEmail: string;
   userAvatar: string;
-  isMockData: boolean;
-  setIsMockData: (val: boolean) => void;
+
   isDarkMode: boolean;
   toggleTheme: () => void;
   signOut: () => Promise<void>;
@@ -23,8 +22,7 @@ export function SidebarNavigation({
   userFullName,
   userEmail,
   userAvatar,
-  isMockData,
-  setIsMockData,
+
   isDarkMode,
   toggleTheme,
   signOut,
@@ -102,20 +100,7 @@ export function SidebarNavigation({
 
       {/* Mock & Tema Kontrolleri */}
       <div className="pt-6 border-t border-slate-900/60 space-y-3">
-        {/* Mock Veri Toggle */}
-        <button
-          onClick={() => setIsMockData(!isMockData)}
-          className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 border cursor-pointer ${
-            isMockData 
-              ? "bg-cyan-950/20 border-cyan-500/30 text-cyan-400" 
-              : "bg-slate-900/40 border-transparent text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          <span>MOCK VERİLER</span>
-          <div className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 ${isMockData ? "bg-cyan-500" : "bg-slate-700"}`}>
-            <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 transform ${isMockData ? "translate-x-4" : "translate-x-0"}`} />
-          </div>
-        </button>
+
 
         {/* Tema Değiştirme Butonu */}
         <button

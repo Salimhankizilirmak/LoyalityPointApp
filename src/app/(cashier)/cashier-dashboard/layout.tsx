@@ -25,7 +25,6 @@ export default async function CashierLayout({ children }: CashierLayoutProps) {
 
   return (
     <CashierLayoutClient
-      username={dbUser?.username}
       isMultiBranch={ctx?.isMultiBranch}
       activeBranchId={ctx?.activeBranchId}
       allBranches={ctx?.allBranches}

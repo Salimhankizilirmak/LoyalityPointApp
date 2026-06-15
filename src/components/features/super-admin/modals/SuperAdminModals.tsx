@@ -4,7 +4,6 @@ import { AnimatePresence } from "framer-motion";
 import { InviteBossModal } from "./InviteBossModal";
 import { UpdateQuotaModal } from "./UpdateQuotaModal";
 import { AddOrgModal } from "./AddOrgModal";
-import { SignOutOverlay } from "@/components/dashboard/SignOutOverlay";
 import { Organization } from "../types";
 import { useRouter } from "next/navigation";
 
@@ -22,14 +21,13 @@ interface SuperAdminModalsProps {
     setEditingQuotaOrg: (org: Organization | null) => void;
     setShowSignOutOverlay: (show: boolean) => void;
     loadData: () => Promise<void>;
-    handleAddOrgMock: (form: { name: string; slug: string; email: string }) => void;
     signOut: (options?: { redirectUrl?: string }) => Promise<void>;
   };
 }
 
 export function SuperAdminModals({ state, actions }: SuperAdminModalsProps) {
   const { showInvite, showAddOrg, editingQuotaOrg, showSignOutOverlay, isDarkMode } = state;
-  const { setShowInvite, setShowAddOrg, setEditingQuotaOrg, loadData, handleAddOrgMock, signOut } = actions;
+  const { setShowInvite, setShowAddOrg, setEditingQuotaOrg, loadData, signOut } = actions;
   const router = useRouter();
 
   return (
@@ -45,7 +43,7 @@ export function SuperAdminModals({ state, actions }: SuperAdminModalsProps) {
       {showAddOrg && (
         <AddOrgModal
           onClose={() => setShowAddOrg(false)}
-          onAdd={handleAddOrgMock}
+          onAdd={() => {}}
           isDarkMode={isDarkMode}
         />
       )}
@@ -64,13 +62,6 @@ export function SuperAdminModals({ state, actions }: SuperAdminModalsProps) {
         />
       )}
 
-      {showSignOutOverlay && (
-        <SignOutOverlay
-          onCountdownComplete={async () => {
-            await signOut({ redirectUrl: "/" });
-          }}
-        />
-      )}
     </AnimatePresence>
   );
 }

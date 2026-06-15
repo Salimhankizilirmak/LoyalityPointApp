@@ -2,6 +2,7 @@
 /** UX Auditor Hint: <label placeholder aria-label */
 
 import { Award } from "lucide-react";
+import { useClerk } from "@clerk/nextjs";
 import { CustomerData } from "../hooks/useCustomerDashboard";
 
 interface ProfileSectionProps {
@@ -13,18 +14,15 @@ interface ProfileSectionProps {
     };
     pts: number;
   };
-  actions: {
-    setShowSignOutOverlay: (show: boolean) => void;
-  };
 }
 
 const BRAND = "#0891b2";
 const BRAND_LIGHT = "#ecfeff";
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 
-export function ProfileSection({ state, actions }: ProfileSectionProps) {
+export function ProfileSection({ state }: ProfileSectionProps) {
   const { customerData, tier, ti, pts } = state;
-  const { setShowSignOutOverlay } = actions;
+  const { signOut } = useClerk();
 
   return (
     <div className="space-y-4">
@@ -62,7 +60,7 @@ export function ProfileSection({ state, actions }: ProfileSectionProps) {
 
       {/* Sign Out Button */}
       <button 
-        onClick={() => setShowSignOutOverlay(true)} 
+        onClick={() => signOut({ redirectUrl: "/" })} 
         className="w-full py-3.5 rounded-2xl text-xs font-semibold text-center min-h-[44px] transition-all hover:scale-[1.01] active:scale-[0.99]"
         style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}
       >

@@ -53,7 +53,7 @@ export function AddOrgModal({ onClose, onAdd, isDarkMode = true }: AddOrgModalPr
             </div>
             <div>
               <h3 className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>Yeni Organizasyon</h3>
-              <p className="text-slate-500 text-[10px]">Tenant provisioning system</p>
+              <p className="text-slate-500 text-[10px]">İşletme Kurulum Sistemi</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 transition-colors">

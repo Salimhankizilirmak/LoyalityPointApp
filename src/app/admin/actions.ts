@@ -8,7 +8,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-export async function inviteBossAction(companyName: string, email: string): Promise<{ success: boolean; scenario?: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message?: string; error?: string }> {
+export async function inviteBossAction(companyName: string, email: string, phone: string): Promise<{ success: boolean; scenario?: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message?: string; error?: string }> {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -26,7 +26,7 @@ export async function inviteBossAction(companyName: string, email: string): Prom
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
-    const res = await adminService.inviteBoss(companyName, email, appUrl);
+    const res = await adminService.inviteBoss(companyName, email, appUrl, phone);
     if (res.success) {
       revalidatePath("/admin");
     }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { UserPlus, X, CheckCircle, AlertCircle, Mail, ShieldAlert } from "lucide-react";
+import { UserPlus, X, CheckCircle, AlertCircle, Mail, Phone, ShieldAlert } from "lucide-react";
 import { inviteEmployee } from "@/app/(boss)/boss-dashboard/actions";
 import { useUser } from "@clerk/nextjs";
 
@@ -21,7 +21,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   const { user } = useUser();
   const bossEmail = user?.primaryEmailAddress?.emailAddress;
 
-  const [form, setForm] = useState({ email: "", role: fixedRole || "manager", branch: "" });
+  const [form, setForm] = useState({ email: "", role: fixedRole || "manager", branch: "", phone: "" });
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +42,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   }, [error]);
 
   const targetBranchName = fixedRole === "cashier" && branches.length > 0 ? branches[0].name : form.branch;
-  const valid = form.email.includes("@") && !isForbidden && targetBranchName !== "";
+  const valid = form.email.includes("@") && !isForbidden && targetBranchName !== "" && form.phone.trim().length >= 10;
 
   const handleSend = async () => {
     if (!valid) return;
@@ -54,7 +54,8 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
         name: "",
         email: form.email,
         role: fixedRole || "manager",
-        branch: targetBranchName || "Atanmadı"
+        branch: targetBranchName || "Atanmadı",
+        phone: form.phone,
       });
       router.refresh();
       setSent(true);
@@ -161,6 +162,23 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                       }}
                       placeholder="eposta@adres.com"
                       className={`${inputClasses} pl-10 ${isForbidden ? "border-rose-500 bg-rose-500/5 focus:border-rose-500" : ""}`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClasses}>Telefon Numarası *</label>
+                  <div className="relative">
+                    <Phone size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                      placeholder="05XX XXX XX XX"
+                      maxLength={15}
+                      pattern="[0-9+\s()\-]*"
+                      required
+                      className={`${inputClasses} pl-10`}
                     />
                   </div>
                 </div>

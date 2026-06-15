@@ -338,6 +338,11 @@ Her yeni özellik eklenirken şu sorular yanıtlanmalıdır:
 | Telefon format farkı (`+90` vs `90`) | Mükerrer müşteri kaydı | syncCustomerData'da normalize et |
 | Super Admin daveti Clerk'te askıda, DB'de silindi | Mükerrer davet hatası | Davet öncesi Clerk'te aktif davet kontrolü |
 
+### 8.6 Açık TODO'lar
+
+- **Telefon→Username Otomasyonu Sonrası UX:** 
+  hasNoUsername artık nadiren true olmalı; eğer true ise (webhook gecikmesi durumunda) disable olan butonların yanına kısa bir "Hesabınız senkronize ediliyor, birkaç saniye bekleyin" tooltip/mesajı eklenebilir.
+
 ---
 
 ## 9. KOD KALİTESİ STANDARTLARI

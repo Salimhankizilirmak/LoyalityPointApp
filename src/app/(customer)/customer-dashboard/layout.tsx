@@ -24,7 +24,6 @@ export default async function CustomerLayout({ children }: CustomerLayoutProps) 
   // 2. Genişletilen CustomerLayoutClient bileşenine required prop'ları hatasız geçir
   return (
     <CustomerLayoutClient 
-      username={dbUser?.username}
       isAuthLoading={false}
       userFullName={userFullName}
     >

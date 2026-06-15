@@ -76,6 +76,13 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
       return { error: "Geçerli bir e-posta adresi giriniz." };
     }
 
+    // Telefon normalize + doğrulama (server-side, tek gerçek kaynak)
+    const { normalizePhoneToUsername, isValidTurkishPhone } = await import("@/lib/utils");
+    const normalizedPhone = normalizePhoneToUsername(phoneNumber.trim());
+    if (!isValidTurkishPhone(phoneNumber.trim())) {
+      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
+    }
+
     const { dbUser, branchId, orgId } = await resolveCashierContext();
     
     // Mükerrer davetiye kontrolü (Guard Clause)
@@ -104,6 +111,7 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
         role: "customer",
         branchId,
         orgId,
+        phone: normalizedPhone,
       },
       redirectUrl: `${appUrl}/sign-up`,
     });
@@ -112,7 +120,7 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
     await db.insert(invitations).values({
       clerkInviteId: invitation.id,
       email: email.trim().toLowerCase(),
-      phoneNumber: phoneNumber.trim(),
+      phoneNumber: normalizedPhone,
       organizationId: orgId,
       branchId,
       role: "CUSTOMER",
@@ -120,12 +128,38 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
       invitedBy: dbUser.id,
     });
 
+    // Organizasyon ve Şube bilgilerini dinamik olarak sorgula
+    const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    const branch = await db.select().from(branches).where(eq(branches.id, branchId)).get();
+
+    if (org) {
+      const { emailService } = await import("@/lib/services/email-service");
+      const { getCustomerInvitationTemplate } = await import("@/lib/templates/email-templates");
+      const html = getCustomerInvitationTemplate(
+        email.trim().toLowerCase(),
+        name.trim(),
+        org.name,
+        branch?.name
+      );
+      await emailService.sendMail({
+        to: email.trim().toLowerCase(),
+        subject: `${org.name} Sadakat Programı Daveti`,
+        html,
+      }).catch((err) => {
+        console.error("[EmailService] Kasiyer davet e-postası gönderim hatası:", err);
+      });
+    }
+
     const { revalidatePath } = await import("next/cache");
     revalidatePath("/cashier-dashboard");
 
     return { success: true };
   } catch (error: unknown) {
     console.error("[registerCustomerAction] Error:", error);
+    const msg = error instanceof Error ? error.message : "";
+    if (msg.includes("Geçersiz telefon")) {
+      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
+    }
     return { error: "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin." };
   }
 }
@@ -343,10 +377,10 @@ export async function burnPointsAction(customerId: string, pointsToBurn: number,
 /**
  * Şube aktif durumu denetimi (30 sn polling için).
  */
-export async function getBranchStatus() {
+export async function getBranchStatus(): Promise<{ isActive: boolean; isDeleted: boolean }> {
   try {
     const { userId } = await auth();
-    if (!userId) return { isDeleted: true };
+    if (!userId) return { isActive: false, isDeleted: true };
 
     const { staffProfiles } = await import("@/db/schema");
 
@@ -361,7 +395,7 @@ export async function getBranchStatus() {
 
     if (!staffProfile || !staffProfile.branchId) {
       console.error(`[getBranchStatus] ❌ No valid staff profile or branch assignment found for clerk user: ${userId}`);
-      return { isDeleted: true };
+      return { isActive: false, isDeleted: true };
     }
 
     // Sorgulamayı kesinlikle çerezden gelen veriyle değil, DB'deki gerçek şube ID'si ile yap
@@ -373,7 +407,7 @@ export async function getBranchStatus() {
     .where(eq(branches.id, staffProfile.branchId))
     .get();
 
-    if (!branch) return { isDeleted: true };
+    if (!branch) return { isActive: false, isDeleted: true };
 
     const org = await db.select({ isActive: organizations.isActive })
       .from(organizations)
@@ -393,7 +427,7 @@ export async function getBranchStatus() {
     };
   } catch (error) {
     console.error("[getBranchStatus Error]:", error);
-    return { isDeleted: true };
+    return { isActive: false, isDeleted: true };
   }
 }
 
@@ -662,90 +696,6 @@ export async function getFilteredTransactionsAction(filters: {
       success: false,
       error: "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin.",
     };
-  }
-}
-
-export async function saveCashierUsernameAction(prevState: unknown, formData: FormData) {
-  const { auth, clerkClient } = await import("@clerk/nextjs/server");
-  const { userId } = await auth();
-
-  if (!userId) {
-    return { success: false, error: "Yetkisiz işlem. Oturum bulunamadı." };
-  }
-
-  const usernameInput = formData.get("username") as string;
-  if (!usernameInput || usernameInput.trim() === "") {
-    return { success: false, error: "Kullanıcı adı boş bırakılamaz." };
-  }
-
-  const username = usernameInput.trim().toLowerCase();
-
-  // Regex doğrulama: Sadece küçük harf, rakam, alt çizgi ve nokta. En az 3, en fazla 30 karakter.
-  const usernameRegex = /^[a-z0-9_.]+$/;
-  if (!usernameRegex.test(username)) {
-    return { success: false, error: "Kullanıcı adı sadece küçük harf, rakam, alt çizgi (_) ve nokta (.) içerebilir." };
-  }
-
-  if (username.length < 3 || username.length > 30) {
-    return { success: false, error: "Kullanıcı adı 3 ile 30 karakter arasında olmalıdır." };
-  }
-
-  try {
-    const client = await clerkClient();
-
-    // 1. Clerk üzerinde kullanıcıyı güncelle (Primary Source)
-    try {
-      await client.users.updateUser(userId, {
-        username: username,
-      });
-      console.log(`[SetupUsernameCashier] 🏆 Clerk username updated successfully for ${userId}`);
-    } catch (clerkErr) {
-      console.error(`[SetupUsernameCashier] ❌ Clerk username update failed:`, clerkErr);
-      
-      const clerkErrObj = clerkErr as { status?: number; errors?: Array<{ code?: string; message?: string }> };
-      const errCode = clerkErrObj.errors?.[0]?.code || "";
-      const errMsg = clerkErrObj.errors?.[0]?.message || "";
-      
-      if (errCode === "form_identifier_exists" || errMsg.includes("exists") || errMsg.includes("taken") || clerkErrObj.status === 422) {
-        return { 
-          success: false, 
-          error: "Bu kullanıcı adı alınmıştır, başka bir ad deneyin." 
-        };
-      }
-      
-      return { 
-        success: false, 
-        error: "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin." 
-      };
-    }
-
-    // 2. Turso Veritabanını güncelle
-    const { db } = await import("@/db");
-    const { users } = await import("@/db/schema");
-    const { eq } = await import("drizzle-orm");
-
-    try {
-      await db.update(users)
-        .set({ username })
-        .where(eq(users.clerkId, userId));
-      console.log(`[SetupUsernameCashier] 🗄️ Turso DB users table updated successfully for clerkId: ${userId}`);
-    } catch (dbErr) {
-      console.error(`[SetupUsernameCashier] ❌ Turso DB update failed:`, dbErr);
-      return { success: false, error: "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin." };
-    }
-
-    // 3. Cache temizle ve yönlendir
-    const { CACHE_TAGS, purgeCacheTag } = await import("@/lib/cache-registry");
-    const { revalidatePath } = await import("next/cache");
-
-    purgeCacheTag(CACHE_TAGS.userOwnership(userId));
-    revalidatePath("/cashier-dashboard");
-    revalidatePath("/cashier-dashboard", "layout");
-
-    return { success: true, error: "" };
-  } catch (err) {
-    console.error(`[SetupUsernameCashier] ❌ Global setup error:`, err);
-    return { success: false, error: "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin." };
   }
 }
 

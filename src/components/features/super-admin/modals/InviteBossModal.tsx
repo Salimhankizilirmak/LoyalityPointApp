@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, X, CheckCircle, Send, AlertCircle, Building2 } from "lucide-react";
+import { Mail, Phone, X, CheckCircle, Send, AlertCircle, Building2 } from "lucide-react";
 import { inviteBossAction } from "@/app/admin/actions";
 
 interface InviteBossModalProps {
@@ -16,6 +16,7 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
   const router = useRouter();
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [successScenario, setSuccessScenario] = useState<"NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION" | null>(null);
@@ -32,11 +33,15 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
       setError("Lütfen geçerli bir e-posta adresi girin.");
       return;
     }
+    if (!phone.trim() || phone.trim().length < 10) {
+      setError("Lütfen geçerli bir telefon numarası girin.");
+      return;
+    }
 
     setSending(true);
     setError("");
     
-    const result = await inviteBossAction(companyName, email);
+    const result = await inviteBossAction(companyName, email, phone);
     
     if (result && result.success) {
       router.refresh();
@@ -141,6 +146,30 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="ornek@sirket.com"
+                    required
+                    className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${
+                      isDarkMode 
+                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900" 
+                        : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="bossPhone" className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Patron Telefon Numarası *
+                </label>
+                <div className="relative">
+                  <Phone size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
+                  <input 
+                    id="bossPhone"
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="05XX XXX XX XX"
+                    maxLength={15}
+                    pattern="[0-9+\s()\-]*"
                     required
                     className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${
                       isDarkMode 

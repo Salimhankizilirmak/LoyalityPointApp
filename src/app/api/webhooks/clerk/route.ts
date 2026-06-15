@@ -71,7 +71,6 @@ export async function POST(req: Request) {
 
     console.log(`[ClerkWebhook] 👤 New user created event details: ClerkId=${clerkId}, Email=${email}, Username=${username}, MetadataRole=${role}, Name=${name}, ImageUrl=${imageUrl}`);
 
-    // ─── 🛡️ KURŞUN GEÇİRMEZ BOSS TESPİTİ ───────────────────────────────────
     // Global invitation'dan gelen publicMetadata Clerk tarafından user'a
     // otomatik kopyalanmaz. Bu nedenle role boş gelse bile, Turso DB'de
     // üçlü koşulla (bossEmail + PENDING + bossId IS NULL) eşleştirme yapıyoruz.
@@ -121,10 +120,10 @@ export async function POST(req: Request) {
             name,
             imageUrl,
           })
-          .onConflictDoUpdate({
-            target: users.clerkId,
-            set: { role: "BOSS", name, email, username, imageUrl },
-          });
+            .onConflictDoUpdate({
+              target: users.clerkId,
+              set: { role: "BOSS", name, email, username, imageUrl },
+            });
 
           const dbUser = (await tx.select().from(users).where(eq(users.clerkId, clerkId)).get())!;
           console.log(`[ClerkWebhook] 👤 BOSS upserted in local DB: ${dbUser.id}`);
@@ -204,6 +203,18 @@ export async function POST(req: Request) {
               console.error(`[ClerkWebhook] ⚠️ Failed to create Clerk org membership in background:`, membershipErr);
             }
           }
+          // 3c. Phone → Username otomatik set
+          // DB transaction commit sonrası yapılır — hata webhook'u bozmaz.
+          const phoneForUsername = (data.public_metadata?.phone as string) || "";
+          if (phoneForUsername && /^90[0-9]{10}$/.test(phoneForUsername)) {
+            try {
+              await client.users.updateUser(clerkId, { username: phoneForUsername });
+              console.log(`[ClerkWebhook] 📱 Username set to phone number for BOSS ${clerkId}: ${phoneForUsername}`);
+            } catch (usernameErr: unknown) {
+              // unique constraint veya başka hata — sessizce logla, webhook'u patlatma
+              console.warn(`[ClerkWebhook] ⚠️ Could not set username (phone) for BOSS ${clerkId}:`, usernameErr instanceof Error ? usernameErr.message : usernameErr);
+            }
+          }
         })();
 
         return NextResponse.json({ success: true, message: "BOSS synced and organization linked." });
@@ -213,6 +224,24 @@ export async function POST(req: Request) {
       }
     } else {
       console.log(`[ClerkWebhook] ℹ️ User is not BOSS (role="${role || "none"}"), skipping org bind.`);
+    }
+
+    // ─── Non-BOSS kullanıcılar için Phone → Username otomatik set ─────────────
+    // BOSS için yukarıdaki void bloğunda yapıldı. Burası CUSTOMER / CASHIER / MANAGER için.
+    // DB sync organizationMembership.created'da gerçekleştiğinden, sadece username'i set ediyoruz.
+    if (role !== "boss") {
+      const phoneForUsername = (data.public_metadata?.phone as string) || "";
+      if (phoneForUsername && /^90[0-9]{10}$/.test(phoneForUsername)) {
+        void (async () => {
+          try {
+            const client = await clerkClient();
+            await client.users.updateUser(clerkId, { username: phoneForUsername });
+            console.log(`[ClerkWebhook] 📱 Username set to phone number for ${role || "user"} ${clerkId}: ${phoneForUsername}`);
+          } catch (usernameErr: unknown) {
+            console.warn(`[ClerkWebhook] ⚠️ Could not set username (phone) for ${clerkId}:`, usernameErr instanceof Error ? usernameErr.message : usernameErr);
+          }
+        })();
+      }
     }
   }
 
@@ -249,13 +278,13 @@ export async function POST(req: Request) {
     const clerkUserId = anyData.public_user_data?.user_id as string;
     const email = (anyData.public_user_data?.identifier?.toLowerCase() || "") as string;
     const orgId = anyData.organization?.id as string;
-    
+
     const metadata = anyData.public_metadata || {};
     const orgRole = (anyData as Record<string, unknown>).role as string || "";
     const isBossMember = orgRole === "org:admin" || orgRole === "admin" || metadata.role === "boss";
 
     const targetBranchIds = metadata.targetBranchIds as string[];
-    
+
     const rawPublicUser = (anyData.public_user_data as Record<string, unknown>) || {};
     const rawData = (anyData as Record<string, unknown>) || {};
 
@@ -264,10 +293,10 @@ export async function POST(req: Request) {
     const name = `${firstName} ${lastName}`.trim();
     const imageUrl = (rawPublicUser.image_url as string) || (rawData.image_url as string) || null;
 
-    const hasNameInPayload = 
-      rawPublicUser.first_name !== undefined || 
+    const hasNameInPayload =
+      rawPublicUser.first_name !== undefined ||
       rawPublicUser.last_name !== undefined ||
-      rawData.first_name !== undefined || 
+      rawData.first_name !== undefined ||
       rawData.last_name !== undefined;
 
     const username = anyData.public_user_data?.username || null;
@@ -286,17 +315,17 @@ export async function POST(req: Request) {
             name: name || null,
             imageUrl,
           })
-          .onConflictDoUpdate({
-            target: users.clerkId,
-            set: {
-              role: "BOSS",
-              name: name || null,
-              email: email,
-              username: username,
-              imageUrl,
-            }
-          });
-          
+            .onConflictDoUpdate({
+              target: users.clerkId,
+              set: {
+                role: "BOSS",
+                name: name || null,
+                email: email,
+                username: username,
+                imageUrl,
+              }
+            });
+
           const dbUser = (await tx.select().from(users).where(eq(users.clerkId, clerkUserId)).get())!;
           console.log(`[ClerkWebhook] 👤 Created/Updated local BOSS user via membership event: ${dbUser.id}`);
 
@@ -363,14 +392,14 @@ export async function POST(req: Request) {
     if (clerkUserId && staffRole && (staffRole === "MANAGER" || staffRole === "CASHIER")) {
       try {
         let dbUserId = "";
-        
+
         // 1. Local User Upsert
         await db.transaction(async (tx) => {
           const updateFields: { role: "CASHIER" | "MANAGER"; name?: string | null; email: string; username?: string | null; imageUrl?: string | null } = { role: staffRole, email, username, imageUrl };
           if (hasNameInPayload) {
             updateFields.name = name || null;
           }
-          
+
           await tx.insert(users).values({
             clerkId: clerkUserId,
             email: email,
@@ -379,11 +408,11 @@ export async function POST(req: Request) {
             name: name || null,
             imageUrl,
           })
-          .onConflictDoUpdate({
-            target: users.clerkId,
-            set: updateFields
-          });
-          
+            .onConflictDoUpdate({
+              target: users.clerkId,
+              set: updateFields
+            });
+
           const dbUser = (await tx.select().from(users).where(eq(users.clerkId, clerkUserId)).get())!;
           console.log(`[ClerkWebhook] 👤 Created/Updated local staff user: ${dbUser.id}`);
           dbUserId = dbUser.id;
@@ -393,7 +422,7 @@ export async function POST(req: Request) {
         if (dbUserId && targetBranchIds && targetBranchIds.length > 0) {
           const { staffService } = await import("@/lib/services/staff-service");
           const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-          
+
           if (org && org.bossId) {
             await staffService.assignStaffToBranches(org.bossId, org.id, dbUserId, targetBranchIds);
             console.log(`[ClerkWebhook] ⛓️ Staff assigned to branches successfully.`);
@@ -430,7 +459,7 @@ export async function POST(req: Request) {
               )
             )
           ).returning();
-          
+
           console.log(`[ClerkWebhook] 🧹 Cleared ${deletedJunctions.length} branch assignments for user ${dbUser.id} in org ${orgId}`);
 
           // Ghost Staff Prevention
@@ -458,8 +487,8 @@ export async function POST(req: Request) {
   }
 
   if (
-    type === "invitation.revoked" || 
-    type === "organizationInvitation.revoked" || 
+    type === "invitation.revoked" ||
+    type === "organizationInvitation.revoked" ||
     type === "organizationInvitation.expired"
   ) {
     const invitationId = data.id;

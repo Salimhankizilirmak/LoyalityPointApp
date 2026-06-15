@@ -68,7 +68,7 @@ export function OrgTable({ orgs, onToggle, onEditQuota }: OrgTableProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-5 border-b border-white/5">
         <div>
           <h2 className="text-sm font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">Organizasyon Yönetimi</h2>
-          <p className="text-slate-500 text-xs mt-0.5">{orgs.length} tenant kayıtlı</p>
+          <p className="text-slate-500 text-xs mt-0.5">{orgs.length} İşletme Kayıtlı</p>
         </div>
         <div className="relative">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />

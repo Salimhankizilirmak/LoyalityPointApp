@@ -2,7 +2,6 @@
 
 import { AnimatePresence } from "framer-motion";
 import { InviteModal } from "@/components/features/boss-dashboard/ui/InviteModal";
-import { SignOutOverlay } from "@/components/dashboard/SignOutOverlay";
 import { useRouter } from "next/navigation";
 
 import { AddCustomerModal } from "./AddCustomerModal";
@@ -53,13 +52,6 @@ export function ManagerDashboardModals({
           branches={branchInfo ? [{ id: branchInfo.id, name: branchInfo.name }] : []} 
           isDarkMode={isDarkMode}
           fixedRole="cashier"
-        />
-      )}
-      {showSignOutOverlay && (
-        <SignOutOverlay
-          onCountdownComplete={async () => {
-            await signOut({ redirectUrl: "/" });
-          }}
         />
       )}
       {showAddCustomer && (

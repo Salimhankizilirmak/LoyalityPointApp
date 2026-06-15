@@ -5,11 +5,10 @@ import { GlassPanel } from "@/components/ui/GlassPanel";
 import { getRecentBranchTransactionsAction, voidTransactionAction } from "@/app/(cashier)/cashier-dashboard/actions";
 import { History, RefreshCw, Star, Gift, Clock, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { MOCK_TRANSACTIONS } from "@/lib/constants/mock-data";
+
 
 interface RecentTransactionsProps {
   refreshTrigger?: number;
-  showMockData?: boolean;
 }
 
 export interface RecentTxRow {
@@ -29,7 +28,7 @@ export interface RecentTxRow {
   parentTransactionId?: string | null;
 }
 
-export function RecentTransactions({ refreshTrigger, showMockData }: RecentTransactionsProps) {
+export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) {
   const [transactions, setTransactions] = useState<Array<RecentTxRow>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -39,14 +38,7 @@ export function RecentTransactions({ refreshTrigger, showMockData }: RecentTrans
   const loadTransactions = useCallback(async () => {
     setLoading(true);
     setError("");
-    if (showMockData) {
-      // Client-side pagination of mock data (5 per page)
-      const start = (page - 1) * 5;
-      const end = start + 5;
-      setTransactions(MOCK_TRANSACTIONS.slice(start, end));
-      setLoading(false);
-      return;
-    }
+
     try {
       const res = await getRecentBranchTransactionsAction(5, page);
       if (res.success && res.transactions) {
@@ -59,7 +51,7 @@ export function RecentTransactions({ refreshTrigger, showMockData }: RecentTrans
     } finally {
       setLoading(false);
     }
-  }, [showMockData, page]);
+  }, [page]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

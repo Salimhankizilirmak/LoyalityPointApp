@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import {
   getBossProfile,
@@ -15,9 +15,9 @@ import {
   setActiveOrganization,
   reassignManager
 } from "@/app/(boss)/boss-dashboard/actions";
-import { Branch, Employee, BossInfo } from "../types";
+import { Branch, Employee, BossInfo, TopCustomer } from "../types";
 import { Customer } from "@/components/features/manager-dashboard/types";
-import { MOCK_BRANCHES, MOCK_CUSTOMERS, ENABLE_MOCK_DATA } from "@/lib/constants/mock-data";
+import { getTopCustomersAction } from "@/app/(boss)/boss-dashboard/actions";
 import { getInvitationsAction } from "@/app/actions/invitation-actions";
 
 interface InvitationItem {
@@ -29,25 +29,52 @@ interface InvitationItem {
   branchName?: string | null;
 }
 
-export function useBossDashboard() {
-  const [showMockData, setShowMockData] = useState(ENABLE_MOCK_DATA);
+export function useBossDashboard(initialData?: any) {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
 
   // Real Data State
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [branches, setBranches] = useState<Branch[]>(() => {
+    if (initialData?.branchesList) {
+      return (initialData.branchesList as any[]).map(b => ({
+        id: b.id,
+        name: b.name,
+        city: b.city || "Atanmadı",
+        manager: "Atanmadı",
+        transactions: 0,
+        earnedPts: 0,
+        spentPts: 0,
+        status: b.isActive ? "active" : "passive"
+      }));
+    }
+    return [];
+  });
+  const [employees, setEmployees] = useState<Employee[]>(() => (initialData?.members || []) as Employee[]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [bossInfo, setBossInfo] = useState<BossInfo | null>(null);
-  const [allOrgs, setAllOrgs] = useState<{ id: string; name: string }[]>([]);
-  const [activeOrgId, setActiveOrgId] = useState<string>("");
+  const [topCustomers, setTopCustomers] = useState<TopCustomer[]>(() => initialData?.topCustomers || []);
+  const [bossInfo, setBossInfo] = useState<BossInfo | null>(() => {
+    if (initialData?.profile) {
+      const { user: profileUser, org } = initialData.profile;
+      return {
+        name: `${profileUser.firstName || ""} ${profileUser.lastName || ""}`.trim(),
+        email: profileUser.email,
+        orgName: org?.name || "Yükleniyor...",
+        branchLimit: org?.branchLimit || 2,
+        currentBranches: org?.currentBranches || 0,
+        username: profileUser.username || null,
+      };
+    }
+    return null;
+  });
+  const [allOrgs, setAllOrgs] = useState<{ id: string; name: string }[]>(() => initialData?.profile?.allOrgs || []);
+  const [activeOrgId, setActiveOrgId] = useState<string>(() => initialData?.profile?.org?.id || "");
 
   // Settings State
-  const [pointRate, setPointRate] = useState(10);
-  const [validityMonths, setValidityMonths] = useState(12);
+  const [pointRate, setPointRate] = useState(() => initialData?.profile?.org?.pointRate ?? 10);
+  const [validityMonths, setValidityMonths] = useState(() => initialData?.profile?.org?.validityMonths ?? 12);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
+  const [invitations, setInvitations] = useState<InvitationItem[]>(() => initialData?.invitations || []);
 
   // Loading and Error States
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -71,14 +98,16 @@ export function useBossDashboard() {
 
   const refreshData = useCallback(async () => {
     try {
-      const [profile, emps, dbBranches, invitesList] = await Promise.all([
+      const [profile, emps, dbBranches, invitesList, topCusts] = await Promise.all([
         getBossProfile(),
         getOrgMembers(),
         getBranches(),
-        getInvitationsAction()
+        getInvitationsAction(),
+        getTopCustomersAction()
       ]);
 
       setInvitations(invitesList);
+      setTopCustomers(topCusts);
 
       setBossInfo({
         name: `${profile.user.firstName || ""} ${profile.user.lastName || ""}`.trim(),
@@ -116,10 +145,17 @@ export function useBossDashboard() {
     }
   }, []);
 
+  const hasInitialData = !!(initialData?.profile && initialData?.members && initialData?.branchesList);
+  const isFirstMount = useRef(true);
+
   useEffect(() => {
     let active = true;
     const loadData = async () => {
       if (user && active) {
+        if (hasInitialData && isFirstMount.current) {
+          isFirstMount.current = false;
+          return;
+        }
         await refreshData();
       }
     };
@@ -127,7 +163,7 @@ export function useBossDashboard() {
     return () => {
       active = false;
     };
-  }, [user, refreshData]);
+  }, [user, refreshData, hasInitialData]);
 
   // Error clearing effect (moved from page.tsx)
   useEffect(() => {
@@ -151,9 +187,9 @@ export function useBossDashboard() {
   const isQuotaLimitReached = bossInfo ? realBranchesCount >= (bossInfo.branchLimit || 2) : false;
   const hasNoUsername = !bossInfo?.username || bossInfo.username.trim() === "";
 
-  const displayBranches = showMockData ? [...MOCK_BRANCHES, ...branches] : branches;
+  const displayBranches = branches;
   const displayEmployees = employees;
-  const displayCustomers = showMockData ? [...MOCK_CUSTOMERS, ...customers] : customers;
+  const displayCustomers = customers;
 
   const totalEarned = displayBranches.reduce((s, b) => s + b.earnedPts, 0);
   const totalSpent = displayBranches.reduce((s, b) => s + b.spentPts, 0);
@@ -283,12 +319,12 @@ export function useBossDashboard() {
 
   return {
     state: {
-      showMockData,
       isDarkMode,
       activeTab,
       displayBranches,
       displayEmployees,
       displayCustomers,
+      topCustomers,
       bossInfo,
       allOrgs,
       activeOrgId,
@@ -321,7 +357,6 @@ export function useBossDashboard() {
       toggleAction
     },
     actions: {
-      setShowMockData,
       setIsDarkMode,
       setActiveTab,
       setError,

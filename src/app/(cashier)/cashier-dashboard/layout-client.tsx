@@ -2,12 +2,11 @@
 
 import { useState, ReactNode } from "react";
 import { BranchSelector, type BranchOption } from "@/components/ui/BranchSelector";
-import UsernameWarningBanner from "@/components/ui/UsernameWarningBanner";
+
 import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
 
 interface CashierLayoutClientProps {
   children: ReactNode;
-  username?: string | null;
   isMultiBranch?: boolean;
   activeBranchId?: string | null;
   allBranches?: BranchOption[];
@@ -15,7 +14,6 @@ interface CashierLayoutClientProps {
 
 export function CashierLayoutClient({
   children,
-  username,
   isMultiBranch,
   activeBranchId,
   allBranches,
@@ -32,9 +30,7 @@ export function CashierLayoutClient({
           />
         </div>
       )}
-      <UsernameWarningBanner
-        username={username}
-      />
+
       {children}
       <ProfileSettingsModal
         isOpen={showProfileSettings}

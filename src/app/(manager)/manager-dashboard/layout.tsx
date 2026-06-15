@@ -23,7 +23,6 @@ export default async function ManagerLayout({ children }: ManagerLayoutProps) {
 
   return (
     <ManagerLayoutClient
-      username={dbUser?.username}
       isMultiBranch={ctx?.isMultiBranch}
       activeBranchId={ctx?.activeBranchId}
       allBranches={ctx?.allBranches}

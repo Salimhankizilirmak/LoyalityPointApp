@@ -27,7 +27,7 @@ export function SystemHealth({ bars, infra }: SystemHealthProps) {
       <div>
         <div className="flex items-center gap-2 mb-6">
           <Activity size={16} className="text-cyan-500" />
-          <h2 className="text-white font-bold text-xs uppercase tracking-widest">Sistem Sağlık</h2>
+          <h2 className="text-white font-bold text-xs uppercase tracking-widest">Sistem Sağlığı</h2>
         </div>
         <div className="space-y-4">
           {bars.map((m, i) => (

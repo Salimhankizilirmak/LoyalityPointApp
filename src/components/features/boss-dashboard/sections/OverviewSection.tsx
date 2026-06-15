@@ -1,13 +1,13 @@
 "use client";
 // UX Audit: placeholder
 
-import { Branch, BossInfo, Employee } from "../types";
+import { Branch, BossInfo, Employee, TopCustomer } from "../types";
 import { QuotaProgressBar } from "./QuotaProgressBar";
-import { AnalyticsBanner } from "./AnalyticsBanner";
+// import { AnalyticsBanner } from "./AnalyticsBanner";
 import { BossOverviewStats } from "../ui/BossOverviewStats";
 import { LeaderboardCards } from "../ui/LeaderboardCards";
 import { BranchPerformanceSection } from "./BranchPerformanceSection";
-import { MOCK_TOP_CUSTOMERS } from "@/lib/constants/mock-data";
+
 
 interface OverviewSectionProps {
   bossInfo: BossInfo;
@@ -25,6 +25,7 @@ interface OverviewSectionProps {
   setEditingBranch: (branch: Branch | null) => void;
   setShowAddBranch: (show: boolean) => void;
   setError: (error: string | null) => void;
+  topCustomers: TopCustomer[];
 }
 
 export function OverviewSection({
@@ -42,7 +43,8 @@ export function OverviewSection({
   handleToggleBranchStatus,
   setEditingBranch,
   setShowAddBranch,
-  setError
+  setError,
+  topCustomers
 }: OverviewSectionProps) {
   return (
     <div className="space-y-8">
@@ -55,7 +57,7 @@ export function OverviewSection({
         employeeCount={displayEmployees.length}
       />
       <LeaderboardCards
-        topCustomers={MOCK_TOP_CUSTOMERS}
+        topCustomers={topCustomers}
         topBranches={displayBranches}
         onViewAllCustomers={() => setActiveTab(3)}
         onViewAllBranches={() => setActiveTab(1)}

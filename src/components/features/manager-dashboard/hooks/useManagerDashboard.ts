@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { 
   getManagerProfile, 
@@ -40,17 +40,45 @@ function useDebounce<T>(value: T, delay: number = 300): T {
   return debouncedValue;
 }
 
-export function useManagerDashboard() {
+export function useManagerDashboard(initialData?: any) {
   const [activeTab, setActiveTab] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [showMockData, setShowMockData] = useState(false);
   
   // Real Data State
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [cashiers, setCashiers] = useState<Employee[]>([]);
-  const [branchInfo, setBranchInfo] = useState<{id: string, name: string, orgId: string} | null>(null);
-  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    if (initialData?.transactions) {
+      return (initialData.transactions as any[]).map(t => ({
+        id: t.id,
+        customer: `${t.customerFirstName || ""} ${t.customerLastName || ""}`.trim() || "Bilinmeyen Müşteri",
+        type: t.transactionType === "void" ? "void" : (t.transactionType === "earn" ? "earned" : t.transactionType === "spend" ? "spent" : "new"),
+        pts: t.amount,
+        amount: t.amount * 2, // Mock ciro hesabı
+        cashier: "Kasiyer",
+        time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--",
+        status: t.status,
+        parentTransactionId: t.parentTransactionId
+      }));
+    }
+    return [];
+  });
+  const [customers, setCustomers] = useState<Customer[]>(() => (initialData?.customers || []) as Customer[]);
+  const [cashiers, setCashiers] = useState<Employee[]>(() => {
+    if (initialData?.members) {
+      return (initialData.members as Employee[]).filter(e => e.role === "cashier");
+    }
+    return [];
+  });
+  const [branchInfo, setBranchInfo] = useState<{id: string, name: string, orgId: string} | null>(() => {
+    if (initialData?.profile) {
+      return { 
+        id: initialData.profile?.branchId || "", 
+        name: initialData.profile?.branchName || "Yükleniyor...", 
+        orgId: initialData.profile?.orgId || "" 
+      };
+    }
+    return null;
+  });
+  const [invitations, setInvitations] = useState<InvitationItem[]>(() => initialData?.invitations || []);
   
   // Loading and Error States
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -106,11 +134,19 @@ export function useManagerDashboard() {
     }
   }, [debouncedCustomerSearch]);
 
+  const hasInitialData = !!(initialData?.profile && initialData?.transactions);
+  const isFirstMount = useRef(true);
+  const isFirstSearch = useRef(true);
+
   // Fetch data only once user context is loaded
   useEffect(() => {
     let active = true;
     const load = async () => {
       if (user && active) {
+        if (hasInitialData && isFirstMount.current) {
+          isFirstMount.current = false;
+          return;
+        }
         await refreshData();
       }
     };
@@ -118,13 +154,17 @@ export function useManagerDashboard() {
     return () => {
       active = false;
     };
-  }, [user, refreshData]);
+  }, [user, refreshData, hasInitialData]);
 
   // Debounced Search Trigger (Protects DB by skipping redundant queries)
   useEffect(() => {
     let active = true;
     const loadCustomers = async () => {
       if (user) {
+        if (hasInitialData && isFirstSearch.current && debouncedCustomerSearch === "") {
+          isFirstSearch.current = false;
+          return;
+        }
         try {
           const custs = await getCustomers(debouncedCustomerSearch);
           if (active) {
@@ -139,7 +179,7 @@ export function useManagerDashboard() {
     return () => {
       active = false;
     };
-  }, [debouncedCustomerSearch, user]);
+  }, [debouncedCustomerSearch, user, hasInitialData]);
 
   // Actions
   const handleRemoveCashier = async (id: string) => {
@@ -259,8 +299,6 @@ export function useManagerDashboard() {
     setActiveTab,
     isDarkMode,
     setIsDarkMode,
-    showMockData,
-    setShowMockData,
     transactions: filteredTransactions,
     rawTransactions: transactions,
     customers: filteredCustomers,

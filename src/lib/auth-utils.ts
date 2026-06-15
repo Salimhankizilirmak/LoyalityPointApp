@@ -225,6 +225,8 @@ export async function getDashboardRedirectPath(
           userId: dbUser.id,
           orgId: targetOrgId,
           currentPoints: 0,
+          kvkkStatus: true,
+          kvkkAcceptedAt: Date.now(),
         }).onConflictDoNothing();
 
         // 2. Eğer davet kaydı varsa, customers tablosuna telefon numarası ve isim ile asıl kaydı oluştur

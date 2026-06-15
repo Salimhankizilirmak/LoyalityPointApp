@@ -9,7 +9,6 @@ import { ArrowRight, QrCode, Star, TrendingUp, ShieldCheck, Download } from "luc
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLoadingScreen } from "@/components/dashboard/DashboardLoadingScreen";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -48,7 +47,7 @@ export default function LandingContent() {
   };
 
   if (!isLoaded || (isLoaded && userId)) {
-    return <DashboardLoadingScreen />;
+    return <div className="min-h-screen bg-neutral-950" />;
   }
 
   return (

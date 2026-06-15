@@ -3,8 +3,18 @@ import { db } from "@/db";
 import { staffProfiles, branches } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import CashierDashboardPage from "./client-page";
+import { getBranchStatus } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+async function safeFetch<T>(promise: Promise<T>): Promise<T | null> {
+  try {
+    return await promise;
+  } catch (error) {
+    console.error("[CashierDashboard Server Sync Error]:", error);
+    return null;
+  }
+}
 
 export default async function Page() {
   const dbUser = await checkLayoutGuard();
@@ -29,6 +39,8 @@ export default async function Page() {
     }
   }
 
+  const branchStatusRes = await safeFetch(getBranchStatus());
+
   return (
     <CashierDashboardPage
       dbUser={{
@@ -36,6 +48,7 @@ export default async function Page() {
         email: dbUser?.email || "",
         branchName,
       }}
+      initialBranchStatus={branchStatusRes}
     />
   );
 }

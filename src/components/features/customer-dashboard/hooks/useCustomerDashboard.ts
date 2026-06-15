@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useClerk, useUser, useOrganization } from "@clerk/nextjs";
 import { syncCustomerData, getCustomerLedgerTransactionsAction } from "@/app/(customer)/customer-dashboard/actions";
-import { MOCK_CUSTOMER_DATA, MOCK_LEDGER_TRANSACTIONS } from "@/lib/constants/mock-data";
+
 
 export interface LedgerTransaction {
   id: string;
@@ -38,11 +38,14 @@ export interface CustomerData {
   clerkId: string;
 }
 
-export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
+export function useCustomerDashboard(
+  initialCustomerData: CustomerData | null,
+  initialLedgerTransactions?: LedgerTransaction[]
+) {
   const [activeTab, setActiveTab] = useState<"cuzdan" | "islemler" | "profil">("cuzdan");
   const [customerData, setCustomerData] = useState<CustomerData | null>(initialCustomerData);
-  const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>([]);
-  const [loading, setLoading] = useState(!initialCustomerData);
+  const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>(initialLedgerTransactions || []);
+  const [loading, setLoading] = useState(!(initialCustomerData && initialLedgerTransactions));
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
 
@@ -53,9 +56,6 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
   // Sayfalama State'i
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6; // Üçlü grid için 6 kart
-
-  // Mock Veri State'i
-  const [isMockData, setIsMockData] = useState(false);
 
   // Tema Yönetimi
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -137,6 +137,9 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
     }
   };
 
+  const hasInitialData = !!(initialCustomerData && initialLedgerTransactions);
+  const isFirstMount = useRef(true);
+
   useEffect(() => {
     async function loadData() {
       if (isCancelled.current) return;
@@ -161,7 +164,14 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
         }
       }
     }
-    loadData();
+
+    if (hasInitialData && isFirstMount.current) {
+      isFirstMount.current = false;
+      setLoading(false);
+    } else {
+      loadData();
+    }
+
     // 30 saniyede bir canlı ledger verilerini güncelle
     const pollInterval = setInterval(loadLedgerData, 30000);
     pollIntervalRef.current = pollInterval;
@@ -169,7 +179,7 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       clearInterval(pollInterval);
       pollIntervalRef.current = null;
     };
-  }, [customerData]);
+  }, [customerData, hasInitialData]);
 
   // Tema Geçiş Fonksiyonu
   const toggleTheme = () => {
@@ -188,10 +198,10 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
   };
 
 
-  // Aktif Veri Seçimi (Mock vs Gerçek)
-  const activeCustomerData = isMockData ? MOCK_CUSTOMER_DATA : customerData;
-  const activeLedgerTransactions = isMockData ? MOCK_LEDGER_TRANSACTIONS : ledgerTransactions;
-  const pts = activeCustomerData ? Math.floor(activeCustomerData.currentPoints / 100) : 450;
+  // Aktif Veri Seçimi
+  const activeCustomerData = customerData;
+  const activeLedgerTransactions = ledgerTransactions;
+  const pts = activeCustomerData ? Math.floor(activeCustomerData.currentPoints / 100) : 0;
 
   // Sayfalama Hesaplaması
   const totalPages = Math.ceil(activeLedgerTransactions.length / pageSize) || 1;
@@ -237,7 +247,6 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       organization,
       qrToken,
       timeLeft,
-      isMockData,
       isDarkMode
     },
     actions: {
@@ -248,7 +257,6 @@ export function useCustomerDashboard(initialCustomerData: CustomerData | null) {
       signOut,
       setCustomerData,
       refreshLedger: loadLedgerData,
-      setIsMockData,
       toggleTheme
     }
   };

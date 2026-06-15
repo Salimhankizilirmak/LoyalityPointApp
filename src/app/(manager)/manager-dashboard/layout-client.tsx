@@ -3,12 +3,11 @@
 import { useState, ReactNode } from "react";
 import { BranchSelector } from "@/components/ui/BranchSelector";
 import { type BranchOption } from "@/lib/branch-context";
-import UsernameWarningBanner from "@/components/ui/UsernameWarningBanner";
+
 import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
 
 interface ManagerLayoutClientProps {
   children: ReactNode;
-  username?: string | null;
   isMultiBranch?: boolean;
   activeBranchId?: string | null;
   allBranches?: BranchOption[];
@@ -16,7 +15,6 @@ interface ManagerLayoutClientProps {
 
 export function ManagerLayoutClient({
   children,
-  username,
   isMultiBranch,
   activeBranchId,
   allBranches,
@@ -33,9 +31,7 @@ export function ManagerLayoutClient({
           />
         </div>
       )}
-      <UsernameWarningBanner
-        username={username}
-      />
+
       {children}
       <ProfileSettingsModal
         isOpen={showProfileSettings}
