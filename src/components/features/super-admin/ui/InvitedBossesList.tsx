@@ -87,12 +87,12 @@ export function InvitedBossesList({ bosses, isDarkMode, onRevoke }: InvitedBosse
       </div>
  
       <div className="space-y-3">
-        {bosses.length === 0 ? (
+        {bosses.filter(boss => boss.status === "pending").length === 0 ? (
           <div className="py-8 text-center">
             <p className="text-slate-500 text-xs">Henüz davet edilen patron bulunmuyor.</p>
           </div>
         ) : (
-          bosses.map((boss, i) => {
+          bosses.filter(boss => boss.status === "pending").map((boss, i) => {
             const badge = getStatusBadge(boss.status);
             const iconInfo = getStatusIcon(boss.status);
             return (

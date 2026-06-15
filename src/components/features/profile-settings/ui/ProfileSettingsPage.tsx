@@ -69,10 +69,6 @@ export function ProfileSettingsPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Page Header */}
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-px h-4 bg-indigo-500" />
-          <span className="text-indigo-400 text-xs font-semibold uppercase tracking-widest font-mono">Hesap Yönetimi</span>
-        </div>
         <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
           Profil Ayarları
         </h1>
@@ -99,12 +95,12 @@ export function ProfileSettingsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Side: Avatar Panel */}
         <GlassPanel className="p-6 flex flex-col items-center justify-center text-center gap-6" elevated>
-          <AvatarUpload 
-            user={user} 
-            onUpload={uploadAvatar} 
-            isUploading={isUploading} 
+          <AvatarUpload
+            user={user}
+            onUpload={uploadAvatar}
+            isUploading={isUploading}
           />
-          
+
           <div className="border-t border-slate-700/20 dark:border-white/10 pt-4 w-full space-y-2">
             <h3 className="font-bold text-sm text-slate-800 dark:text-white truncate">
               {displayName}
@@ -131,7 +127,7 @@ export function ProfileSettingsPage() {
             </div>
           </div>
 
-           <ProfileSettingsForm
+          <ProfileSettingsForm
             initialFirstName={firstName}
             initialLastName={lastName}
             initialUsername={username}
