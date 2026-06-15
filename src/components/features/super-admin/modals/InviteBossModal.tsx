@@ -169,7 +169,7 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                     onChange={e => setPhone(e.target.value)}
                     placeholder="05XX XXX XX XX"
                     maxLength={15}
-                    pattern="[0-9+\s()\-]*"
+                    pattern="[0-9+\s() -]*"
                     required
                     className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${
                       isDarkMode 
