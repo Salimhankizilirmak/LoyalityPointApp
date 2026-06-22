@@ -6,6 +6,26 @@ import { users, organizations, branches, userBranches, invitations } from "@/db/
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 
+function formatToTurkishPhone(rawPhone: string): string | null {
+  const digits = rawPhone.replace(/\D/g, "");
+  if (digits.startsWith("90") && digits.length === 12) {
+    return "0" + digits.slice(2);
+  }
+  if (digits.startsWith("5") && digits.length === 10) {
+    return "0" + digits;
+  }
+  if (digits.startsWith("05") && digits.length === 11) {
+    return digits;
+  }
+  if (digits.length >= 10) {
+    const last10 = digits.slice(-10);
+    if (last10.startsWith("5")) {
+      return "0" + last10;
+    }
+  }
+  return null;
+}
+
 type ClerkPayload = {
   type: string;
   data: {
@@ -71,20 +91,43 @@ export async function POST(req: Request) {
     const metadata = data.public_metadata as { phone?: string; role?: string } | undefined;
     let finalUsername = "";
 
-    if (metadata?.phone) {
-      const normalizedUsername = metadata.phone.replace(/[^0-9]/g, "");
-      if (normalizedUsername) {
+    // 1. E-posta adresine göre invitations tablosunda ara
+    let invitationPhone = "";
+    if (email) {
+      try {
+        const inviteRecord = await db.select()
+          .from(invitations)
+          .where(eq(invitations.email, email.trim().toLowerCase()))
+          .get();
+        if (inviteRecord?.phoneNumber) {
+          invitationPhone = inviteRecord.phoneNumber;
+          console.log(`[ClerkWebhook] 📞 Found phone number in invitations table: ${invitationPhone}`);
+        }
+      } catch (dbErr) {
+        console.error("[ClerkWebhook] Failed to query invitations table for phone:", dbErr);
+      }
+    }
+
+    // Telefon numarası önceliği: Davet tablosundan gelen veya metadata'dan gelen
+    const phoneToUse = invitationPhone || metadata?.phone;
+
+    if (phoneToUse) {
+      const formattedPhone = formatToTurkishPhone(phoneToUse);
+      if (formattedPhone) {
         try {
           const client = await clerkClient();
           await client.users.updateUser(clerkId, {
-            username: normalizedUsername,
+            username: formattedPhone,
           });
-          finalUsername = normalizedUsername;
-          console.log(`[ClerkWebhook] 📱 Clerk username successfully updated to phone: ${normalizedUsername}`);
+          finalUsername = formattedPhone;
+          console.log(`[ClerkWebhook] 📱 Clerk username successfully updated to phone: ${formattedPhone}`);
         } catch (clerkUpdateErr) {
           console.error("[ClerkWebhook] Clerk phone username update failed, using email fallback:", clerkUpdateErr);
           finalUsername = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
         }
+      } else {
+        console.warn(`[ClerkWebhook] ⚠️ Phone number '${phoneToUse}' could not be formatted, falling back.`);
+        finalUsername = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
       }
     } else if (data.username) {
       finalUsername = data.username;
@@ -138,17 +181,22 @@ export async function POST(req: Request) {
         // 🔄 BOSS + Askıdaki Organizasyon Atomik Bağlama (Transaction)
         await db.transaction(async (tx) => {
           // 1. Yerel DB'ye BOSS olarak yaz / güncelle
+          const bossUpdateSet: Record<string, unknown> = { role: "BOSS", name, email, imageUrl };
+          if (username && username.trim() !== "") {
+            bossUpdateSet.username = username;
+          }
+
           await tx.insert(users).values({
             clerkId,
             email,
-            username,
+            username: username || email.split("@")[0].replace(/[^a-zA-Z0-9]/g, ""),
             role: "BOSS",
             name,
             imageUrl,
           })
             .onConflictDoUpdate({
               target: users.clerkId,
-              set: { role: "BOSS", name, email, username, imageUrl },
+              set: bossUpdateSet,
             });
 
           const dbUser = (await tx.select().from(users).where(eq(users.clerkId, clerkId)).get())!;
@@ -258,13 +306,16 @@ export async function POST(req: Request) {
     // Sadece kullanıcı yerel veritabanında zaten varsa güncelle (yoksa insert etmek tutarsızlığa yol açabilir)
     const existingUser = await db.select().from(users).where(eq(users.clerkId, clerkId)).get();
     if (existingUser) {
+      const updateFields: Record<string, unknown> = {
+        email,
+        name,
+        imageUrl,
+      };
+      if (username && username.trim() !== "") {
+        updateFields.username = username;
+      }
       await db.update(users)
-        .set({
-          email,
-          name,
-          username,
-          imageUrl,
-        })
+        .set(updateFields)
         .where(eq(users.clerkId, clerkId));
       console.log(`[ClerkWebhook] 👤 Updated local user details for ClerkId=${clerkId}`);
     } else {
@@ -306,23 +357,27 @@ export async function POST(req: Request) {
       try {
         await db.transaction(async (tx) => {
           // 1. Yerel veritabanında kullanıcıyı BOSS olarak kaydet / güncelle
+          const bossUpdateSet: Record<string, unknown> = {
+            role: "BOSS",
+            name: name || null,
+            email: email,
+            imageUrl,
+          };
+          if (username && username.trim() !== "") {
+            bossUpdateSet.username = username;
+          }
+
           await tx.insert(users).values({
             clerkId: clerkUserId,
             email: email,
-            username: username,
+            username: username || email.split("@")[0].replace(/[^a-zA-Z0-9]/g, ""),
             role: "BOSS",
             name: name || null,
             imageUrl,
           })
             .onConflictDoUpdate({
               target: users.clerkId,
-              set: {
-                role: "BOSS",
-                name: name || null,
-                email: email,
-                username: username,
-                imageUrl,
-              }
+              set: bossUpdateSet,
             });
 
           const dbUser = (await tx.select().from(users).where(eq(users.clerkId, clerkUserId)).get())!;
@@ -394,15 +449,18 @@ export async function POST(req: Request) {
 
         // 1. Local User Upsert
         await db.transaction(async (tx) => {
-          const updateFields: { role: "CASHIER" | "MANAGER"; name?: string | null; email: string; username?: string | null; imageUrl?: string | null } = { role: staffRole, email, username, imageUrl };
+          const updateFields: Record<string, unknown> = { role: staffRole, email, imageUrl };
           if (hasNameInPayload) {
             updateFields.name = name || null;
+          }
+          if (username && username.trim() !== "") {
+            updateFields.username = username;
           }
 
           await tx.insert(users).values({
             clerkId: clerkUserId,
             email: email,
-            username,
+            username: username || email.split("@")[0].replace(/[^a-zA-Z0-9]/g, ""),
             role: staffRole,
             name: name || null,
             imageUrl,
