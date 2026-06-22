@@ -122,8 +122,8 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                     placeholder="Ör. Novexistech Teknoloji"
                     required
                     className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode
-                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
-                        : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
+                      ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
+                      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
                       }`}
                   />
                 </div>
@@ -140,11 +140,11 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="ornek@sirket.com"
+                    placeholder="novexitech@gmail.com"
                     required
                     className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode
-                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
-                        : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
+                      ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
+                      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
                       }`}
                   />
                 </div>
@@ -164,10 +164,11 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                     placeholder="05XX XXX XX XX"
                     maxLength={15}
                     pattern="[0-9+\s() -]*"
+
                     required
                     className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode
-                        ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
-                        : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
+                      ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
+                      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
                       }`}
                   />
                 </div>
@@ -183,8 +184,8 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                 type="submit"
                 disabled={sending}
                 className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all min-h-[44px] ${!sending
-                    ? "bg-cyan-600 shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] hover:bg-cyan-500"
-                    : "bg-slate-300 cursor-not-allowed opacity-50"
+                  ? "bg-cyan-600 shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] hover:bg-cyan-500"
+                  : "bg-slate-300 cursor-not-allowed opacity-50"
                   }`}
               >
                 {sending ? "Tanımlama Yapılıyor..." : "Patron ve Şirket Tanımla"}

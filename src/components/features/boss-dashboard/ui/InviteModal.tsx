@@ -68,8 +68,8 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   };
 
   const inputClasses = `w-full px-4 py-3 rounded-2xl text-sm border outline-none transition-all ${isDarkMode
-      ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500 focus:bg-slate-900"
-      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-400 focus:bg-white"
+    ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500 focus:bg-slate-900"
+    : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-400 focus:bg-white"
     }`;
 
   const labelClasses = `text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"
@@ -176,7 +176,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                       onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                       placeholder="05XX XXX XX XX"
                       maxLength={15}
-                      pattern="[0-9+\s()\-]*"
+                      pattern="[0-9+\s() -]*"
                       required
                       className={`${inputClasses} pl-10`}
                     />
@@ -212,8 +212,8 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                 disabled={!valid || sending}
                 onClick={handleSend}
                 className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all ${valid && !sending
-                    ? "bg-blue-600 shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] hover:bg-blue-500"
-                    : "bg-slate-300 cursor-not-allowed opacity-50"
+                  ? "bg-blue-600 shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] hover:bg-blue-500"
+                  : "bg-slate-300 cursor-not-allowed opacity-50"
                   }`}
               >
                 {sending ? (
