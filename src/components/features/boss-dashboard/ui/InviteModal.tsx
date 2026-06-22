@@ -44,23 +44,33 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   const targetBranchName = fixedRole === "cashier" && branches.length > 0 ? branches[0].name : form.branch;
   const valid = form.email.includes("@") && !isForbidden && targetBranchName !== "" && form.phone.trim().length >= 10;
 
-  const handleSend = async () => {
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!valid) return;
     setSending(true);
     setError("");
 
+    console.log("📨 [InviteEmployeeForm] E-posta davet isteği başlatılıyor...", {
+      email: form.email,
+      role: fixedRole || "manager",
+      branch: targetBranchName,
+      phone: form.phone,
+    });
+
     try {
-      await inviteEmployee({
+      const res = await inviteEmployee({
         name: "",
         email: form.email,
         role: fixedRole || "manager",
         branch: targetBranchName || "Atanmadı",
         phone: form.phone,
       });
+      console.log("📨 [InviteEmployeeForm] E-posta davet isteği tamamlandı. Sonuç:", res);
       router.refresh();
       setSent(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Davet gönderilemedi";
+      console.error("❌ [InviteEmployeeForm] E-posta davet isteği hatası:", message);
       setError(message);
     } finally {
       setSending(false);
@@ -113,7 +123,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                 }`}>Kapat</button>
             </div>
           ) : (
-            <div className="space-y-5">
+            <form onSubmit={handleSend} className="space-y-5">
               {showForbiddenWarning && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -176,7 +186,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                       onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                       placeholder="05XX XXX XX XX"
                       maxLength={15}
-                      pattern="[0-9+\s() -]*"
+                      pattern="[0-9+\s()\-]*"
                       required
                       className={`${inputClasses} pl-10`}
                     />
@@ -209,8 +219,8 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
               </div>
 
               <button
+                type="submit"
                 disabled={!valid || sending}
-                onClick={handleSend}
                 className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all ${valid && !sending
                   ? "bg-blue-600 shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] hover:bg-blue-500"
                   : "bg-slate-300 cursor-not-allowed opacity-50"
@@ -223,7 +233,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                   </div>
                 ) : "Daveti Tamamla"}
               </button>
-            </div>
+            </form>
           )}
         </div>
       </motion.div>

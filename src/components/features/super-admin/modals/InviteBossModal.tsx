@@ -41,7 +41,9 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
     setSending(true);
     setError("");
 
+    console.log("📨 [InviteBossForm] E-posta davet isteği başlatılıyor...", { companyName, email, phone });
     const result = await inviteBossAction(companyName, email, phone);
+    console.log("📨 [InviteBossForm] E-posta davet isteği tamamlandı. Sonuç:", result);
 
     if (result && result.success) {
       router.refresh();
@@ -163,8 +165,7 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                     onChange={e => setPhone(e.target.value)}
                     placeholder="05XX XXX XX XX"
                     maxLength={15}
-                    pattern="[0-9+\s() -]*"
-
+                    pattern="[0-9+\s()\-]*"
                     required
                     className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode
                       ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
