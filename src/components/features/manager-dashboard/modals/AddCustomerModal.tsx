@@ -113,11 +113,10 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
                     type="tel"
                     value={form.phone} onChange={e => handlePhoneChange(e.target.value)}
                     placeholder="05xx xxx xx xx"
-                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${
-                      form.phone.length > 0 && !isPhoneValid 
-                        ? "border-rose-500 bg-rose-500/5 focus:border-rose-500" 
+                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${form.phone.length > 0 && !isPhoneValid
+                        ? "border-rose-500 bg-rose-500/5 focus:border-rose-500"
                         : isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
-                    }`}
+                      }`}
                   />
                 </div>
                 {form.phone.length > 0 && !isPhoneValid && (
@@ -137,7 +136,7 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
                     required
                     type="email"
                     value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="ornek@musteri.com"
+                    placeholder="novexitech@gmail.com"
                     className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
                       }`}
                   />

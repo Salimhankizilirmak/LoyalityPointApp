@@ -35,21 +35,18 @@ export function InviteCustomerCard({
     }
   };
 
-  const cardClass = `h-full backdrop-blur-md transition-colors duration-300 rounded-3xl p-4 relative overflow-hidden shadow-xl border flex flex-col justify-between ${
-    isDarkMode
+  const cardClass = `h-full backdrop-blur-md transition-colors duration-300 rounded-3xl p-4 relative overflow-hidden shadow-xl border flex flex-col justify-between ${isDarkMode
       ? "bg-slate-900/60 border-indigo-500/10"
       : "bg-white border-slate-200/85"
-  }`;
+    }`;
 
-  const inputClass = `w-full px-3 py-2 border rounded-xl text-xs font-mono outline-none transition-all min-h-[36px] ${
-    isDarkMode
+  const inputClass = `w-full px-3 py-2 border rounded-xl text-xs font-mono outline-none transition-all min-h-[36px] ${isDarkMode
       ? "bg-[#09090b]/80 border-white/10 text-white placeholder-slate-600 focus:border-cyan-500 focus:shadow-[0_0_12px_rgba(6,182,212,0.15)]"
       : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-500"
-  }`;
+    }`;
 
-  const labelClass = `block text-[10px] font-black uppercase tracking-widest mb-1.5 ml-0.5 ${
-    isDarkMode ? "text-slate-500" : "text-slate-600"
-  }`;
+  const labelClass = `block text-[10px] font-black uppercase tracking-widest mb-1.5 ml-0.5 ${isDarkMode ? "text-slate-500" : "text-slate-600"
+    }`;
 
   return (
     <div className={cardClass}>
@@ -122,14 +119,13 @@ export function InviteCustomerCard({
               type="email"
               value={form.email}
               onChange={(e) => setField("email", e.target.value)}
-              placeholder="ornek@email.com"
-              className={`${inputClass} ${
-                form.email.length > 0 && !isEmailValid
+              placeholder="novexitech@gmail.com"
+              className={`${inputClass} ${form.email.length > 0 && !isEmailValid
                   ? isDarkMode
                     ? "border-rose-500/50"
                     : "border-rose-400"
                   : ""
-              }`}
+                }`}
               autoComplete="email"
             />
           </div>
@@ -143,13 +139,12 @@ export function InviteCustomerCard({
           whileTap={isFormValid && !submitting ? { scale: 0.98 } : {}}
           onClick={onSubmit}
           disabled={!isFormValid || submitting}
-          className={`w-full py-2.5 rounded-xl font-bold text-xs text-white transition-all min-h-[38px] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-            isFormValid && !submitting
+          className={`w-full py-2.5 rounded-xl font-bold text-xs text-white transition-all min-h-[38px] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isFormValid && !submitting
               ? "bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 shadow-[0_4px_20px_rgba(8,145,178,0.2)]"
               : isDarkMode
-              ? "bg-slate-800 text-slate-500 border border-white/5"
-              : "bg-slate-200 text-slate-400 border border-slate-300"
-          }`}
+                ? "bg-slate-800 text-slate-500 border border-white/5"
+                : "bg-slate-200 text-slate-400 border border-slate-300"
+            }`}
         >
           {submitting ? (
             <>

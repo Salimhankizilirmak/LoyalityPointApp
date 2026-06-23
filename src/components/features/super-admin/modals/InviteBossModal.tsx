@@ -42,20 +42,27 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
     setError("");
 
     console.log("📨 [InviteBossForm] E-posta davet isteği başlatılıyor...", { companyName, email, phone });
-    const result = await inviteBossAction(companyName, email, phone);
-    console.log("📨 [InviteBossForm] E-posta davet isteği tamamlandı. Sonuç:", result);
+    try {
+      const result = await inviteBossAction(companyName, email, phone);
+      console.log("📨 [InviteBossForm] E-posta davet isteği tamamlandı. Sonuç:", result);
 
-    if (result && result.success) {
-      router.refresh();
-      setSuccessScenario(result.scenario || "NEW_BOSS");
-      setSuccessMessage(result.message || "");
-      setSent(true);
-      if (onSuccess) {
-        onSuccess();
+      if (result && result.success) {
+        router.refresh();
+        setSuccessScenario(result.scenario || "NEW_BOSS");
+        setSuccessMessage(result.message || "");
+        setSent(true);
+        if (onSuccess) {
+          onSuccess();
+        }
+      } else {
+        setError(result.error || "Bir hata oluştu.");
+        setSending(false);
       }
-    } else {
-      setError(result.error || "Bir hata oluştu.");
+    } catch (err: unknown) {
+      console.error("❌ [InviteBossForm] Beklenmedik hata yakalandı:", err);
+      setError(err instanceof Error ? err.message : "Beklenmedik bir hata oluştu.");
       setSending(false);
+      throw err;
     }
   };
 

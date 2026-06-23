@@ -30,7 +30,6 @@ export function ManagerProfile({ user, isDarkMode }: ManagerProfileProps) {
           </div>
           <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-slate-900/50 border-slate-700" : "bg-slate-50 border-slate-100"}`}>
             <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Şube</p>
-            <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-800"}`}>İstanbul Cevahir AVM</p>
           </div>
         </div>
       </div>

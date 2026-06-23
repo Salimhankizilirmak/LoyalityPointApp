@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function inviteBossAction(companyName: string, email: string, phone: string): Promise<{ success: boolean; scenario?: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message?: string; error?: string }> {
+  console.log("⚙️ [Server Action]: inviteBossAction tetiklendi, parametreler:", { companyName, email, phone });
   try {
     const { userId } = await auth();
     if (!userId) {

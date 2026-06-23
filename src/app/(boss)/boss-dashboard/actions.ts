@@ -47,6 +47,7 @@ export async function getOrgMembers() {
 }
 
 export async function inviteEmployee(data: { name: string; email: string; role: "manager" | "cashier"; branch: string; org_id?: string; phone: string }) {
+  console.log("⚙️ [Server Action]: inviteEmployee tetiklendi, parametreler:", data);
   try {
     const result = await memberService.inviteEmployee(data);
     const { revalidatePath } = await import("next/cache");

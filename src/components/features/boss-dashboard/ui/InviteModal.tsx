@@ -70,8 +70,9 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
       setSent(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Davet gönderilemedi";
-      console.error("❌ [InviteEmployeeForm] E-posta davet isteği hatası:", message);
+      console.error("❌ [InviteEmployeeForm] E-posta davet isteği hatası:", message, err);
       setError(message);
+      throw err;
     } finally {
       setSending(false);
     }
