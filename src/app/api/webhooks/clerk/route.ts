@@ -200,16 +200,21 @@ export async function POST(req: Request) {
     }
 
     // 6. Clerk tarafındaki profilin de senkronize olmasını sağla
-    if (finalUsername) {
+    if (finalUsername && /^05[0-9]{9}$/.test(finalUsername)) {
       try {
-        const client = await clerkClient();
-        await client.users.updateUser(clerkId, {
+        const clerkUpdateClient = await clerkClient();
+        await clerkUpdateClient.users.updateUser(clerkId, {
           username: finalUsername,
         });
-        console.log(`[ClerkWebhook] 📱 Clerk username successfully updated to phone: ${finalUsername}`);
-      } catch (clerkUpdateErr) {
-        console.error("[ClerkWebhook] Clerk phone username update failed:", clerkUpdateErr);
+        console.log(`[ClerkWebhook] ✅ Clerk username set: ${finalUsername} for ${clerkId}`);
+      } catch (clerkErr: unknown) {
+        const errMsg = clerkErr instanceof Error 
+          ? clerkErr.message 
+          : JSON.stringify(clerkErr);
+        console.error(`[ClerkWebhook] ❌ Clerk updateUser FAILED for ${clerkId}: ${errMsg}`);
       }
+    } else {
+      console.warn(`[ClerkWebhook] ⚠️ Username format geçersiz veya boş, Clerk güncellenmedi: "${finalUsername}"`);
     }
 
     if (role === "boss") {
