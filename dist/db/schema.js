@@ -47,6 +47,8 @@ exports.customerProfiles = (0, sqlite_core_1.sqliteTable)("customer_profiles", {
     orgId: (0, sqlite_core_1.text)("org_id").notNull().references(() => exports.organizations.id, { onDelete: "cascade" }),
     currentPoints: (0, sqlite_core_1.integer)("current_points").default(0).notNull(),
     createdAt: (0, sqlite_core_1.integer)("created_at", { mode: "timestamp" }).default((0, drizzle_orm_1.sql) `(strftime('%s', 'now'))`),
+    kvkkStatus: (0, sqlite_core_1.integer)("kvkk_status", { mode: "boolean" }).notNull().default(false),
+    kvkkAcceptedAt: (0, sqlite_core_1.integer)("kvkk_accepted_at"),
 });
 exports.pointsTransactions = (0, sqlite_core_1.sqliteTable)("points_transactions", {
     id: (0, sqlite_core_1.text)("id").$defaultFn(() => (0, cuid2_1.createId)()).primaryKey(),

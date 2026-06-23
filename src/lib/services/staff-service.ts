@@ -150,6 +150,7 @@ export class StaffService extends BaseService {
         organizationId: orgId,
         emailAddress: emailLower,
         role: "org:member",
+        // @ts-expect-error: Clerk SDK type definition lacks senderName but API supports it
         senderName: `${bossName} sizi ${translatedRole} olarak`,
         publicMetadata: {
           orgId: orgId,

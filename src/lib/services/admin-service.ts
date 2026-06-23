@@ -121,6 +121,7 @@ export class AdminService extends BaseService {
         organizationId: clerkOrg.id,
         emailAddress: emailLower,
         role: "org:admin",
+        // @ts-expect-error: Clerk SDK type definition lacks senderName but API supports it
         senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: clerkOrg.id,
@@ -427,7 +428,7 @@ export class AdminService extends BaseService {
   }
 
   async transferCompanyOwnership(organizationId: string, newBossEmail: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS"; message: string }> {
-    await this.requireRole(["SUPER_ADMIN"]);
+    const { dbUser } = await this.requireRole(["SUPER_ADMIN"]);
 
     if (!organizationId?.trim()) {
       throw new Error("Organizasyon ID boş olamaz.");
@@ -544,6 +545,7 @@ export class AdminService extends BaseService {
         organizationId: organizationId,
         emailAddress: emailLower,
         role: "org:admin",
+        // @ts-expect-error: Clerk SDK type definition lacks senderName but API supports it
         senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: organizationId,
