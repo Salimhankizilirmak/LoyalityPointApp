@@ -2,7 +2,8 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, organizations, invitations, staffProfiles } from "@/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
+import { normalizePhoneToUsername } from "@/lib/utils";
 
 export async function GET() {
   console.log("[StatusAPI] 🔍 Check sync status requested.");
@@ -45,11 +46,22 @@ export async function GET() {
 
       const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || null;
       const localRole = (role.toUpperCase() === "BOSS" || !role ? "BOSS" : role.toUpperCase()) as "SUPER_ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER";
+
+      const inviteForUser = await db.select()
+        .from(invitations)
+        .where(eq(invitations.email, email.toLowerCase()))
+        .get();
+
+      const usernameFromPhone = inviteForUser?.phoneNumber
+        ? normalizePhoneToUsername(inviteForUser.phoneNumber)
+        : null;
+
       await db.insert(users).values({
         clerkId: userId,
         email: email,
         role: localRole,
         name: name,
+        username: usernameFromPhone,
       })
       .onConflictDoUpdate({
         target: users.clerkId,
@@ -57,6 +69,7 @@ export async function GET() {
           email: email,
           role: localRole,
           name: name,
+          username: sql`COALESCE(${users.username}, ${usernameFromPhone})`,
         }
       });
       

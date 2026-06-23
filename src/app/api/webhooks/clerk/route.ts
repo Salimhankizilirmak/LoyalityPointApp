@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users, organizations, branches, userBranches, invitations } from "@/db/schema";
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
+import { normalizePhoneToUsername } from "@/lib/utils";
 
 function formatToTurkishPhone(rawPhone: string): string | null {
   const digits = rawPhone.replace(/\D/g, "");
@@ -104,8 +105,8 @@ export async function POST(req: Request) {
           invitationPhone = inviteRecord.phoneNumber;
           console.log(`[ClerkWebhook] 📞 Found phone number in invitations table: ${invitationPhone}`);
           
-          // Eşleşen davet kaydındaki 10 haneli telefon numarasının başına "0" ekleyip finalUsername'e ata
-          finalUsername = "0" + invitationPhone;
+          // Eşleşen davet kaydındaki 10 haneli telefon numarasını normalize et ve finalUsername'e ata
+          finalUsername = normalizePhoneToUsername(invitationPhone);
         }
         if (inviteRecord?.role) {
           invitationRole = inviteRecord.role;

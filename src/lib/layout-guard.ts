@@ -2,7 +2,8 @@ import { auth, createClerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { users, organizations, invitations, branches } from "@/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
+import { normalizePhoneToUsername } from "@/lib/utils";
 
 
 /**
@@ -77,11 +78,21 @@ export async function checkLayoutGuard() {
 
     try {
       await db.transaction(async (tx) => {
+        const inviteForUser = await tx.select()
+          .from(invitations)
+          .where(eq(invitations.email, userEmail.toLowerCase()))
+          .get();
+
+        const usernameFromPhone = inviteForUser?.phoneNumber
+          ? normalizePhoneToUsername(inviteForUser.phoneNumber)
+          : null;
+
         await tx.insert(users).values({
           clerkId: userId,
           email: userEmail,
           role: resolvedRole,
           name: name || null,
+          username: usernameFromPhone,
         })
         .onConflictDoUpdate({
           target: users.clerkId,
@@ -89,6 +100,7 @@ export async function checkLayoutGuard() {
             email: userEmail,
             role: resolvedRole,
             name: name || null,
+            username: sql`COALESCE(${users.username}, ${usernameFromPhone})`,
           }
         });
 
