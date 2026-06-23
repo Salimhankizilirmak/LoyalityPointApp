@@ -16,27 +16,23 @@ export function cn(...inputs: ClassValue[]) {
  *   905321234567       → 905321234567
  */
 export function normalizePhoneToUsername(phone: string): string {
-  // Tüm boşluk, +, -, (, ) karakterlerini temizle
   let cleaned = phone.replace(/[\s+\-()]/g, "");
-  // Eğer 0 ile başlıyorsa ve 11 haneliyse, başındaki 0'ı
-  // kaldırıp 90 ekle (05321234567 -> 905321234567)
-  if (cleaned.startsWith("0") && cleaned.length === 11) {
-    cleaned = "90" + cleaned.substring(1);
+  
+  // 905XXXXXXXXX → 05XXXXXXXXX (başındaki 90 kaldır, 0 ekle)
+  if (cleaned.startsWith("90") && cleaned.length === 12) {
+    cleaned = "0" + cleaned.substring(2);
   }
-  // Eğer 10 haneliyse (5321234567) başına 90 ekle
-  if (cleaned.length === 10) {
-    cleaned = "90" + cleaned;
+  // 5XXXXXXXXX → 05XXXXXXXXX (başına 0 ekle)
+  if (cleaned.startsWith("5") && cleaned.length === 10) {
+    cleaned = "0" + cleaned;
   }
-  return cleaned; // beklenen sonuç: 905321234567 (12 hane)
+  // 05XXXXXXXXX → olduğu gibi kalsın
+  return cleaned;
 }
 
-/**
- * Türk telefon numarasının geçerliliğini normalize sonrası doğrular.
- * Geçerli sonuç: 90 + 10 rakam = 12 hane toplam.
- */
 export function isValidTurkishPhone(phone: string): boolean {
   const normalized = normalizePhoneToUsername(phone);
-  return /^90[0-9]{10}$/.test(normalized);
+  return /^05[0-9]{9}$/.test(normalized);
 }
 
 /**
