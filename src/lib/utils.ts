@@ -38,3 +38,19 @@ export function isValidTurkishPhone(phone: string): boolean {
   const normalized = normalizePhoneToUsername(phone);
   return /^90[0-9]{10}$/.test(normalized);
 }
+
+/**
+ * Telefon numarasını sadece 10 haneli ham string (5XXXXXXXXX) formatına temizler.
+ * Başındaki +90, 90, 0 kodlarını ve tüm sayısal olmayan karakterleri temizler.
+ */
+export function sanitizePhoneTo10(phone: string): string {
+  let cleaned = phone.replace(/\D/g, "");
+  if (cleaned.startsWith("90") && cleaned.length === 12) {
+    cleaned = cleaned.substring(2);
+  }
+  if (cleaned.startsWith("0") && cleaned.length === 11) {
+    cleaned = cleaned.substring(1);
+  }
+  return cleaned;
+}
+

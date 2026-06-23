@@ -1,5 +1,5 @@
 import { BaseService } from "./base-service";
-import { normalizePhoneToUsername, isValidTurkishPhone } from "@/lib/utils";
+import { normalizePhoneToUsername, isValidTurkishPhone, sanitizePhoneTo10 } from "@/lib/utils";
 import { users, staffProfiles, branches, organizations, userBranches } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 
@@ -133,11 +133,12 @@ export class StaffService extends BaseService {
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
-    // Telefon numarasını normalize et ve doğrula
-    const normalizedPhone = normalizePhoneToUsername(data.phone);
-    if (!isValidTurkishPhone(data.phone)) {
-      throw new Error("Geçersiz telefon numarası formatı");
+    // Telefon numarasını temizle ve doğrula
+    const cleanedPhone = sanitizePhoneTo10(data.phone);
+    if (!/^5\d{9}$/.test(cleanedPhone)) {
+      throw new Error("Geçersiz telefon numarası formatı. Telefon numarası 5 ile başlamalı ve 10 haneli olmalıdır.");
     }
+    const normalizedPhone = normalizePhoneToUsername(data.phone); // Clerk için eski formatı koruyoruz
 
     try {
       const bossName = currentUser.firstName && currentUser.lastName
@@ -168,7 +169,7 @@ export class StaffService extends BaseService {
       await this.db.insert(localInvitations).values({
         clerkInviteId: clerkInv.id,
         email: emailLower,
-        phoneNumber: normalizedPhone,
+        phoneNumber: cleanedPhone, // 10 haneli ham string kaydediliyor
         organizationId: orgId,
         branchId: targetBranch.id,
         role: data.role.toUpperCase() as "BOSS" | "MANAGER" | "CASHIER",

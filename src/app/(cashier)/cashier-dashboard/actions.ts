@@ -77,11 +77,12 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
     }
 
     // Telefon normalize + doğrulama (server-side, tek gerçek kaynak)
-    const { normalizePhoneToUsername, isValidTurkishPhone } = await import("@/lib/utils");
-    const normalizedPhone = normalizePhoneToUsername(phoneNumber.trim());
-    if (!isValidTurkishPhone(phoneNumber.trim())) {
-      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
+    const { normalizePhoneToUsername, sanitizePhoneTo10 } = await import("@/lib/utils");
+    const cleanedPhone = sanitizePhoneTo10(phoneNumber.trim());
+    if (!/^5\d{9}$/.test(cleanedPhone)) {
+      return { error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
     }
+    const normalizedPhone = normalizePhoneToUsername(phoneNumber.trim());
 
     const { dbUser, branchId, orgId } = await resolveCashierContext();
     
@@ -120,7 +121,7 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
     await db.insert(invitations).values({
       clerkInviteId: invitation.id,
       email: email.trim().toLowerCase(),
-      phoneNumber: normalizedPhone,
+      phoneNumber: cleanedPhone, // 10 haneli ham string kaydediliyor
       organizationId: orgId,
       branchId,
       role: "CUSTOMER",
@@ -645,7 +646,7 @@ export async function getFilteredTransactionsAction(filters: {
       })
       .from(invitations)
       .leftJoin(users, eq(invitations.email, users.email))
-      .leftJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .leftJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
       .leftJoin(loyaltyTransactions, eq(customers.id, loyaltyTransactions.customerId))
       .where(queryCondition)
       .orderBy(orderByColumn)
@@ -658,7 +659,7 @@ export async function getFilteredTransactionsAction(filters: {
       .select({ count: sql<number>`count(${invitations.id})` })
       .from(invitations)
       .leftJoin(users, eq(invitations.email, users.email))
-      .leftJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .leftJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
       .leftJoin(loyaltyTransactions, eq(customers.id, loyaltyTransactions.customerId))
       .where(queryCondition)
       .get();
@@ -786,7 +787,7 @@ export async function getCashierAcceptedCustomersAction() {
         createdAt: customers.createdAt,
       })
       .from(invitations)
-      .innerJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .innerJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
       .where(and(
         eq(invitations.branchId, branchId),
         eq(invitations.role, "CUSTOMER"),
@@ -821,7 +822,7 @@ export async function getBranchCustomerInvitationsAction() {
         totalPoints: customers.totalPoints,
       })
       .from(invitations)
-      .leftJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .leftJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
       .where(and(
         eq(invitations.branchId, branchId),
         eq(invitations.role, "CUSTOMER")
@@ -854,7 +855,7 @@ export async function getTransactionsWithCustomers(page: number = 1) {
         createdAt: customers.createdAt,
       })
       .from(invitations)
-      .innerJoin(customers, eq(invitations.phoneNumber, customers.phoneNumber))
+      .innerJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
       .where(and(
         eq(invitations.branchId, branchId),
         eq(invitations.role, "CUSTOMER"),

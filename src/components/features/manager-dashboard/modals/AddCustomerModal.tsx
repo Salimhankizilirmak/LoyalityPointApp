@@ -15,17 +15,31 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Phone validation: must be digits, start with 05, and be 11 digits long
-  const isPhoneValid = form.phone.startsWith("05") && form.phone.length === 11 && /^\d+$/.test(form.phone);
+  // Phone validation: must start with 5 and be exactly 10 digits long
+  const isPhoneValid = form.phone.startsWith("5") && form.phone.length === 10 && /^\d+$/.test(form.phone);
   const isEmailValid = form.email.includes("@") && form.email.trim().length > 3;
   const valid = form.firstName && form.lastName && isPhoneValid && isEmailValid;
 
   const handlePhoneChange = (val: string) => {
-    // Only allow numbers
-    const onlyNums = val.replace(/[^0-9]/g, '');
-    if (onlyNums.length <= 11) {
-      setForm(f => ({ ...f, phone: onlyNums }));
+    let cleaned = val.replace(/\D/g, "");
+    if (cleaned.startsWith("905")) {
+      cleaned = cleaned.substring(2);
+    } else if (cleaned.startsWith("05")) {
+      cleaned = cleaned.substring(1);
+    } else if (cleaned.startsWith("90") && cleaned.length > 2 && !cleaned.startsWith("905")) {
+      cleaned = cleaned.replace(/^90+/, "");
+    } else if (cleaned.startsWith("0") && cleaned.length > 1 && !cleaned.startsWith("05")) {
+      cleaned = cleaned.replace(/^0+/, "");
     }
+    if (cleaned.length > 0 && !cleaned.startsWith("5")) {
+      const firstFiveIdx = cleaned.indexOf("5");
+      if (firstFiveIdx !== -1) {
+        cleaned = cleaned.substring(firstFiveIdx);
+      } else {
+        cleaned = "";
+      }
+    }
+    setForm(f => ({ ...f, phone: cleaned.slice(0, 10) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,16 +118,22 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
               </div>
 
               <div>
-                <label htmlFor="phone" className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Telefon</label>
+                <label htmlFor="phone" className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Telefon *</label>
                 <div className="relative">
-                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                    <Phone size={14} className="text-slate-400" />
+                    <span className={`text-[11px] font-bold border-r pr-1.5 ${isDarkMode ? "text-slate-400 border-slate-700" : "text-slate-500 border-slate-200"}`}>
+                      +90
+                    </span>
+                  </div>
                   <input
                     id="phone"
                     required
                     type="tel"
                     value={form.phone} onChange={e => handlePhoneChange(e.target.value)}
-                    placeholder="05xx xxx xx xx"
-                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${form.phone.length > 0 && !isPhoneValid
+                    placeholder="5XX XXX XX XX"
+                    maxLength={10}
+                    className={`w-full pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] pl-[68px] ${form.phone.length > 0 && !isPhoneValid
                         ? "border-rose-500 bg-rose-500/5 focus:border-rose-500"
                         : isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
                       }`}
@@ -122,7 +142,7 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
                 {form.phone.length > 0 && !isPhoneValid && (
                   <div className="flex items-center gap-1.5 mt-1.5 ml-1 text-rose-500">
                     <AlertCircle size={12} />
-                    <span className="text-[10px] font-bold">Numara 05 ile başlamalı ve 11 haneli olmalıdır.</span>
+                    <span className="text-[10px] font-bold">Numara 5 ile başlamalı ve 10 haneli olmalıdır.</span>
                   </div>
                 )}
               </div>

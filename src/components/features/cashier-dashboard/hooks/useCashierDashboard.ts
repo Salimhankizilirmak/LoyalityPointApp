@@ -269,7 +269,8 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
   const isInviteFormValid =
     inviteForm.firstName.trim().length > 0 &&
     inviteForm.lastName.trim().length > 0 &&
-    inviteForm.phone.trim().length >= 7 &&
+    inviteForm.phone.trim().length === 10 &&
+    inviteForm.phone.trim().startsWith("5") &&
     isInviteEmailValid;
 
   const handleInviteCustomer = useCallback(async () => {

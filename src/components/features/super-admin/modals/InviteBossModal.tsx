@@ -33,8 +33,8 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
       setError("Lütfen geçerli bir e-posta adresi girin.");
       return;
     }
-    if (!phone.trim() || phone.trim().length < 10) {
-      setError("Lütfen geçerli bir telefon numarası girin.");
+    if (!phone.trim() || phone.trim().length !== 10 || !phone.trim().startsWith("5")) {
+      setError("Lütfen geçerli bir telefon numarası girin (5XXXXXXXXX formatında 10 hane).");
       return;
     }
 
@@ -164,17 +164,42 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                   Patron Telefon Numarası *
                 </label>
                 <div className="relative">
-                  <Phone size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                    <Phone size={16} className={isDarkMode ? "text-slate-500" : "text-slate-400"} />
+                    <span className={`text-sm font-bold border-r pr-2 ${isDarkMode ? "text-slate-400 border-slate-700" : "text-slate-500 border-slate-200"}`}>
+                      +90
+                    </span>
+                  </div>
                   <input
                     id="bossPhone"
                     type="tel"
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    placeholder="05XX XXX XX XX"
-                    maxLength={15}
-                    pattern="[0-9+\s()\-]*"
+                    onChange={e => {
+                      const val = e.target.value;
+                      let cleaned = val.replace(/\D/g, "");
+                      if (cleaned.startsWith("905")) {
+                        cleaned = cleaned.substring(2);
+                      } else if (cleaned.startsWith("05")) {
+                        cleaned = cleaned.substring(1);
+                      } else if (cleaned.startsWith("90") && cleaned.length > 2 && !cleaned.startsWith("905")) {
+                        cleaned = cleaned.replace(/^90+/, "");
+                      } else if (cleaned.startsWith("0") && cleaned.length > 1 && !cleaned.startsWith("05")) {
+                        cleaned = cleaned.replace(/^0+/, "");
+                      }
+                      if (cleaned.length > 0 && !cleaned.startsWith("5")) {
+                        const firstFiveIdx = cleaned.indexOf("5");
+                        if (firstFiveIdx !== -1) {
+                          cleaned = cleaned.substring(firstFiveIdx);
+                        } else {
+                          cleaned = "";
+                        }
+                      }
+                      setPhone(cleaned.slice(0, 10));
+                    }}
+                    placeholder="5XX XXX XX XX"
+                    maxLength={10}
                     required
-                    className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode
+                    className={`w-full py-3 pr-4 rounded-2xl text-sm border outline-none transition-all min-h-[44px] pl-[76px] ${isDarkMode
                       ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
                       : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
                       }`}

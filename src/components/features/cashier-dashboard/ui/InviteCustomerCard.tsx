@@ -29,10 +29,25 @@ export function InviteCustomerCard({
 }: InviteCustomerCardProps) {
   // Türkiye Telefon Kontrolü (05 ile başlayan 11 haneli)
   const handlePhoneChange = (val: string) => {
-    const numericVal = val.replace(/\D/g, "");
-    if (numericVal.length <= 11) {
-      setField("phone", numericVal);
+    let cleaned = val.replace(/\D/g, "");
+    if (cleaned.startsWith("905")) {
+      cleaned = cleaned.substring(2);
+    } else if (cleaned.startsWith("05")) {
+      cleaned = cleaned.substring(1);
+    } else if (cleaned.startsWith("90") && cleaned.length > 2 && !cleaned.startsWith("905")) {
+      cleaned = cleaned.replace(/^90+/, "");
+    } else if (cleaned.startsWith("0") && cleaned.length > 1 && !cleaned.startsWith("05")) {
+      cleaned = cleaned.replace(/^0+/, "");
     }
+    if (cleaned.length > 0 && !cleaned.startsWith("5")) {
+      const firstFiveIdx = cleaned.indexOf("5");
+      if (firstFiveIdx !== -1) {
+        cleaned = cleaned.substring(firstFiveIdx);
+      } else {
+        cleaned = "";
+      }
+    }
+    setField("phone", cleaned.slice(0, 10));
   };
 
   const cardClass = `h-full backdrop-blur-md transition-colors duration-300 rounded-3xl p-4 relative overflow-hidden shadow-xl border flex flex-col justify-between ${isDarkMode
@@ -101,15 +116,24 @@ export function InviteCustomerCard({
         <div className="grid grid-cols-2 gap-3">
           {/* Telefon */}
           <div>
-            <label className={labelClass}>Telefon</label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => handlePhoneChange(e.target.value)}
-              placeholder="05XXXXXXXXX"
-              className={inputClass}
-              autoComplete="tel"
-            />
+            <label className={labelClass}>Telefon *</label>
+            <div className="relative">
+              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+                <span className={`text-[11px] font-bold border-r pr-1.5 ${isDarkMode ? "text-slate-400 border-slate-800" : "text-slate-500 border-slate-200"}`}>
+                  +90
+                </span>
+              </div>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                placeholder="5XX XXX XX XX"
+                maxLength={10}
+                required
+                className={`${inputClass} pl-[36px]`}
+                autoComplete="tel"
+              />
+            </div>
           </div>
 
           {/* E-posta */}

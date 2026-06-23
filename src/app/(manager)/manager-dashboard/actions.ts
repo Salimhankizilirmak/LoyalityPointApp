@@ -74,11 +74,12 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
     }
 
     // Telefon normalize + doğrulama (server-side, tek gerçek kaynak)
-    const { normalizePhoneToUsername, isValidTurkishPhone } = await import("@/lib/utils");
-    const normalizedPhone = normalizePhoneToUsername(phone.trim());
-    if (!isValidTurkishPhone(phone.trim())) {
-      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
+    const { normalizePhoneToUsername, sanitizePhoneTo10 } = await import("@/lib/utils");
+    const cleanedPhone = sanitizePhoneTo10(phone.trim());
+    if (!/^5\d{9}$/.test(cleanedPhone)) {
+      return { error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
     }
+    const normalizedPhone = normalizePhoneToUsername(phone.trim()); // Clerk için eski formatı koruyoruz
 
     const { userId } = await auth();
     if (!userId) return { error: "Oturum bulunamadı." };
@@ -127,7 +128,7 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
     await db.insert(invitations).values({
       clerkInviteId: invitation.id,
       email: email.trim().toLowerCase(),
-      phoneNumber: normalizedPhone,
+      phoneNumber: cleanedPhone, // 10 haneli ham string kaydediliyor
       organizationId: orgId,
       branchId,
       role: "CUSTOMER",

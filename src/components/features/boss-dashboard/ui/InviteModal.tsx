@@ -42,7 +42,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   }, [error]);
 
   const targetBranchName = fixedRole === "cashier" && branches.length > 0 ? branches[0].name : form.branch;
-  const valid = form.email.includes("@") && !isForbidden && targetBranchName !== "" && form.phone.trim().length >= 10;
+  const valid = form.email.includes("@") && !isForbidden && targetBranchName !== "" && form.phone.trim().length === 10 && form.phone.trim().startsWith("5");
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,16 +180,41 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                 <div>
                   <label className={labelClasses}>Telefon Numarası *</label>
                   <div className="relative">
-                    <Phone size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                      <Phone size={16} className={isDarkMode ? "text-slate-500" : "text-slate-400"} />
+                      <span className={`text-sm font-bold border-r pr-2 ${isDarkMode ? "text-slate-400 border-slate-700" : "text-slate-500 border-slate-200"}`}>
+                        +90
+                      </span>
+                    </div>
                     <input
                       type="tel"
                       value={form.phone}
-                      onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                      placeholder="05XX XXX XX XX"
-                      maxLength={15}
-                      pattern="[0-9+\s()\-]*"
+                      onChange={e => {
+                        const val = e.target.value;
+                        let cleaned = val.replace(/\D/g, "");
+                        if (cleaned.startsWith("905")) {
+                          cleaned = cleaned.substring(2);
+                        } else if (cleaned.startsWith("05")) {
+                          cleaned = cleaned.substring(1);
+                        } else if (cleaned.startsWith("90") && cleaned.length > 2 && !cleaned.startsWith("905")) {
+                          cleaned = cleaned.replace(/^90+/, "");
+                        } else if (cleaned.startsWith("0") && cleaned.length > 1 && !cleaned.startsWith("05")) {
+                          cleaned = cleaned.replace(/^0+/, "");
+                        }
+                        if (cleaned.length > 0 && !cleaned.startsWith("5")) {
+                          const firstFiveIdx = cleaned.indexOf("5");
+                          if (firstFiveIdx !== -1) {
+                            cleaned = cleaned.substring(firstFiveIdx);
+                          } else {
+                            cleaned = "";
+                          }
+                        }
+                        setForm(f => ({ ...f, phone: cleaned.slice(0, 10) }));
+                      }}
+                      placeholder="5XX XXX XX XX"
+                      maxLength={10}
                       required
-                      className={`${inputClasses} pl-10`}
+                      className={`${inputClasses} pl-[76px]`}
                     />
                   </div>
                 </div>

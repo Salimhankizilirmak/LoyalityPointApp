@@ -4,7 +4,7 @@ import { eq, sql, desc, or, lt, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { emailService } from "./email-service";
 import { getBossInvitationTemplate } from "@/lib/templates/email-templates";
-import { normalizePhoneToUsername, isValidTurkishPhone } from "@/lib/utils";
+import { normalizePhoneToUsername, isValidTurkishPhone, sanitizePhoneTo10 } from "@/lib/utils";
 
 const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches, invitations } = schema;
 
@@ -19,11 +19,12 @@ export class AdminService extends BaseService {
       throw new Error("Geçerli bir e-posta adresi girilmelidir.");
     }
 
-    // Telefon numarasını normalize et ve doğrula
-    const normalizedPhone = normalizePhoneToUsername(bossPhone);
-    if (!isValidTurkishPhone(bossPhone)) {
-      throw new Error("Geçersiz telefon numarası formatı");
+    // Telefon numarasını temizle ve doğrula
+    const cleanedPhone = sanitizePhoneTo10(bossPhone);
+    if (!/^5\d{9}$/.test(cleanedPhone)) {
+      throw new Error("Geçersiz telefon numarası formatı. Telefon numarası 5 ile başlamalı ve 10 haneli olmalıdır.");
     }
+    const normalizedPhone = normalizePhoneToUsername(bossPhone); // Clerk için eski formatı koruyoruz
 
     const emailLower = bossEmail.trim().toLowerCase();
     const client = await this.getClerkClient();
@@ -138,7 +139,7 @@ export class AdminService extends BaseService {
       await this.db.insert(invitations).values({
         clerkInviteId: clerkInviteIdToSave,
         email: emailLower,
-        phoneNumber: normalizedPhone,
+        phoneNumber: cleanedPhone, // 10 haneli ham string kaydediliyor
         organizationId: clerkOrg.id,
         role: "BOSS",
         status: "PENDING",
