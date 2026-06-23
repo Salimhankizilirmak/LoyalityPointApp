@@ -140,16 +140,17 @@ export class StaffService extends BaseService {
     }
 
     try {
-      // ─── CLERK GLOBAL DAVET + NODEMAILER ─────────────────────────────────
-      // ignoreExisting: true ve skipEmailDelivery: true ile Clerk e-postası engellenip
-      // sadece davet kaydı ve link oluşturulur, gönderim Nodemailer ile yapılır.
-      const clerkInv = await client.invitations.createInvitation({
+      const bossName = currentUser.firstName && currentUser.lastName
+        ? `${currentUser.firstName} ${currentUser.lastName}`
+        : "Yönetici";
+      const translatedRole = data.role === "manager" ? "Müdür" : "Kasiyer";
+
+      // ─── CLERK ORGANİZASYON DAVETİ ─────────────────────────────────
+      const clerkInv = await client.organizations.createOrganizationInvitation({
+        organizationId: orgId,
         emailAddress: emailLower,
-        redirectUrl: `${appUrl}/sign-up`,
-        ignoreExisting: true,
-        // @ts-expect-error - skipEmailDelivery Clerk SDK tip dosyalarında eksik olabilir
-        skipEmailDelivery: true,
-        notify: false,
+        role: "org:member",
+        senderName: `${bossName} sizi ${translatedRole} olarak`,
         publicMetadata: {
           orgId: orgId,
           role: data.role,
@@ -158,11 +159,8 @@ export class StaffService extends BaseService {
           org_id: orgId,
           phone: normalizedPhone,
         },
+        redirectUrl: `${appUrl}/dashboard`,
       });
-
-      if (!clerkInv.url) {
-        throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
-      }
 
       // Davetiyeyi yerel veritabanına ekle
       const { invitations: localInvitations } = await import("@/db/schema");
@@ -175,16 +173,6 @@ export class StaffService extends BaseService {
         role: data.role.toUpperCase() as "BOSS" | "MANAGER" | "CASHIER",
         status: "PENDING",
         invitedBy: dbUser.id,
-      });
-
-      // Nodemailer servisimizi kullanarak daveti e-postayla gönderiyoruz
-      const { emailService } = await import("./email-service");
-      const { getEmployeeInvitationTemplate } = await import("@/lib/templates/email-templates");
-      const html = getEmployeeInvitationTemplate(clerkInv.url, data.role, data.branch);
-      await emailService.sendMail({
-        to: emailLower,
-        subject: `Loyalty - Personel Davetiyeniz (${data.role === "manager" ? "Şube Yöneticisi" : "Şube Kasiyeri"})`,
-        html,
       });
 
       return { success: true };

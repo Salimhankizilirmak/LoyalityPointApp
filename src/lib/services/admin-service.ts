@@ -115,37 +115,23 @@ export class AdminService extends BaseService {
       });
       localOrgCreated = true;
 
-      // ─── CLERK GLOBAL DAVET + NODEMAILER ─────────────────────────────────
-      // ignoreExisting: true ve skipEmailDelivery: true ile Clerk e-postası engellenip
-      // sadece davet kaydı ve link oluşturulur, gönderim Nodemailer ile yapılır.
-      const globalInv = await client.invitations.createInvitation({
+      // ─── CLERK ORGANİZASYON DAVETİ ─────────────────────────────────
+      const currentUserName = dbUser.name || "Süper Admin";
+      const clerkInv = await client.organizations.createOrganizationInvitation({
+        organizationId: clerkOrg.id,
         emailAddress: emailLower,
-        redirectUrl: `${appUrl}/sign-up`,
-        ignoreExisting: true,
-        // @ts-expect-error - skipEmailDelivery Clerk SDK tiplerinde eksik olabilir
-        skipEmailDelivery: true,
-        notify: false,
+        role: "org:admin",
+        senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: clerkOrg.id,
           role: "boss",
           phone: normalizedPhone,
         },
+        redirectUrl: `${appUrl}/sign-up`,
       });
 
-      if (!globalInv.url) {
-        throw new Error("Clerk davetiye bağlantısı oluşturamadı.");
-      }
-
-      clerkInviteIdToSave = globalInv.id;
-      invitedViaFallback = true; // Rollback aşamasında revokeInvitation çağrılabilmesi için true set edilir.
-
-      // Yerel SMTP sunucusu (NodeMailer) koruma kalkanı olarak devreye girer
-      await emailService.sendMail({
-        to: emailLower,
-        subject: "Loyalty - Kurumsal Davetiyeniz",
-        html: getBossInvitationTemplate(globalInv.url),
-      });
-      console.log(`[AdminService] 🛡️ Nodemailer invitation email delivered securely to: ${emailLower}`);
+      clerkInviteIdToSave = clerkInv.id;
+      invitedViaFallback = false; // Rollback aşamasında revokeOrganizationInvitation çağrılması için false set edilir.
 
       // ─── 3. YEREL VERİTABANI GÖLGE KAYDI ─────────────────────────────────
       await this.db.insert(invitations).values({
@@ -553,27 +539,17 @@ export class AdminService extends BaseService {
 
     let clerkInv = null;
     try {
-      clerkInv = await client.invitations.createInvitation({
+      const currentUserName = dbUser.name || "Süper Admin";
+      clerkInv = await client.organizations.createOrganizationInvitation({
+        organizationId: organizationId,
         emailAddress: emailLower,
-        redirectUrl: `${appUrl}/sign-up`,
-        ignoreExisting: true,
-        // @ts-expect-error - Clerk SDK
-        skipEmailDelivery: true,
-        notify: false,
+        role: "org:admin",
+        senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: organizationId,
           role: "boss",
         },
-      });
-
-      if (!clerkInv.url) {
-        throw new Error("Clerk sahiplik devri davetiyesi bağlantısı oluşturamadı.");
-      }
-
-      await emailService.sendMail({
-        to: emailLower,
-        subject: "Loyalty - Kurumsal Davetiyeniz",
-        html: getBossInvitationTemplate(clerkInv.url),
+        redirectUrl: `${appUrl}/sign-up`,
       });
 
       console.log(`[AdminService] 📩 Sahiplik Devri: Davetiye ${clerkInv.id} oluşturuldu ve ${emailLower} adresine gönderildi.`);

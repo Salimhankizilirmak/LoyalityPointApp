@@ -44,32 +44,8 @@ export class EmailService {
     return this.transporter;
   }
 
-  async sendMail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<void> {
-    const smtpUser = process.env.SMTP_USER || "novexistech@gmail.com";
-    const from = `"Loyalty" <${smtpUser}>`;
-    try {
-      console.log("SMTP Config Check:", {
-        SMTP_HOST: process.env.SMTP_HOST,
-        SMTP_USER: process.env.SMTP_USER,
-      });
-      const transporter = this.getTransporter();
-      const info = await transporter.sendMail({
-        from,
-        to,
-        subject,
-        html,
-      });
-      console.log("🚀 E-posta başarıyla gönderildi! ID:", info.messageId);
-    } catch (error) {
-      const err = error as { message?: string; code?: string; command?: string; stack?: string };
-      console.error("❌ [MAIL_ERROR_DETAYI]:", {
-        message: err.message,
-        code: err.code,
-        command: err.command,
-        stack: err.stack
-      });
-      throw error;
-    }
+  async sendMail({ to, subject }: { to: string; subject: string; html: string }): Promise<void> {
+    console.log(`[EmailService] ℹ️ SMTP is disabled. Skipping email delivery to ${to} for subject: "${subject}"`);
   }
 }
 

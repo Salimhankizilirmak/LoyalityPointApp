@@ -30,7 +30,7 @@ export default function AuthCallbackPage() {
     const checkSyncStatus = async () => {
       try {
         const res = await fetch("/api/auth/status");
-        
+
         // Kesin hata kalkanı: Sunucu senkronizasyonun imkansız olduğunu bildirdiyse polling'i anında kır
         if (!res.ok) {
           clearInterval(intervalId);
@@ -90,7 +90,7 @@ export default function AuthCallbackPage() {
               Tekrar Dene
             </button>
             <a
-              href="mailto:support@auralloyalty.com"
+              href="mailto:novexitech@gmail.com"
               className="w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-bold text-slate-400 border border-slate-800 hover:bg-slate-900 transition-all text-center min-h-[44px] flex items-center justify-center"
             >
               Destekle İletişime Geç
