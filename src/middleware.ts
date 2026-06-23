@@ -41,6 +41,16 @@ export default clerkMiddleware(async (auth, req) => {
 
   console.log(`[Middleware] 🌐 Request: ${pathname}${search}`);
 
+  // 🛡️ Server Action isteklerini (POST + next-action başlığı olanlar) yönlendirmelerden muaf tut
+  if (req.method === "POST" && req.headers.has("next-action")) {
+    console.log(`[Middleware] ⚙️ Server Action request detected: ${pathname}. Bypassing middleware redirects.`);
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
+
   // 1. Herkes için açık olan sayfalar
   if (isPublicRoute(req)) {
     // 🛡️ /sign-up rotasına özel katı Bilet Kontrolü (Ticket Guard)
@@ -88,7 +98,7 @@ export default clerkMiddleware(async (auth, req) => {
       pathname.startsWith("/sign-up") ||
       isClerkTask;
 
-    if (userId && isRootOrAuthPage && !isSyncRequest) {
+    if (userId && isRootOrAuthPage && !isSyncRequest && req.method !== "POST") {
       console.log(`[Middleware] 🔄 Authenticated user on public/root page (${pathname}) -> Redirecting to /dashboard`);
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
