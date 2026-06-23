@@ -45,7 +45,8 @@ export class EmailService {
   }
 
   async sendMail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<void> {
-    const from = `"Loyalty" <novexistech@gmail.com>`;
+    const smtpUser = process.env.SMTP_USER || "novexistech@gmail.com";
+    const from = `"Loyalty" <${smtpUser}>`;
     try {
       console.log("SMTP Config Check:", {
         SMTP_HOST: process.env.SMTP_HOST,
