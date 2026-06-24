@@ -16,7 +16,7 @@ interface CustomJwtPayload {
   email?: string;
 }
 
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/", "/org-disabled", "/auth-callback"]);
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/", "/org-disabled", "/auth-callback", "/api/webhooks/clerk(.*)"]);
 
 // 🛡️ API & Server Action JSON Çatlama Yaması Helper
 function handleUnauthorized(req: NextRequest, pathname: string) {
