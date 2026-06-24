@@ -160,7 +160,6 @@ export class StaffService extends BaseService {
         },
         redirectUrl: `${appUrl}/dashboard`,
         ignoreExisting: true,
-        skipEmailDelivery: true,
       });
 
       const org = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();

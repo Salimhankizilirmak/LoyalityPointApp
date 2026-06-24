@@ -139,7 +139,6 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
       },
       redirectUrl: `${appUrl}/dashboard`,
       ignoreExisting: true,
-      skipEmailDelivery: true,
     });
 
     const targetRole = role.toLowerCase() as "manager" | "cashier";

@@ -126,7 +126,6 @@ export class AdminService extends BaseService {
         },
         redirectUrl: `${appUrl}/sign-up`,
         ignoreExisting: true,
-        skipEmailDelivery: true,
       });
 
       const { emailService } = await import("@/lib/services/email-service");
@@ -559,7 +558,6 @@ export class AdminService extends BaseService {
         },
         redirectUrl: `${appUrl}/sign-up`,
         ignoreExisting: true,
-        skipEmailDelivery: true,
       });
 
       const { emailService } = await import("@/lib/services/email-service");
