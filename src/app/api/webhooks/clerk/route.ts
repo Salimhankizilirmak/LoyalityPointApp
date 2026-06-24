@@ -104,9 +104,6 @@ export async function POST(req: Request) {
         if (inviteRecord?.phoneNumber) {
           invitationPhone = inviteRecord.phoneNumber;
           console.log(`[ClerkWebhook] 📞 Found phone number in invitations table: ${invitationPhone}`);
-          
-          // Eşleşen davet kaydındaki 10 haneli telefon numarasını normalize et ve finalUsername'e ata
-          finalUsername = normalizePhoneToUsername(invitationPhone);
         }
         if (inviteRecord?.role) {
           invitationRole = inviteRecord.role;
@@ -118,17 +115,19 @@ export async function POST(req: Request) {
 
     // Telefon numarası önceliği: Davet tablosundan gelen veya metadata'dan gelen
     const phoneToUse = invitationPhone || metadata?.phone;
+    let localPhone = "";
+    let internationalPhone = "";
 
-    if (!finalUsername && phoneToUse) {
+    if (phoneToUse) {
       const formattedPhone = formatToTurkishPhone(phoneToUse);
       if (formattedPhone) {
-        finalUsername = formattedPhone;
+        localPhone = formattedPhone; // 05XXXXXXXXX yerel formatı
+        internationalPhone = "+90" + formattedPhone.slice(1); // +905XXXXXXXXX uluslararası formatı
       }
     }
 
-    // Clerk username politikası gereği purely-numeric kullanıcı adlarını reddettiği için başına 'u' ekliyoruz
-    if (finalUsername && /^05[0-9]{9}$/.test(finalUsername)) {
-      finalUsername = "u" + finalUsername;
+    if (localPhone) {
+      finalUsername = localPhone;
     }
 
     if (!finalUsername) {
@@ -203,22 +202,24 @@ export async function POST(req: Request) {
       console.error("[ClerkWebhook] ❌ Failed to upsert user in local DB:", dbErr);
     }
 
-    // 6. Clerk tarafındaki profilin de senkronize olmasını sağla
-    if (finalUsername && /^u05[0-9]{9}$/.test(finalUsername)) {
+    // 6. Clerk tarafındaki resmi telefon kaydını mühürle
+    if (clerkId && internationalPhone) {
       try {
-        const clerkUpdateClient = await clerkClient();
-        await clerkUpdateClient.users.updateUser(clerkId, {
-          username: finalUsername,
+        const client = await clerkClient();
+        await client.phoneNumbers.createPhoneNumber({
+          userId: clerkId,
+          phoneNumber: internationalPhone, // +905XXXXXXXXX
+          verified: true,
+          primary: true,
         });
-        console.log(`[ClerkWebhook] ✅ Clerk username set: ${finalUsername} for ${clerkId}`);
+        console.log(`[ClerkWebhook] ✅ Clerk phone number set & verified: ${internationalPhone} for ${clerkId}`);
       } catch (clerkErr: unknown) {
         const errMsg = clerkErr instanceof Error 
           ? clerkErr.message 
           : JSON.stringify(clerkErr);
-        console.error(`[ClerkWebhook] ❌ Clerk updateUser FAILED for ${clerkId}: ${errMsg}`);
+        console.error(`[ClerkWebhook] ❌ Clerk createPhoneNumber FAILED for ${clerkId}: ${errMsg}`);
+        console.error("[Clerk Webhook Error Raw]:", JSON.stringify(clerkErr));
       }
-    } else {
-      console.warn(`[ClerkWebhook] ⚠️ Username format geçersiz veya boş, Clerk güncellenmedi: "${finalUsername}"`);
     }
 
     // 7. Personel (MANAGER / CASHIER) ve BOSS için otomatik Clerk Organizasyon Üyeliği Bağlantısı

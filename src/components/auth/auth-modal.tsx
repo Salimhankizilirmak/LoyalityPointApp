@@ -202,7 +202,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
       const cleanInput = identifier.replace(/[\s()\-]/g, "");
 
       if (/^5\d{9}$/.test(cleanInput)) {
-        finalIdentifier = "u0" + cleanInput; // Görünmez u-Kalkanı mühürleme
+        finalIdentifier = "+90" + cleanInput; // Uluslararası format mühürleme
       }
       else {
         throw new Error("Lütfen geçerli bir 10 haneli telefon numarası giriniz.");
@@ -569,7 +569,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                           🏷️ Sistem Kullanıcı Adınız:
                         </div>
                         <div className="font-mono text-white text-sm bg-neutral-950/40 p-2.5 rounded-lg border border-white/5 select-all">
-                          {inviteUsername || "Davet Doğrulanıyor..."}
+                          {inviteUsername ? inviteUsername.replace(/^u0?/, "") : "Davet Doğrulanıyor..."}
                         </div>
                         <p className="text-[10px] text-neutral-400 leading-normal">
                           *(Giriş yaparken telefon numaranızı yazmanız yeterlidir.)*
