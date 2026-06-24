@@ -151,7 +151,6 @@ export class StaffService extends BaseService {
         organizationId: orgId,
         emailAddress: emailLower,
         role: "org:member",
-        // @ts-expect-error: Clerk SDK type definition lacks senderName but API supports it
         senderName: `${bossName} sizi ${translatedRole} olarak`,
         publicMetadata: {
           orgId: orgId,
@@ -162,6 +161,27 @@ export class StaffService extends BaseService {
           phone: normalizedPhone,
         },
         redirectUrl: `${appUrl}/dashboard`,
+        skipEmailDelivery: true,
+      } as any);
+
+      const org = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+      const orgName = org?.name || "Şirket";
+
+      const { emailService } = await import("@/lib/services/email-service");
+      const { getEmployeeInvitationTemplate } = await import("@/lib/templates/email-templates");
+      const targetRole = data.role.toLowerCase() as "manager" | "cashier";
+      const html = getEmployeeInvitationTemplate(
+        clerkInv.url || "",
+        targetRole,
+        targetBranch.name
+      );
+
+      await emailService.sendMail({
+        to: emailLower,
+        subject: `${orgName} Personel Daveti`,
+        html,
+      }).catch((err) => {
+        console.error("[EmailService] Personel davet e-postası gönderim hatası:", err);
       });
 
       // Davetiyeyi yerel veritabanına ekle

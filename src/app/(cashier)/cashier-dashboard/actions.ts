@@ -115,6 +115,7 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
         phone: normalizedPhone,
       },
       redirectUrl: `${appUrl}/sign-up`,
+      notify: false,
     });
 
     // 2. Turso invitations tablosuna shadow kayıt at

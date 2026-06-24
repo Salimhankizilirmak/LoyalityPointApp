@@ -129,7 +129,7 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
-    await client.organizations.createOrganizationInvitation({
+    const clerkInv = await client.organizations.createOrganizationInvitation({
       organizationId: org.id,
       emailAddress: email,
       inviterUserId: userId,
@@ -139,6 +139,32 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
         targetBranchIds: branchIds
       },
       redirectUrl: `${appUrl}/dashboard`,
+      skipEmailDelivery: true,
+    } as any);
+
+    const targetRole = role.toLowerCase() as "manager" | "cashier";
+    let branchName = "Şube";
+    if (branchIds.length > 0) {
+      const firstBranch = await db.select().from(branches).where(eq(branches.id, branchIds[0])).get();
+      if (firstBranch) {
+        branchName = firstBranch.name;
+      }
+    }
+
+    const { emailService } = await import("@/lib/services/email-service");
+    const { getEmployeeInvitationTemplate } = await import("@/lib/templates/email-templates");
+    const html = getEmployeeInvitationTemplate(
+      clerkInv.url || "",
+      targetRole,
+      branchName
+    );
+
+    await emailService.sendMail({
+      to: email.trim().toLowerCase(),
+      subject: `${org.name} Personel Daveti`,
+      html,
+    }).catch((err) => {
+      console.error("[EmailService] Personel davet e-postası gönderim hatası:", err);
     });
     
     return { success: true };

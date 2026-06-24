@@ -123,6 +123,7 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
         phone: normalizedPhone,
       },
       redirectUrl: `${appUrl}/sign-up`,
+      notify: false,
     });
 
     await db.insert(invitations).values({

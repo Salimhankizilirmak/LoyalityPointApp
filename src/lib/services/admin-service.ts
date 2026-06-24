@@ -122,7 +122,6 @@ export class AdminService extends BaseService {
         organizationId: clerkOrg.id,
         emailAddress: emailLower,
         role: "org:admin",
-        // @ts-expect-error: Clerk SDK type definition lacks senderName but API supports it
         senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: clerkOrg.id,
@@ -130,6 +129,19 @@ export class AdminService extends BaseService {
           phone: normalizedPhone,
         },
         redirectUrl: `${appUrl}/sign-up`,
+        skipEmailDelivery: true,
+      } as any);
+
+      const { emailService } = await import("@/lib/services/email-service");
+      const { getBossInvitationTemplate } = await import("@/lib/templates/email-templates");
+      const html = getBossInvitationTemplate(clerkInv.url || "");
+
+      await emailService.sendMail({
+        to: emailLower,
+        subject: "Loyalty Patron Daveti",
+        html,
+      }).catch((err) => {
+        console.error("[EmailService] Patron davet e-postası gönderim hatası:", err);
       });
 
       clerkInviteIdToSave = clerkInv.id;
@@ -546,13 +558,25 @@ export class AdminService extends BaseService {
         organizationId: organizationId,
         emailAddress: emailLower,
         role: "org:admin",
-        // @ts-expect-error: Clerk SDK type definition lacks senderName but API supports it
         senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: organizationId,
           role: "boss",
         },
         redirectUrl: `${appUrl}/sign-up`,
+        skipEmailDelivery: true,
+      } as any);
+
+      const { emailService } = await import("@/lib/services/email-service");
+      const { getBossInvitationTemplate } = await import("@/lib/templates/email-templates");
+      const html = getBossInvitationTemplate(clerkInv.url || "");
+
+      await emailService.sendMail({
+        to: emailLower,
+        subject: "Loyalty Patron Daveti (Sahiplik Devri)",
+        html,
+      }).catch((err) => {
+        console.error("[EmailService] Sahiplik devri davet e-postası gönderim hatası:", err);
       });
 
       console.log(`[AdminService] 📩 Sahiplik Devri: Davetiye ${clerkInv.id} oluşturuldu ve ${emailLower} adresine gönderildi.`);

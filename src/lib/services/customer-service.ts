@@ -242,7 +242,7 @@ export class CustomerService extends BaseService {
       throw new Error("Geçersiz telefon numarası formatı");
     }
 
-    await client.invitations.createInvitation({
+    const invitation = await client.invitations.createInvitation({
       emailAddress: data.email,
       publicMetadata: { 
         firstName: data.firstName,
@@ -252,7 +252,28 @@ export class CustomerService extends BaseService {
         org_id: orgId,
       },
       redirectUrl: `${appUrl}/sign-up`,
-      ignoreExisting: true
+      ignoreExisting: true,
+      notify: false,
+    });
+
+    const org = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    const orgName = org?.name || "Sadakat Platformu";
+
+    const { emailService } = await import("@/lib/services/email-service");
+    const { getCustomerInvitationTemplate } = await import("@/lib/templates/email-templates");
+    const customerFullname = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
+    const html = getCustomerInvitationTemplate(
+      data.email,
+      customerFullname,
+      orgName
+    );
+
+    await emailService.sendMail({
+      to: data.email.trim().toLowerCase(),
+      subject: `${orgName} Sadakat Programı Daveti`,
+      html,
+    }).catch((err) => {
+      console.error("[EmailService] Müşteri davet e-postası gönderim hatası:", err);
     });
 
     return { success: true, message: "Müşteri başarıyla davet edildi!" };
