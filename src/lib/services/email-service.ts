@@ -44,8 +44,16 @@ export class EmailService {
     return this.transporter;
   }
 
-  async sendMail({ to, subject }: { to: string; subject: string; html: string }): Promise<void> {
-    console.log(`[EmailService] ℹ️ SMTP is disabled. Skipping email delivery to ${to} for subject: "${subject}"`);
+  async sendMail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<void> {
+    const transporter = this.getTransporter();
+    const fromUser = process.env.SMTP_USER;
+    
+    await transporter.sendMail({
+      from: `Topla Kazan <${fromUser}>`,
+      to,
+      subject,
+      html,
+    });
   }
 }
 

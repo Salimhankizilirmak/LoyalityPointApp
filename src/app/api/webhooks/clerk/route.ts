@@ -126,6 +126,11 @@ export async function POST(req: Request) {
       }
     }
 
+    // Clerk username politikası gereği purely-numeric kullanıcı adlarını reddettiği için başına 'u' ekliyoruz
+    if (finalUsername && /^05[0-9]{9}$/.test(finalUsername)) {
+      finalUsername = "u" + finalUsername;
+    }
+
     if (!finalUsername) {
       if (data.username) {
         finalUsername = data.username;
@@ -178,7 +183,6 @@ export async function POST(req: Request) {
           email,
           imageUrl,
           name,
-          username: finalUsername,
         };
 
         await tx.insert(users).values({
@@ -200,7 +204,7 @@ export async function POST(req: Request) {
     }
 
     // 6. Clerk tarafındaki profilin de senkronize olmasını sağla
-    if (finalUsername && /^05[0-9]{9}$/.test(finalUsername)) {
+    if (finalUsername && /^u05[0-9]{9}$/.test(finalUsername)) {
       try {
         const clerkUpdateClient = await clerkClient();
         await clerkUpdateClient.users.updateUser(clerkId, {
