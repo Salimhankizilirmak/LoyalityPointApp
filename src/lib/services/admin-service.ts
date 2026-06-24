@@ -116,21 +116,18 @@ export class AdminService extends BaseService {
       });
       localOrgCreated = true;
 
-      // ─── CLERK ORGANİZASYON DAVETİ ─────────────────────────────────
-      const currentUserName = dbUser.name || "Süper Admin";
-      const clerkInv = await client.organizations.createOrganizationInvitation({
-        organizationId: clerkOrg.id,
+      // ─── CLERK DAVETİ ─────────────────────────────────
+      const clerkInv = await client.invitations.createInvitation({
         emailAddress: emailLower,
-        role: "org:admin",
-        senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: clerkOrg.id,
           role: "boss",
           phone: normalizedPhone,
         },
         redirectUrl: `${appUrl}/sign-up`,
+        ignoreExisting: true,
         skipEmailDelivery: true,
-      } as any);
+      });
 
       const { emailService } = await import("@/lib/services/email-service");
       const { getBossInvitationTemplate } = await import("@/lib/templates/email-templates");
@@ -553,19 +550,17 @@ export class AdminService extends BaseService {
 
     let clerkInv = null;
     try {
-      const currentUserName = dbUser.name || "Süper Admin";
-      clerkInv = await client.organizations.createOrganizationInvitation({
-        organizationId: organizationId,
+      // ─── CLERK DAVETİ ─────────────────────────────────
+      clerkInv = await client.invitations.createInvitation({
         emailAddress: emailLower,
-        role: "org:admin",
-        senderName: `${currentUserName} sizi patron olarak`,
         publicMetadata: {
           orgId: organizationId,
           role: "boss",
         },
         redirectUrl: `${appUrl}/sign-up`,
+        ignoreExisting: true,
         skipEmailDelivery: true,
-      } as any);
+      });
 
       const { emailService } = await import("@/lib/services/email-service");
       const { getBossInvitationTemplate } = await import("@/lib/templates/email-templates");

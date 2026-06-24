@@ -129,18 +129,18 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
-    const clerkInv = await client.organizations.createOrganizationInvitation({
-      organizationId: org.id,
+    const clerkInv = await client.invitations.createInvitation({
       emailAddress: email,
-      inviterUserId: userId,
-      role: "org:member",
       publicMetadata: {
+        orgId: org.id,
+        org_id: org.id,
         role: role,
         targetBranchIds: branchIds
       },
       redirectUrl: `${appUrl}/dashboard`,
+      ignoreExisting: true,
       skipEmailDelivery: true,
-    } as any);
+    });
 
     const targetRole = role.toLowerCase() as "manager" | "cashier";
     let branchName = "Şube";

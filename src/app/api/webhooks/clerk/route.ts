@@ -221,6 +221,34 @@ export async function POST(req: Request) {
       console.warn(`[ClerkWebhook] ⚠️ Username format geçersiz veya boş, Clerk güncellenmedi: "${finalUsername}"`);
     }
 
+    // 7. Personel (MANAGER / CASHIER) ve BOSS için otomatik Clerk Organizasyon Üyeliği Bağlantısı
+    const orgIdFromMetadata = (data.public_metadata?.orgId as string) || (data.public_metadata?.org_id as string) || "";
+    const roleFromMetadata = (data.public_metadata?.role as string) || "";
+
+    if (clerkId && orgIdFromMetadata) {
+      const isValidRole = roleFromMetadata === "boss" || roleFromMetadata === "manager" || roleFromMetadata === "cashier";
+      
+      if (isValidRole) {
+        void (async () => {
+          try {
+            // Boss ise "org:admin", personel (manager/cashier) ise "org:member" mühürle
+            const targetClerkRole = roleFromMetadata === "boss" ? "org:admin" : "org:member";
+            
+            const client = await clerkClient();
+            await client.organizations.createOrganizationMembership({
+              organizationId: orgIdFromMetadata,
+              userId: clerkId,
+              role: targetClerkRole,
+            });
+            console.log(`[ClerkWebhook] 🏢 Programmatic Clerk org membership created for ${roleFromMetadata.toUpperCase()}: ${clerkId} → ${orgIdFromMetadata} (${targetClerkRole})`);
+          } catch (membershipErr: unknown) {
+            const errMsg = membershipErr instanceof Error ? membershipErr.message : JSON.stringify(membershipErr);
+            console.error(`[ClerkWebhook] ⚠️ Programmatic Clerk org membership FAILED for ${roleFromMetadata}: ${clerkId}: ${errMsg}`);
+          }
+        })();
+      }
+    }
+
     if (role === "boss") {
       try {
         const client = await clerkClient();

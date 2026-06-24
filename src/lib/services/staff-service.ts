@@ -146,23 +146,22 @@ export class StaffService extends BaseService {
         : "Yönetici";
       const translatedRole = data.role === "manager" ? "Müdür" : "Kasiyer";
 
-      // ─── CLERK ORGANİZASYON DAVETİ ─────────────────────────────────
-      const clerkInv = await client.organizations.createOrganizationInvitation({
-        organizationId: orgId,
+      // ─── CLERK DAVETİ ─────────────────────────────────
+      const clerkInv = await client.invitations.createInvitation({
         emailAddress: emailLower,
-        role: "org:member",
-        senderName: `${bossName} sizi ${translatedRole} olarak`,
         publicMetadata: {
           orgId: orgId,
           role: data.role,
           branch_id: targetBranch.id,
+          branchId: targetBranch.id,
           branchName: data.branch,
           org_id: orgId,
           phone: normalizedPhone,
         },
         redirectUrl: `${appUrl}/dashboard`,
+        ignoreExisting: true,
         skipEmailDelivery: true,
-      } as any);
+      });
 
       const org = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
       const orgName = org?.name || "Şirket";
