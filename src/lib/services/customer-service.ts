@@ -1,7 +1,7 @@
 import { BaseService } from "./base-service";
-import { normalizePhoneToUsername, isValidTurkishPhone } from "@/lib/utils";
+import { normalizePhoneToUsername, isValidTurkishPhone, sanitizePhoneTo10 } from "@/lib/utils";
 import { users, customerProfiles, organizations, customers, invitations } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 export class CustomerService extends BaseService {
   async syncCustomerData() {
@@ -227,8 +227,7 @@ export class CustomerService extends BaseService {
     return { success: true };
   }
 
-  async inviteCustomer(data: { firstName: string; lastName: string; phone: string; email: string }) {
-    const orgId = await this.requireOrg();
+  async inviteCustomer(data: { firstName: string; lastName: string; phone: string; email: string; branchId: string; orgId: string; invitedById: string }) {
     const client = await this.getClerkClient();
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
@@ -236,10 +235,36 @@ export class CustomerService extends BaseService {
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
-    // Telefon numarasını Clerk username-safe formata normalize et
+    const cleanedPhone = sanitizePhoneTo10(data.phone);
     const normalizedPhone = normalizePhoneToUsername(data.phone);
     if (!isValidTurkishPhone(data.phone)) {
       throw new Error("Geçersiz telefon numarası formatı");
+    }
+
+    // Telefon numarası benzersizlik kontrolü (users.username)
+    const existingUserByPhone = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.username, normalizedPhone))
+      .get();
+    if (existingUserByPhone) {
+      throw new Error("PHONE_ALREADY_REGISTERED");
+    }
+
+    // Aktif davetiye çakışma kontrolü (organizasyon bazlı)
+    const existingInviteByPhone = await this.db
+      .select()
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.phoneNumber, cleanedPhone),
+          eq(invitations.organizationId, data.orgId),
+          or(eq(invitations.status, "PENDING"), eq(invitations.status, "ACCEPTED"))
+        )
+      )
+      .get();
+    if (existingInviteByPhone) {
+      throw new Error("PHONE_INVITATION_EXISTS");
     }
 
     const invitation = await client.invitations.createInvitation({
@@ -249,14 +274,14 @@ export class CustomerService extends BaseService {
         lastName: data.lastName,
         phone: normalizedPhone,
         role: "customer",
-        org_id: orgId,
+        org_id: data.orgId,
       },
       redirectUrl: `${appUrl}/sign-up`,
       ignoreExisting: true,
       notify: false,
     });
 
-    const org = await this.db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    const org = await this.db.select().from(organizations).where(eq(organizations.id, data.orgId)).get();
     const orgName = org?.name || "Sadakat Platformu";
 
     const { emailService } = await import("@/lib/services/email-service");
@@ -274,6 +299,18 @@ export class CustomerService extends BaseService {
       html,
     }).catch((err) => {
       console.error("[EmailService] Müşteri davet e-postası gönderim hatası:", err);
+    });
+
+    // Başarılı davette yerel veritabanına gölge kayıt atılması
+    await this.db.insert(invitations).values({
+      clerkInviteId: invitation.id,
+      email: data.email.trim().toLowerCase(),
+      phoneNumber: cleanedPhone,
+      organizationId: data.orgId,
+      branchId: data.branchId,
+      role: "CUSTOMER",
+      status: "PENDING",
+      invitedBy: data.invitedById,
     });
 
     return { success: true, message: "Müşteri başarıyla davet edildi!" };

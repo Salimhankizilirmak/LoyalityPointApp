@@ -33,7 +33,14 @@ export async function inviteBossAction(companyName: string, email: string, phone
     }
     return res;
   } catch (error: unknown) {
-    return { success: false, error: (error instanceof Error ? error.message : "Bilinmeyen hata") };
+    const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+    if (message === "PHONE_ALREADY_REGISTERED") {
+      return { success: false, error: "Bu telefon numarası zaten sistemde kayıtlı." };
+    }
+    if (message === "PHONE_INVITATION_EXISTS") {
+      return { success: false, error: "Bu telefon numarasına ait aktif bir davet zaten bulunuyor." };
+    }
+    return { success: false, error: message };
   }
 }
 

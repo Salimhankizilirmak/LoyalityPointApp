@@ -8,6 +8,7 @@ import { users, branches, organizations, invitations, loyaltyTransactions, custo
 import { eq, and, or, like, desc, asc, gte, lte, gt, sql, type SQL } from "drizzle-orm";
 import { loyaltyService } from "@/lib/services/loyalty-service";
 import { staffService } from "@/lib/services/staff-service";
+import { customerService } from "@/lib/services/customer-service";
 import { randomBytes } from "crypto";
 
 // ─── SHARED HELPERS ──────────────────────────────────────────────────────────
@@ -70,99 +71,45 @@ export async function searchCustomerAction(phoneNumber: string) {
 export async function registerCustomerAction(name: string, phoneNumber: string, email: string) {
   try {
     if (!name?.trim() || !phoneNumber?.trim() || !email?.trim()) {
-      return { error: "Ad soyad, telefon numarası ve e-posta adresi zorunludur." };
+      return { success: false, error: "Ad soyad, telefon numarası ve e-posta adresi zorunludur." };
     }
     if (!email.includes("@")) {
-      return { error: "Geçerli bir e-posta adresi giriniz." };
+      return { success: false, error: "Geçerli bir e-posta adresi giriniz." };
     }
-
-    // Telefon normalize + doğrulama (server-side, tek gerçek kaynak)
-    const { normalizePhoneToUsername, sanitizePhoneTo10 } = await import("@/lib/utils");
-    const cleanedPhone = sanitizePhoneTo10(phoneNumber.trim());
-    if (!/^5\d{9}$/.test(cleanedPhone)) {
-      return { error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
-    }
-    const normalizedPhone = normalizePhoneToUsername(phoneNumber.trim());
 
     const { dbUser, branchId, orgId } = await resolveCashierContext();
+
+    const parts = name.trim().split(/\s+/);
+    const firstName = parts.slice(0, -1).join(" ") || parts[0];
+    const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
     
-    // Mükerrer davetiye kontrolü (Guard Clause)
-    const existingPending = await db.select()
-      .from(invitations)
-      .where(and(
-        eq(invitations.email, email.trim().toLowerCase()),
-        eq(invitations.status, "PENDING")
-      ))
-      .get();
-
-    if (existingPending) {
-      return { error: "Bu e-posta adresi için zaten bekleyen bir davet mevcut." };
-    }
-
-    // 1. Clerk Invitation oluştur
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-    if (!appUrl) {
-      throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
-    }
-
-    const client = await clerkClient();
-    const invitation = await client.invitations.createInvitation({
-      emailAddress: email.trim().toLowerCase(),
-      publicMetadata: {
-        role: "customer",
-        branchId,
-        orgId,
-        phone: normalizedPhone,
-      },
-      redirectUrl: `${appUrl}/sign-up`,
-      notify: false,
-    });
-
-    // 2. Turso invitations tablosuna shadow kayıt at
-    await db.insert(invitations).values({
-      clerkInviteId: invitation.id,
+    const res = await customerService.inviteCustomer({
+      firstName,
+      lastName,
+      phone: phoneNumber.trim(),
       email: email.trim().toLowerCase(),
-      phoneNumber: cleanedPhone, // 10 haneli ham string kaydediliyor
-      organizationId: orgId,
       branchId,
-      role: "CUSTOMER",
-      status: "PENDING",
-      invitedBy: dbUser.id,
+      orgId,
+      invitedById: dbUser.id,
     });
-
-    // Organizasyon ve Şube bilgilerini dinamik olarak sorgula
-    const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-    const branch = await db.select().from(branches).where(eq(branches.id, branchId)).get();
-
-    if (org) {
-      const { emailService } = await import("@/lib/services/email-service");
-      const { getCustomerInvitationTemplate } = await import("@/lib/templates/email-templates");
-      const html = getCustomerInvitationTemplate(
-        email.trim().toLowerCase(),
-        name.trim(),
-        org.name,
-        branch?.name
-      );
-      await emailService.sendMail({
-        to: email.trim().toLowerCase(),
-        subject: `${org.name} Sadakat Programı Daveti`,
-        html,
-      }).catch((err) => {
-        console.error("[EmailService] Kasiyer davet e-postası gönderim hatası:", err);
-      });
-    }
 
     const { revalidatePath } = await import("next/cache");
     revalidatePath("/cashier-dashboard");
 
-    return { success: true };
+    return res;
   } catch (error: unknown) {
     console.error("[registerCustomerAction] Error:", error);
-    const msg = error instanceof Error ? error.message : "";
-    if (msg.includes("Geçersiz telefon")) {
-      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
+    const message = error instanceof Error ? error.message : "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin.";
+    if (message === "PHONE_ALREADY_REGISTERED") {
+      return { success: false, error: "Bu telefon numarası zaten sistemde kayıtlı." };
     }
-    return { error: "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin." };
+    if (message === "PHONE_INVITATION_EXISTS") {
+      return { success: false, error: "Bu telefon numarasına ait aktif bir davet zaten bulunuyor." };
+    }
+    if (message.includes("Geçersiz telefon") || message === "Geçersiz telefon numarası formatı") {
+      return { success: false, error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
+    }
+    return { success: false, error: message };
   }
 }
 

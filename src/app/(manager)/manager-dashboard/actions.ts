@@ -67,104 +67,49 @@ export async function getManagerProfile() {
 export async function addCustomerAction(firstName: string, lastName: string, phone: string, email: string) {
   try {
     if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim()) {
-      return { error: "Ad, soyad, telefon ve e-posta adresi zorunludur." };
+      return { success: false, error: "Ad, soyad, telefon ve e-posta adresi zorunludur." };
     }
     if (!email.includes("@")) {
-      return { error: "Geçerli bir e-posta adresi giriniz." };
+      return { success: false, error: "Geçerli bir e-posta adresi giriniz." };
     }
-
-    // Telefon normalize + doğrulama (server-side, tek gerçek kaynak)
-    const { normalizePhoneToUsername, sanitizePhoneTo10 } = await import("@/lib/utils");
-    const cleanedPhone = sanitizePhoneTo10(phone.trim());
-    if (!/^5\d{9}$/.test(cleanedPhone)) {
-      return { error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
-    }
-    const normalizedPhone = normalizePhoneToUsername(phone.trim()); // Clerk için eski formatı koruyoruz
 
     const { userId } = await auth();
-    if (!userId) return { error: "Oturum bulunamadı." };
+    if (!userId) return { success: false, error: "Oturum bulunamadı." };
 
     const dbUserLocal = await db.select().from(users).where(eq(users.clerkId, userId)).get();
-    if (!dbUserLocal) return { error: "Yönetici kaydı bulunamadı." };
+    if (!dbUserLocal) return { success: false, error: "Yönetici kaydı bulunamadı." };
     if (dbUserLocal.role !== "MANAGER" && dbUserLocal.role !== "BOSS" && dbUserLocal.role !== "SUPER_ADMIN") {
-      return { error: "Yönetici yetkisi gereklidir." };
+      return { success: false, error: "Yönetici yetkisi gereklidir." };
     }
 
     const profile = await managerService.getMyBranchData();
-    if (!profile || !profile.orgId) return { error: "Şube organizasyon kimliği bulunamadı." };
+    if (!profile || !profile.orgId) return { success: false, error: "Şube organizasyon kimliği bulunamadı." };
     const orgId = profile.orgId;
     const branchId = profile.branchId;
 
-    // Mükerrer davetiye kontrolü (Guard Clause)
-    const existingPending = await db.select()
-      .from(invitations)
-      .where(and(
-        eq(invitations.email, email.trim().toLowerCase()),
-        eq(invitations.status, "PENDING")
-      ))
-      .get();
-
-    if (existingPending) {
-      return { error: "Bu e-posta adresi için zaten bekleyen bir davet mevcut." };
-    }
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-    if (!appUrl) {
-      throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
-    }
-
-    const client = await clerkClient();
-    const invitation = await client.invitations.createInvitation({
-      emailAddress: email.trim().toLowerCase(),
-      publicMetadata: {
-        role: "customer",
-        branchId,
-        orgId,
-        phone: normalizedPhone,
-      },
-      redirectUrl: `${appUrl}/sign-up`,
-      notify: false,
-    });
-
-    await db.insert(invitations).values({
-      clerkInviteId: invitation.id,
+    const res = await customerService.inviteCustomer({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone.trim(),
       email: email.trim().toLowerCase(),
-      phoneNumber: cleanedPhone, // 10 haneli ham string kaydediliyor
-      organizationId: orgId,
       branchId,
-      role: "CUSTOMER",
-      status: "PENDING",
-      invitedBy: dbUserLocal.id,
+      orgId,
+      invitedById: dbUserLocal.id,
     });
 
-    // Organizasyon bilgilerini dinamik olarak sorgula
-    const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-
-    if (org) {
-      const { emailService } = await import("@/lib/services/email-service");
-      const { getCustomerInvitationTemplate } = await import("@/lib/templates/email-templates");
-      const customerFullname = `${firstName.trim()} ${lastName.trim()}`.trim();
-      const html = getCustomerInvitationTemplate(
-        email.trim().toLowerCase(),
-        customerFullname,
-        org.name
-      );
-      await emailService.sendMail({
-        to: email.trim().toLowerCase(),
-        subject: `${org.name} Sadakat Programı Daveti`,
-        html,
-      }).catch((err) => {
-        console.error("[EmailService] Yönetici davet e-postası gönderim hatası:", err);
-      });
-    }
-
-    return { success: true };
+    return res;
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "";
-    if (msg.includes("Geçersiz telefon")) {
-      return { error: "Geçersiz telefon numarası formatı. Lütfen 05XX XXX XX XX formatında giriniz." };
+    const message = error instanceof Error ? error.message : "Kayıt hatası";
+    if (message === "PHONE_ALREADY_REGISTERED") {
+      return { error: "Bu telefon numarası zaten sistemde kayıtlı." };
     }
-    return { error: (error instanceof Error ? error.message : "Kayıt hatası") };
+    if (message === "PHONE_INVITATION_EXISTS") {
+      return { error: "Bu telefon numarasına ait aktif bir davet zaten bulunuyor." };
+    }
+    if (message.includes("Geçersiz telefon") || message === "Geçersiz telefon numarası formatı") {
+      return { error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
+    }
+    return { error: message };
   }
 }
 

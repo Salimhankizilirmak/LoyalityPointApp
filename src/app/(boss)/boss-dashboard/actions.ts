@@ -55,7 +55,14 @@ export async function inviteEmployee(data: { name: string; email: string; role: 
     return result;
   } catch (error: unknown) {
     const err = error as { errors?: { message: string }[]; message?: string };
-    const message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
+    let message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
+    
+    if (message === "PHONE_ALREADY_REGISTERED") {
+      message = "Bu telefon numarası zaten sistemde kayıtlı.";
+    } else if (message === "PHONE_INVITATION_EXISTS") {
+      message = "Bu telefon numarasına ait aktif bir davet zaten bulunuyor.";
+    }
+    
     console.error("[Invite Action Error]:", message, error);
     throw new Error(message);
   }

@@ -24,6 +24,30 @@ export class AdminService extends BaseService {
     }
     const normalizedPhone = normalizePhoneToUsername(bossPhone); // Clerk için eski formatı koruyoruz
 
+    // Telefon numarası benzersizlik ve davet çakışma kontrolleri
+    const existingUserByPhone = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.username, normalizedPhone))
+      .get();
+    if (existingUserByPhone) {
+      throw new Error("PHONE_ALREADY_REGISTERED");
+    }
+
+    const existingInviteByPhone = await this.db
+      .select()
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.phoneNumber, cleanedPhone),
+          or(eq(invitations.status, "PENDING"), eq(invitations.status, "ACCEPTED"))
+        )
+      )
+      .get();
+    if (existingInviteByPhone) {
+      throw new Error("PHONE_INVITATION_EXISTS");
+    }
+
     const emailLower = bossEmail.trim().toLowerCase();
     const client = await this.getClerkClient();
 

@@ -1,7 +1,7 @@
 import { BaseService } from "./base-service";
 import { normalizePhoneToUsername, sanitizePhoneTo10 } from "@/lib/utils";
-import { users, staffProfiles, branches, organizations, userBranches } from "@/db/schema";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { users, staffProfiles, branches, organizations, userBranches, invitations } from "@/db/schema";
+import { eq, and, sql, inArray, or } from "drizzle-orm";
 
 export class StaffService extends BaseService {
   async getOrgMembers() {
@@ -139,6 +139,32 @@ export class StaffService extends BaseService {
       throw new Error("Geçersiz telefon numarası formatı. Telefon numarası 5 ile başlamalı ve 10 haneli olmalıdır.");
     }
     const normalizedPhone = normalizePhoneToUsername(data.phone); // Clerk için eski formatı koruyoruz
+
+    // Telefon numarası benzersizlik kontrolü (users.username)
+    const existingUserByPhone = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.username, normalizedPhone))
+      .get();
+    if (existingUserByPhone) {
+      throw new Error("PHONE_ALREADY_REGISTERED");
+    }
+
+    // Aktif davetiye çakışma kontrolü (organizasyon bazlı)
+    const existingInviteByPhone = await this.db
+      .select()
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.phoneNumber, cleanedPhone),
+          eq(invitations.organizationId, orgId),
+          or(eq(invitations.status, "PENDING"), eq(invitations.status, "ACCEPTED"))
+        )
+      )
+      .get();
+    if (existingInviteByPhone) {
+      throw new Error("PHONE_INVITATION_EXISTS");
+    }
 
     try {
       // ─── CLERK DAVETİ ─────────────────────────────────
