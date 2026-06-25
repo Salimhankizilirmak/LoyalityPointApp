@@ -27,7 +27,7 @@ export async function inviteBossAction(companyName: string, email: string, phone
       throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
     }
 
-    const res = await adminService.inviteBoss(companyName, email, appUrl, phone);
+    const res = await adminService.inviteBoss(companyName, email.trim().toLowerCase(), appUrl, phone);
     if (res.success) {
       revalidatePath("/admin");
     }

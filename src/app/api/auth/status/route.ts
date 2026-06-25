@@ -47,31 +47,62 @@ export async function GET() {
       const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || null;
       const localRole = (role.toUpperCase() === "BOSS" || !role ? "BOSS" : role.toUpperCase()) as "SUPER_ADMIN" | "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER";
 
-      const inviteForUser = await db.select()
-        .from(invitations)
-        .where(eq(invitations.email, email.toLowerCase()))
-        .get();
+      let finalUsername = user.username || null;
 
-      const usernameFromPhone = inviteForUser?.phoneNumber
-        ? normalizePhoneToUsername(inviteForUser.phoneNumber)
-        : null;
+      if (!finalUsername) {
+        const cleanEmail = email.trim().toLowerCase();
+        const inviteForUser = await db.select()
+          .from(invitations)
+          .where(eq(sql<string>`LOWER(${invitations.email})`, cleanEmail))
+          .get();
 
-      await db.insert(users).values({
-        clerkId: userId,
-        email: email,
-        role: localRole,
-        name: name,
-        username: usernameFromPhone,
-      })
-      .onConflictDoUpdate({
-        target: users.clerkId,
-        set: {
+        if (inviteForUser && inviteForUser.phoneNumber) {
+          finalUsername = normalizePhoneToUsername(inviteForUser.phoneNumber);
+        } else {
+          console.warn(`[StatusAPI] 🛑 JIT Sync stopped: No invitation or phoneNumber found for email: ${cleanEmail}`);
+          return NextResponse.json({ synced: false, error: "INVITATION_NOT_FOUND" }, { status: 403 });
+        }
+      }
+
+      try {
+        await db.insert(users).values({
+          clerkId: userId,
           email: email,
           role: localRole,
           name: name,
-          username: sql`COALESCE(${users.username}, ${usernameFromPhone})`,
+          username: finalUsername,
+        })
+        .onConflictDoUpdate({
+          target: users.clerkId,
+          set: {
+            email: email,
+            role: localRole,
+            name: name,
+          }
+        });
+      } catch (err: any) {
+        if (err && typeof err === "object" && err.message && err.message.includes("UNIQUE constraint failed: users.username")) {
+          console.log(`[StatusAPI] ⚠️ Username conflict detected for ${finalUsername}. Retrying with suffix.`);
+          const fallbackUsername = `${finalUsername}_${userId.slice(-4)}`;
+          await db.insert(users).values({
+            clerkId: userId,
+            email: email,
+            role: localRole,
+            name: name,
+            username: fallbackUsername,
+          })
+          .onConflictDoUpdate({
+            target: users.clerkId,
+            set: {
+              email: email,
+              role: localRole,
+              name: name,
+            }
+          });
+        } else {
+          throw err;
         }
-      });
+      }
       
       dbUser = (await db.select().from(users).where(eq(users.clerkId, userId)).get())!;
       console.log(`[StatusAPI] 👤 Self-healing: Created/Updated local user record. Id=${dbUser.id}, Role=${dbUser.role}`);
@@ -93,7 +124,7 @@ export async function GET() {
       // Turso 'invitations' tablosundan kullanıcının e-postasına göre kaydını bul.
       const invite = await db.select()
         .from(invitations)
-        .where(eq(invitations.email, email))
+        .where(eq(sql<string>`LOWER(${invitations.email})`, email))
         .get();
 
       // B2B mimarisinde davetiye bulunmalıdır ve branchId zorunludur.
