@@ -97,9 +97,9 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
     revalidatePath("/cashier-dashboard");
 
     return res;
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("[registerCustomerAction] Error:", error);
-    const message = error instanceof Error ? error.message : "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin.";
+    const message = error?.message || "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin.";
     if (message === "PHONE_ALREADY_REGISTERED") {
       return { success: false, error: "Bu telefon numarası zaten sistemde kayıtlı." };
     }

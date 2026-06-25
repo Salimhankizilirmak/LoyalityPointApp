@@ -98,26 +98,20 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
     });
 
     return res;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Kayıt hatası";
+  } catch (error: any) {
+    const message = error?.message || "Kayıt hatası";
     if (message === "PHONE_ALREADY_REGISTERED") {
-      return { error: "Bu telefon numarası zaten sistemde kayıtlı." };
+      return { success: false, error: "Bu telefon numarası zaten sistemde kayıtlı." };
     }
     if (message === "PHONE_INVITATION_EXISTS") {
-      return { error: "Bu telefon numarasına ait aktif bir davet zaten bulunuyor." };
+      return { success: false, error: "Bu telefon numarasına ait aktif bir davet zaten bulunuyor." };
     }
     if (message.includes("Geçersiz telefon") || message === "Geçersiz telefon numarası formatı") {
-      return { error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
+      return { success: false, error: "Geçersiz telefon numarası formatı. Lütfen 5XX XXX XX XX formatında giriniz." };
     }
-    return { error: message };
+    return { success: false, error: message };
   }
 }
-
-import { 
-  getOrgMembers as getOrgMembersAction, 
-  updateMemberName as updateMemberNameAction, 
-  removeMember as removeMemberAction 
-} from "@/app/(boss)/boss-dashboard/actions";
 
 export async function getOrgMembers() {
   try {
@@ -129,11 +123,13 @@ export async function getOrgMembers() {
 }
 
 export async function updateMemberName(id: string, firstName: string, lastName: string) {
-  return await updateMemberNameAction(id, firstName, lastName);
+  const { staffService } = await import("@/lib/services/staff-service");
+  return await staffService.updateMemberName(id, firstName, lastName);
 }
 
 export async function removeMember(id: string) {
-  return await removeMemberAction(id);
+  const { staffService } = await import("@/lib/services/staff-service");
+  return await staffService.removeMember(id);
 }
 
 import { staffProfiles } from "@/db/schema";

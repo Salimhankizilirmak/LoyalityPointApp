@@ -32,8 +32,8 @@ export async function inviteBossAction(companyName: string, email: string, phone
       revalidatePath("/admin");
     }
     return res;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+  } catch (error: any) {
+    const message = error?.message || "Bilinmeyen hata";
     if (message === "PHONE_ALREADY_REGISTERED") {
       return { success: false, error: "Bu telefon numarası zaten sistemde kayıtlı." };
     }

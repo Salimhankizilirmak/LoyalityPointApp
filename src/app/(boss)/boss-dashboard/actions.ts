@@ -53,7 +53,7 @@ export async function inviteEmployee(data: { name: string; email: string; role: 
     const { revalidatePath } = await import("next/cache");
     revalidatePath("/boss-dashboard");
     return result;
-  } catch (error: unknown) {
+  } catch (error: any) {
     const err = error as { errors?: { message: string }[]; message?: string };
     let message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
     
@@ -64,7 +64,7 @@ export async function inviteEmployee(data: { name: string; email: string; role: 
     }
     
     console.error("[Invite Action Error]:", message, error);
-    throw new Error(message);
+    return { success: false, error: message };
   }
 }
 
@@ -174,11 +174,18 @@ export async function inviteStaffAction(email: string, role: "CASHIER" | "MANAGE
     });
     
     return { success: true };
-  } catch (error: unknown) {
+  } catch (error: any) {
     const err = error as { errors?: { message: string }[]; message?: string };
-    const message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
+    let message = err.errors?.[0]?.message || err.message || "Bilinmeyen hata";
+    
+    if (message === "PHONE_ALREADY_REGISTERED") {
+      message = "Bu telefon numarası zaten sistemde kayıtlı.";
+    } else if (message === "PHONE_INVITATION_EXISTS") {
+      message = "Bu telefon numarasına ait aktif bir davet zaten bulunuyor.";
+    }
+    
     console.error("[InviteStaffAction Error]:", message, error);
-    throw new Error(message);
+    return { success: false, error: message };
   }
 }
 

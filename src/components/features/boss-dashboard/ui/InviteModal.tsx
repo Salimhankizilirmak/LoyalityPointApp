@@ -67,12 +67,15 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
       });
       console.log("📨 [InviteEmployeeForm] E-posta davet isteği tamamlandı. Sonuç:", res);
       router.refresh();
-      setSent(true);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Davet gönderilemedi";
+      if (res && "error" in res && res.error) {
+        setError(res.error);
+      } else {
+        setSent(true);
+      }
+    } catch (err: any) {
+      const message = err?.message || "Davet gönderilemedi";
       console.error("❌ [InviteEmployeeForm] E-posta davet isteği hatası:", message, err);
       setError(message);
-      throw err;
     } finally {
       setSending(false);
     }
