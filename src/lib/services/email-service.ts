@@ -44,15 +44,16 @@ export class EmailService {
     return this.transporter;
   }
 
-  async sendMail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<void> {
+  async sendMail({ to, subject, html, text }: { to: string; subject: string; html: string; text?: string }): Promise<void> {
     const transporter = this.getTransporter();
     const fromUser = process.env.SMTP_USER;
     
     await transporter.sendMail({
-      from: `Topla Kazan <${fromUser}>`,
+      from: `"Topla Kazan" <${fromUser}>`,
       to,
       subject,
       html,
+      text,
     });
   }
 }

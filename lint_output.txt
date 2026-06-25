@@ -1,0 +1,196 @@
+
+> temp_app@0.1.0 lint
+> eslint
+
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(boss)/boss-dashboard/client-page.tsx
+  28:10   warning  'isMounted' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  31:5    error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(boss)/boss-dashboard/client-page.tsx:31:5
+  29 |
+  30 |   useEffect(() => {
+> 31 |     setIsMounted(true);
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  32 |   }, []);
+  33 |
+  34 |   const renderTime = performance.now();  react-hooks/set-state-in-effect
+  34:22   error    Error: Cannot call impure function during render
+
+`performance.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(boss)/boss-dashboard/client-page.tsx:34:22
+  32 |   }, []);
+  33 |
+> 34 |   const renderTime = performance.now();
+     |                      ^^^^^^^^^^^^^^^^^ Cannot call impure function
+  35 |   const { signOut } = useClerk();
+  36 |   const { user } = useUser();
+  37 |   const { organization } = useOrganization();                                                                                                                                                                                                                                                                                                             react-hooks/purity
+  37:11   warning  'organization' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  77:9    warning  'hasInitialData' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+  90:102  error    Error: Cannot call impure function during render
+
+`performance.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(boss)/boss-dashboard/client-page.tsx:90:102
+  88 |   };
+  89 |
+> 90 |   console.log(`✨ [TELEMETRİ] BossDashboard: Ana Dashboard Gövdesi Render Ediliyor! Render süresi: ${(performance.now() - renderTime).toFixed(2)}ms`);
+     |                                                                                                      ^^^^^^^^^^^^^^^^^ Cannot call impure function
+  91 |
+  92 |   return (
+  93 |     <div className={`min-h-screen w-full transition-colors duration-500 font-sans ${state.isDarkMode ? "bg-[#0f172a] text-white" : "bg-slate-50 text-slate-900"}`}>                                                  react-hooks/purity
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(boss)/boss-dashboard/layout.tsx
+  21:5  warning  'dbUser' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(cashier)/cashier-dashboard/actions.ts
+  219:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  773:12  warning  'error' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  806:12  warning  'error' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  839:12  warning  'error' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  846:23  warning  'orgId' is assigned a value but never used                                                             @typescript-eslint/no-unused-vars
+  875:12  warning  'error' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(cashier)/cashier-dashboard/client-page.tsx
+  30:9   warning  'router' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+  42:10  warning  'acceptedCustomers' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  50:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(cashier)/cashier-dashboard/client-page.tsx:50:5
+  48 |
+  49 |   useEffect(() => {
+> 50 |     loadAcceptedCustomers();
+     |     ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  51 |   }, []);
+  52 |   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  53 |   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);  react-hooks/set-state-in-effect
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(cashier)/cashier-dashboard/layout.tsx
+  18:5  warning  'dbUser' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(cashier)/cashier-dashboard/transactions/transactions-client.tsx
+  50:9   warning  'router' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  59:10  warning  'showSignOutOverlay' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  59:30  warning  'setShowSignOutOverlay' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  82:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(cashier)/cashier-dashboard/transactions/transactions-client.tsx:82:7
+  80 |   useEffect(() => {
+  81 |     if (activeTab === "customers") {
+> 82 |       loadInvitations();
+     |       ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  83 |     }
+  84 |   }, [activeTab, loadInvitations]);
+  85 |  react-hooks/set-state-in-effect
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(customer)/customer-dashboard/actions.ts
+  5:10  warning  'users' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(customer)/customer-dashboard/client-page.tsx
+  37:5  warning  'loading' is assigned a value but never used                @typescript-eslint/no-unused-vars
+  39:5  warning  'showSignOutOverlay' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  42:5  warning  'organization' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  50:5  warning  'setShowSignOutOverlay' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(customer)/customer-dashboard/layout.tsx
+  14:5  warning  'dbUser' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(manager)/manager-dashboard/actions.ts
+   10:12  warning  'error' is defined but never used                @typescript-eslint/no-unused-vars
+   60:12  warning  'error' is defined but never used                @typescript-eslint/no-unused-vars
+  172:20  warning  'getOrgMembersAction' is defined but never used  @typescript-eslint/no-unused-vars
+  181:12  warning  'error' is defined but never used                @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(manager)/manager-dashboard/client-page.tsx
+  27:11  warning  'organization' is assigned a value but never used           @typescript-eslint/no-unused-vars
+  29:30  warning  'setShowSignOutOverlay' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/(manager)/manager-dashboard/layout.tsx
+  16:5  warning  'dbUser' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/admin/client-page.tsx
+  20:34  warning  'loading' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  20:49  warning  'organization' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  20:63  warning  'isLoaded' is assigned a value but never used        @typescript-eslint/no-unused-vars
+  23:9   warning  'hasInitialData' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/auth-callback/page.tsx
+   6:10  warning  'motion' is defined but never used           @typescript-eslint/no-unused-vars
+   6:18  warning  'AnimatePresence' is defined but never used  @typescript-eslint/no-unused-vars
+   9:33  warning  'orgId' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  12:10  warning  'synced' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/app/sw.ts
+  11:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/boss-dashboard/modals/BossDashboardModals.tsx
+   8:10  warning  'BossProfileSettings' is defined but never used  @typescript-eslint/no-unused-vars
+  55:3   warning  'showSignOutOverlay' is defined but never used   @typescript-eslint/no-unused-vars
+  56:3   warning  'showProfileModal' is defined but never used     @typescript-eslint/no-unused-vars
+  57:3   warning  'setShowProfileModal' is defined but never used  @typescript-eslint/no-unused-vars
+  65:3   warning  'bossInfo' is defined but never used             @typescript-eslint/no-unused-vars
+  66:3   warning  'pointRate' is defined but never used            @typescript-eslint/no-unused-vars
+  67:3   warning  'validityMonths' is defined but never used       @typescript-eslint/no-unused-vars
+  68:3   warning  'savingSettings' is defined but never used       @typescript-eslint/no-unused-vars
+  69:3   warning  'settingsSaved' is defined but never used        @typescript-eslint/no-unused-vars
+  73:3   warning  'handleSaveSettings' is defined but never used   @typescript-eslint/no-unused-vars
+  74:3   warning  'handleUpdateMember' is defined but never used   @typescript-eslint/no-unused-vars
+  75:3   warning  'userId' is defined but never used               @typescript-eslint/no-unused-vars
+  77:3   warning  'signOut' is defined but never used              @typescript-eslint/no-unused-vars
+  79:9   warning  'router' is assigned a value but never used      @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/boss-dashboard/sections/AllBranchesSection.tsx
+  5:10  warning  'QuotaProgressBar' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/cashier-dashboard/modals/CashierDashboardModals.tsx
+  22:3  warning  'showSignOutOverlay' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  23:3  warning  'onSignOutCountdownComplete' is defined but never used   @typescript-eslint/no-unused-vars
+  24:3  warning  'signOutAction' is defined but never used                @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/cashier-dashboard/ui/Header.tsx
+  5:10  warning  'motion' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/customer-dashboard/modals/CustomerDashboardModals.tsx
+  12:43  warning  'state' is defined but never used    @typescript-eslint/no-unused-vars
+  12:50  warning  'actions' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/manager-dashboard/modals/ManagerDashboardModals.tsx
+  36:3  warning  'showSignOutOverlay' is defined but never used  @typescript-eslint/no-unused-vars
+  37:3  warning  'signOut' is defined but never used             @typescript-eslint/no-unused-vars
+  46:9  warning  'router' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/super-admin/modals/SuperAdminModals.tsx
+  29:52  warning  'showSignOutOverlay' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  30:71  warning  'signOut' is assigned a value but never used             @typescript-eslint/no-unused-vars
+  31:9   warning  'router' is assigned a value but never used              @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/components/features/super-admin/ui/DashboardHeader.tsx
+   3:10  warning  'motion' is defined but never used         @typescript-eslint/no-unused-vars
+  32:9   warning  'CYAN' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/alperensongut/Desktop/LoyalityPointApp/src/lib/services/customer-service.ts
+  245:11  warning  'invitation' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 73 problems (5 errors, 68 warnings)
+  0 errors and 2 warnings potentially fixable with the `--fix` option.
+

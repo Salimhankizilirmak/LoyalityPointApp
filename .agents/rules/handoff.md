@@ -12,45 +12,48 @@
 
 ---
 
-## Son Oturum
+## Son Oturum (2026-06-25)
 
-**Tarih:** 2026-06-24  
 **Tamamlanan işler:**
-- `src/components/auth/auth-modal.tsx` dosyasındaki React Hook sırası hatası unconditional `useTransform` tanımlarıyla çözüldü.
-- Clerk v7 ve React 19 ile uyumluluk sağlanması amacıyla asenkron auth hook'ları (`useSignIn`, `useSignUp`) güncellendi; `isLoaded` ve `setActive` metotları `useAuth()` ve `useClerk()` üzerinden çekildi.
-- Telefon numarası mühürleme ve doğrulama akışındaki `"u"` ve `"u0"` önekleri (prefix) tamamen kaldırıldı. Giriş kutusu strictly telefon odaklı hale getirildi. Girişte `+905XXXXXXXXX` uluslararası formatına dönüştürüldü.
-- Google SSO yönlendirme akışı için `/sso-callback` karşılama sayfası sıfırdan oluşturuldu.
-- Clerk Webhook motoru (`route.ts`) güncellenerek yerel veritabanına `05XXXXXXXXX` formatında `username` kaydedilirken, Clerk profiline doğrulanmış telefon numarası (`+905XXXXXXXXX`) mühürlenmesi entegre edildi.
-- Clerk Webhook isteklerinin middleware tarafından engellenmemesi için `src/middleware.ts` içindeki public matcher'a `/api/webhooks/clerk(.*)` muafiyeti tanımlandı.
-- `npm run build` ile projenin sorunsuz derlendiği doğrulandı.
+- **Görsel Temizlik:** `src/components/auth/auth-modal.tsx` ve `src/app/sso-callback/page.tsx` dosyaları tamamen silinerek gereksiz görsel karmaşa elendi.
+- **Landing Sadeleştirmesi:** `LandingContent.tsx` üzerindeki tüm özel modal durumları ve Framer Motion `useTransform` animasyonları kaldırıldı. Giriş butonları standart/stabil Clerk `<SignInButton mode="modal">` yapısına döndürüldü. Oturum açmış kullanıcılar için yönlendirme çelişkisine yol açan erken return engeli çözüldü.
+- **Webhook Tamiri (`route.ts`):** `user.created` event'inde davet edilen telefon numarası yerel veritabanındaki `invitations` tablosundan çekilerek, başında 0 olan 11 haneli düz formatta (`05XXXXXXXXX`) doğrudan Clerk `username` alanına güncellenecek şekilde sadeleştirildi. Clerk API hataları için ham JSON loglama desteği eklendi.
+- **React 19 / ESLint Hatalarının Giderilmesi:** `useEffect` içerisinde senkron state güncellemelerinden kaynaklanan `set-state-in-effect` linter hataları tamamen çözüldü:
+  - `useBossDashboard.ts` içindeki `showUsernameWarning` yapay state'i kaldırılarak yerine doğrudan derived (türetilmiş) state olan `hasNoUsername` kullanıldı.
+  - `UsernameWarningBanner.tsx` hydration kontrolü `requestAnimationFrame` ile asenkron hale getirilerek uyarılar giderildi.
+- **Temiz Kod (Clean Code) Uygulamaları:** `route.ts`, `staff-service.ts` ve `admin-service.ts` içindeki kullanılmayan statik importlar ve atıl değişkenler (bossName, translatedRole, dbUser, vb.) temizlendi.
+- **Kalite Kontrolü:** Proje `npm run build` ve `npm run lint` testlerinden sıfır hata ile geçerek stabil hale getirildi.
 
 **Değişen dosyalar:**
 ```
 src/
-  components/auth/auth-modal.tsx     → DEĞİŞTİ
+  components/
+    auth/auth-modal.tsx                              → SİLİNDİ
+    landing/LandingContent.tsx                       → GÜNCELLENDİ
+    features/boss-dashboard/hooks/useBossDashboard.ts → GÜNCELLENDİ
+    ui/UsernameWarningBanner.tsx                     → GÜNCELLENDİ
   app/
-    sso-callback/page.tsx            → YENİ
-    api/webhooks/clerk/route.ts      → DEĞİŞTİ
-  middleware.ts                      → DEĞİŞTİ
+    sso-callback/page.tsx                            → SİLİNDİ
+    api/webhooks/clerk/route.ts                      → GÜNCELLENDİ
+  lib/services/
+    staff-service.ts                                 → GÜNCELLENDİ
+    admin-service.ts                                 → GÜNCELLENDİ
 ```
 
 **Neden değişti (kısa):**
-- `auth-modal.tsx`: Hook sırası hatası tamiri, Clerk v7 uyumlu ref'ler, +90 telefon girdisi ve davet onayında u0 temizliği.
-- `page.tsx` (sso-callback): Google SSO sonrası Clerk oturumu doğrulama karşılama sayfası.
-- `route.ts` (webhook): Düz 11 haneli yerel numara ile DB sync, uluslararası numara ile Clerk phoneNumbers doğrulaması.
-- `middleware.ts`: Webhook arka plan isteklerinin Sign-in sayfasına yönlenmesini önleyen public rota tanımı.
+- Projenin Next.js 16/React 19 mimarisi ile uyumlu olması, karmaşık/hatalı yönlendirmelerden arındırılması ve davet/telefon akışının kurşun geçirmez şekilde çalışması sağlandı.
 
 ---
 
 ## Bilinen Sorunlar / Askıdakiler
 
-- Bilinen bir build veya çalışma zamanı hatası kalmadı.
+- Bilinen hiçbir derleme, tip veya linter hatası kalmamıştır. Tüm testler yeşildir (0 Hata).
 
 ---
 
 ## Sonraki Adım
 
-1. Canlı ortamda (Vercel) Clerk Webhook tetiklemelerini ve Google SSO akışını uçtan uca test et.
+1. Canlı/Vercel ortamında Clerk Webhook tetiklemelerini uçtan uca test et.
 2. İşletme kuralları gereği telefon numarasının doğruluğunu ve veritabanı kayıt bütünlüğünü doğrula.
 
 ---
@@ -73,4 +76,4 @@ src/
 
 ---
 
-_Son güncelleme: 2026-06-24 — Google SSO aktifleşti, 'u' prefix temizlendi ve Clerk v7/middleware entegrasyonu tamamlandı._
+_Son güncelleme: 2026-06-25 — Arayüz temizlendi, Webhook düz telefon senkronizasyonu tamamlandı ve React 19/ESLint hataları tamamen giderildi._

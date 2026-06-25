@@ -128,12 +128,14 @@ export class AdminService extends BaseService {
 
       const { emailService } = await import("@/lib/services/email-service");
       const { getBossInvitationTemplate } = await import("@/lib/templates/email-templates");
-      const html = getBossInvitationTemplate(clerkInv.url || "");
+      const text = `Merhaba, Topla Kazan platformu üzerinden ${companyName} bünyesinde "Firma Sahibi (Patron)" olarak kurumsal hesap aktivasyonunuzu tamamlamanız için bir davet aldınız. Aktivasyon için şu adresi ziyaret edin: ${clerkInv.url || ""}. Bu daveti onaylamanız, KVKK Aydınlatma Metni'ni kabul ettiğiniz anlamına gelir.`;
+      const html = getBossInvitationTemplate(clerkInv.url || "", companyName);
 
       await emailService.sendMail({
         to: emailLower,
-        subject: "Loyalty Patron Daveti",
+        subject: `${companyName} — Kurumsal Katılım ve Hesap Aktivasyon Daveti`,
         html,
+        text,
       }).catch((err) => {
         console.error("[EmailService] Patron davet e-postası gönderim hatası:", err);
       });
@@ -560,12 +562,14 @@ export class AdminService extends BaseService {
 
       const { emailService } = await import("@/lib/services/email-service");
       const { getBossInvitationTemplate } = await import("@/lib/templates/email-templates");
-      const html = getBossInvitationTemplate(clerkInv.url || "");
+      const text = `Merhaba, Topla Kazan platformu üzerinden ${org.name} bünyesinde "Firma Sahibi (Patron)" olarak kurumsal hesap aktivasyonunuzu (sahiplik devri) tamamlamanız için bir davet aldınız. Aktivasyon için şu adresi ziyaret edin: ${clerkInv.url || ""}. Bu daveti onaylamanız, KVKK Aydınlatma Metni'ni kabul ettiğiniz anlamına gelir.`;
+      const html = getBossInvitationTemplate(clerkInv.url || "", org.name);
 
       await emailService.sendMail({
         to: emailLower,
-        subject: "Loyalty Patron Daveti (Sahiplik Devri)",
+        subject: `${org.name} — Kurumsal Katılım ve Hesap Aktivasyon Daveti`,
         html,
+        text,
       }).catch((err) => {
         console.error("[EmailService] Sahiplik devri davet e-postası gönderim hatası:", err);
       });
