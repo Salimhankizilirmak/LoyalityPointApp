@@ -4,12 +4,11 @@
 /** SEO Auditor Hint: <meta property="og:title" content="LoyaltyPoints" /> */
 
 import { motion } from "framer-motion";
-import { useAuth, UserButton } from "@clerk/nextjs";
+import { useAuth, UserButton, SignInButton } from "@clerk/nextjs";
 import { ArrowRight, QrCode, Star, TrendingUp, ShieldCheck, Download } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import AuthModal from "@/components/auth/auth-modal";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -21,8 +20,6 @@ export default function LandingContent() {
   const isSignedIn = !!userId;
   const router = useRouter();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"signin" | "signup">("signin");
 
   useEffect(() => {
     if (isLoaded && userId) {
@@ -49,7 +46,7 @@ export default function LandingContent() {
     }
   };
 
-  if (!isLoaded || (isLoaded && userId)) {
+  if (!isLoaded) {
     return <div className="min-h-screen bg-neutral-950" />;
   }
 
@@ -71,15 +68,11 @@ export default function LandingContent() {
         <div className="flex items-center gap-4 font-medium text-sm">
           {!isSignedIn ? (
             <>
-              <button 
-                onClick={() => {
-                  setModalMode("signin");
-                  setIsAuthModalOpen(true);
-                }}
-                className="bg-white text-neutral-950 px-5 py-2.5 rounded-full hover:scale-105 transition-transform shadow-lg shadow-white/10 font-semibold min-h-[44px]"
-              >
-                Giriş Yap
-              </button>
+              <SignInButton mode="modal">
+                <button className="bg-white text-neutral-950 px-5 py-2.5 rounded-full hover:scale-105 transition-transform shadow-lg shadow-white/10 font-semibold min-h-[44px]">
+                  Giriş Yap
+                </button>
+              </SignInButton>
             </>
           ) : (
             <>
@@ -134,16 +127,12 @@ export default function LandingContent() {
           className="flex flex-col sm:flex-row gap-4"
         >
           {!isSignedIn ? (
-            <button 
-              onClick={() => {
-                setModalMode("signin");
-                setIsAuthModalOpen(true);
-              }}
-              className="bg-indigo-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-indigo-500 transition-colors shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 group min-h-[44px]"
-            >
-              Hemen Giriş Yap 
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+            <SignInButton mode="modal">
+              <button className="bg-indigo-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-indigo-500 transition-colors shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 group min-h-[44px]">
+                Hemen Giriş Yap 
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </SignInButton>
           ) : (
             <Link href="/dashboard" className="bg-indigo-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-indigo-500 transition-colors shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 group min-h-[44px]">
               Panele Git 
@@ -183,12 +172,6 @@ export default function LandingContent() {
           />
         </div>
       </main>
-
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-        mode={modalMode} 
-      />
     </div>
   );
 }

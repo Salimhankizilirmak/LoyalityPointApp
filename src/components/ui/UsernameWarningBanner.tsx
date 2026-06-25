@@ -16,7 +16,10 @@ export default function UsernameWarningBanner({
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
+    const handle = requestAnimationFrame(() => {
+      setIsMounted(true);
+    });
+    return () => cancelAnimationFrame(handle);
   }, []);
 
   // Hydration bitene kadar veya kullanıcı adı zaten tanımlıysa hiçbir şey render etme

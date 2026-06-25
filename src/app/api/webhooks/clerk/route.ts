@@ -3,29 +3,8 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, organizations, branches, userBranches, invitations } from "@/db/schema";
-import { eq, and, inArray, isNull } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
-import { normalizePhoneToUsername } from "@/lib/utils";
-
-function formatToTurkishPhone(rawPhone: string): string | null {
-  const digits = rawPhone.replace(/\D/g, "");
-  if (digits.startsWith("90") && digits.length === 12) {
-    return "0" + digits.slice(2);
-  }
-  if (digits.startsWith("5") && digits.length === 10) {
-    return "0" + digits;
-  }
-  if (digits.startsWith("05") && digits.length === 11) {
-    return digits;
-  }
-  if (digits.length >= 10) {
-    const last10 = digits.slice(-10);
-    if (last10.startsWith("5")) {
-      return "0" + last10;
-    }
-  }
-  return null;
-}
 
 type ClerkPayload = {
   type: string;
@@ -82,285 +61,50 @@ export async function POST(req: Request) {
 
   if (type === "user.created") {
     const clerkId = data.id || "";
-    const email = data.email_addresses?.[0]?.email_address?.toLowerCase() || "";
-    let role = (data.public_metadata?.role as string) || "";
-    const firstName = ((data as Record<string, unknown>).first_name as string) || "";
-    const lastName = ((data as Record<string, unknown>).last_name as string) || "";
-    const name = `${firstName} ${lastName}`.trim() || null;
-    const imageUrl = ((data as Record<string, unknown>).image_url as string) || null;
+    const email = data.email_addresses?.[0]?.email_address || "";
 
-    const metadata = data.public_metadata as { phone?: string; role?: string } | undefined;
-    let finalUsername = "";
+    console.log(`[ClerkWebhook] user.created event triggered. ClerkId: ${clerkId}, Email: ${email}`);
 
-    // 1. E-posta adresine göre invitations tablosunda ara
-    let invitationPhone = "";
-    let invitationRole = "";
     if (email) {
       try {
+        // Yerel invitations tablosunda sorgu yapıp, davet edilirken girilen orijinal telefon numarasını çekiyoruz.
         const inviteRecord = await db.select()
           .from(invitations)
           .where(eq(invitations.email, email.trim().toLowerCase()))
           .get();
-        if (inviteRecord?.phoneNumber) {
-          invitationPhone = inviteRecord.phoneNumber;
-          console.log(`[ClerkWebhook] 📞 Found phone number in invitations table: ${invitationPhone}`);
-        }
-        if (inviteRecord?.role) {
-          invitationRole = inviteRecord.role;
-        }
-      } catch (dbErr) {
-        console.error("[ClerkWebhook] Failed to query invitations table for phone:", dbErr);
-      }
-    }
 
-    // Telefon numarası önceliği: Davet tablosundan gelen veya metadata'dan gelen
-    const phoneToUse = invitationPhone || metadata?.phone;
-    let localPhone = "";
-    let internationalPhone = "";
+        const rawPhone = inviteRecord?.phoneNumber || "";
+        console.log(`[ClerkWebhook] Found phone number in invitations: ${rawPhone}`);
 
-    if (phoneToUse) {
-      const formattedPhone = formatToTurkishPhone(phoneToUse);
-      if (formattedPhone) {
-        localPhone = formattedPhone; // 05XXXXXXXXX yerel formatı
-        internationalPhone = "+90" + formattedPhone.slice(1); // +905XXXXXXXXX uluslararası formatı
-      }
-    }
+        if (rawPhone) {
+          // Çekilen telefon numarasındaki tüm boşluk, parantez ve ülke kodlarını temizleyerek başında 0 olan 11 haneli düz rakam formatına (05XXXXXXXXX) getir.
+          const digits = rawPhone.replace(/\D/g, "");
+          const match = digits.match(/5\d{9}$/);
+          if (match) {
+            const cleanPhone = "0" + match[0];
+            console.log(`[ClerkWebhook] Formatted clean phone: ${cleanPhone}`);
 
-    if (localPhone) {
-      finalUsername = localPhone;
-    }
-
-    if (!finalUsername) {
-      if (data.username) {
-        finalUsername = data.username;
-      } else {
-        finalUsername = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
-      }
-    }
-
-    const username = finalUsername;
-    data.username = finalUsername;
-
-    console.log(`[ClerkWebhook] 👤 New user created event details: ClerkId=${clerkId}, Email=${email}, Username=${username}, MetadataRole=${role}, Name=${name}, ImageUrl=${imageUrl}`);
-
-    // Global invitation'dan gelen publicMetadata Clerk tarafından user'a
-    // otomatik kopyalanmaz. Bu nedenle role boş gelse bile, Turso DB'de
-    // üçlü koşulla (bossEmail + PENDING + bossId IS NULL) eşleştirme yapıyoruz.
-    if (role !== "boss" && email) {
-      const pendingOrgCheck = await db.select()
-        .from(organizations)
-        .where(and(
-          eq(organizations.bossEmail, email),
-          eq(organizations.status, "PENDING"),
-          isNull(organizations.bossId),   // Sadece gerçekten bağlanmamış org'u yakala
-        ))
-        .get();
-
-      if (pendingOrgCheck) {
-        console.log(`[ClerkWebhook] 👑 BOSS confirmed via DB email match (bossEmail=${email}, org=${pendingOrgCheck.id})`);
-        role = "boss";
-      }
-    }
-
-    // Davet edilen tüm roller için (CUSTOMER, CASHIER, MANAGER) yerel davetiyeyi ACCEPTED yap
-    if (email) {
-      await db.update(invitations)
-        .set({ status: "ACCEPTED" })
-        .where(and(
-          eq(invitations.email, email.trim().toLowerCase()),
-          eq(invitations.status, "PENDING")
-        ));
-      console.log(`[ClerkWebhook] 🏁 Local pending invitations auto-accepted for email: ${email}`);
-    }
-
-    // 5. Yerel DB'ye kullanıcı kaydını mühürle (BOSS, MANAGER, CASHIER, CUSTOMER)
-    try {
-      const targetRole = (invitationRole || role || "CUSTOMER").toUpperCase() as "BOSS" | "MANAGER" | "CASHIER" | "CUSTOMER";
-      await db.transaction(async (tx) => {
-        const userUpdateSet: Record<string, unknown> = {
-          role: targetRole,
-          email,
-          imageUrl,
-          name,
-        };
-
-        await tx.insert(users).values({
-          clerkId,
-          email,
-          username: finalUsername,
-          role: targetRole,
-          name,
-          imageUrl,
-        })
-          .onConflictDoUpdate({
-            target: users.clerkId,
-            set: userUpdateSet,
-          });
-      });
-      console.log(`[ClerkWebhook] 👤 User ${clerkId} (${email}) upserted in local DB with username ${finalUsername}`);
-    } catch (dbErr) {
-      console.error("[ClerkWebhook] ❌ Failed to upsert user in local DB:", dbErr);
-    }
-
-    // 6. Clerk tarafındaki resmi telefon kaydını mühürle
-    if (clerkId && internationalPhone) {
-      try {
-        const client = await clerkClient();
-        await client.phoneNumbers.createPhoneNumber({
-          userId: clerkId,
-          phoneNumber: internationalPhone, // +905XXXXXXXXX
-          verified: true,
-          primary: true,
-        });
-        console.log(`[ClerkWebhook] ✅ Clerk phone number set & verified: ${internationalPhone} for ${clerkId}`);
-      } catch (clerkErr: unknown) {
-        const errMsg = clerkErr instanceof Error 
-          ? clerkErr.message 
-          : JSON.stringify(clerkErr);
-        console.error(`[ClerkWebhook] ❌ Clerk createPhoneNumber FAILED for ${clerkId}: ${errMsg}`);
-        console.error("[Clerk Webhook Error Raw]:", JSON.stringify(clerkErr));
-      }
-    }
-
-    // 7. Personel (MANAGER / CASHIER) ve BOSS için otomatik Clerk Organizasyon Üyeliği Bağlantısı
-    const orgIdFromMetadata = (data.public_metadata?.orgId as string) || (data.public_metadata?.org_id as string) || "";
-    const roleFromMetadata = (data.public_metadata?.role as string) || "";
-
-    if (clerkId && orgIdFromMetadata) {
-      const isValidRole = roleFromMetadata === "boss" || roleFromMetadata === "manager" || roleFromMetadata === "cashier";
-      
-      if (isValidRole) {
-        void (async () => {
-          try {
-            // Boss ise "org:admin", personel (manager/cashier) ise "org:member" mühürle
-            const targetClerkRole = roleFromMetadata === "boss" ? "org:admin" : "org:member";
-            
-            const client = await clerkClient();
-            await client.organizations.createOrganizationMembership({
-              organizationId: orgIdFromMetadata,
-              userId: clerkId,
-              role: targetClerkRole,
-            });
-            console.log(`[ClerkWebhook] 🏢 Programmatic Clerk org membership created for ${roleFromMetadata.toUpperCase()}: ${clerkId} → ${orgIdFromMetadata} (${targetClerkRole})`);
-          } catch (membershipErr: unknown) {
-            const errMsg = membershipErr instanceof Error ? membershipErr.message : JSON.stringify(membershipErr);
-            console.error(`[ClerkWebhook] ⚠️ Programmatic Clerk org membership FAILED for ${roleFromMetadata}: ${clerkId}: ${errMsg}`);
-          }
-        })();
-      }
-    }
-
-    if (role === "boss") {
-      try {
-        const client = await clerkClient();
-        const orgId = (data.public_metadata?.orgId as string) || "";
-        console.log(`[ClerkWebhook] 🏢 BOSS flow triggered. Metadata OrgId: ${orgId}`);
-
-        let linkedOrgId: string | null = null;
-
-        // 🔄 BOSS + Askıdaki Organizasyon Atomik Bağlama (Transaction)
-        await db.transaction(async (tx) => {
-          const dbUser = (await tx.select().from(users).where(eq(users.clerkId, clerkId)).get())!;
-          console.log(`[ClerkWebhook] 👤 BOSS confirmed in transaction: ${dbUser.id}`);
-
-          // 2. Organizasyonu bul: önce orgId metadata ile, sonra email eşleşmesi ile
-          let pendingOrg = null;
-
-          if (orgId) {
-            pendingOrg = await tx.select()
-              .from(organizations)
-              .where(and(
-                eq(organizations.id, orgId),
-                isNull(organizations.bossId),   // Zaten bağlıysa dokunma
-              ))
-              .get();
-          }
-
-          if (!pendingOrg && email) {
-            pendingOrg = await tx.select()
-              .from(organizations)
-              .where(and(
-                eq(organizations.id, orgId),
-                isNull(organizations.bossId),   // Zaten bağlıysa dokunma
-              ))
-              .get();
-          }
-
-          if (!pendingOrg && email) {
-            pendingOrg = await tx.select()
-              .from(organizations)
-              .where(and(
-                eq(organizations.bossEmail, email),
-                eq(organizations.status, "PENDING"),
-                isNull(organizations.bossId),
-              ))
-              .get();
-          }
-
-          if (pendingOrg) {
-            await tx.update(organizations)
-              .set({ bossId: dbUser.id, status: "ACTIVE" })
-              .where(eq(organizations.id, pendingOrg.id));
-
-            linkedOrgId = pendingOrg.id;
-            console.log(`[ClerkWebhook] ⛓️ Linked BOSS ${dbUser.id} → Org ${pendingOrg.id} (${pendingOrg.name})`);
-
-            // Yerel davetiyeyi de ACCEPTED yap
-            await tx.update(invitations)
-              .set({ status: "ACCEPTED" })
-              .where(and(
-                eq(invitations.email, email),
-                eq(invitations.organizationId, pendingOrg.id),
-                eq(invitations.status, "PENDING")
-              ));
-          } else {
-            console.warn(`[ClerkWebhook] ⚠️ No unlinked pending org found for email=${email}, orgId=${orgId}`);
-          }
-        });
-
-        // 3. Clerk tarafında non-blocking işlemler (transaction dışında — hata olsa akış durmasın)
-        // Her işlem kendi izole try-catch'i ile zırhlandı: biri başarısız olsa diğeri çalışmaya devam eder.
-        void (async () => {
-          // 3a. Clerk publicMetadata mühürleme — sonraki oturumlarda token dolu gelsin
-          try {
-            await client.users.updateUserMetadata(clerkId, {
-              publicMetadata: {
-                role: "boss",
-                ...(linkedOrgId ? { orgId: linkedOrgId } : {}),
-              },
-            });
-            console.log(`[ClerkWebhook] 🏆 Clerk metadata successfully synced for boss=${clerkId}`);
-          } catch (clerkErr) {
-            // Hata Turso DB commit'ini bozmaz — sadece loglarda görünür
-            console.error(`[ClerkWebhook] ⚠️ Failed to update Clerk metadata in background:`, clerkErr);
-          }
-
-          // 3b. Clerk org:admin membership — bağımsız, metadata hatasından etkilenmez
-          if (linkedOrgId) {
+            // clerkClient API'sini kullanarak kullanıcının Clerk profilindeki username alanına güncelle.
             try {
-              await client.organizations.createOrganizationMembership({
-                organizationId: linkedOrgId,
-                userId: clerkId,
-                role: "org:admin",
-              });
-              console.log(`[ClerkWebhook] 🏢 Clerk org membership created: ${clerkId} → ${linkedOrgId}`);
-            } catch (membershipErr) {
-              console.error(`[ClerkWebhook] ⚠️ Failed to create Clerk org membership in background:`, membershipErr);
+              const client = await clerkClient();
+              await client.users.updateUser(clerkId, { username: cleanPhone });
+              console.log(`[ClerkWebhook] Clerk username successfully updated to: ${cleanPhone}`);
+            } catch (clerkErr: unknown) {
+              // Clerk API hata fırlatırsa, hatanın ham JSON detayını console.error ile yazdır.
+              console.error("[ClerkWebhook] Clerk API updateUser error:", clerkErr instanceof Error ? clerkErr.message : JSON.stringify(clerkErr));
             }
+          } else {
+            console.warn(`[ClerkWebhook] Phone number in invitations has an invalid format: ${rawPhone}`);
           }
-
-        })();
-
-        return NextResponse.json({ success: true, message: "BOSS synced and organization linked." });
+        } else {
+          console.warn(`[ClerkWebhook] No phone number found in invitations for email: ${email}`);
+        }
       } catch (dbErr) {
-        console.error("[ClerkWebhook] ❌ Transaction failed during BOSS sync:", dbErr);
-        return NextResponse.json({ error: "Database transaction failed" }, { status: 500 });
+        console.error("[ClerkWebhook] Error querying invitations database:", dbErr);
       }
     } else {
-      console.log(`[ClerkWebhook] ℹ️ User is not BOSS (role="${role || "none"}"), skipping org bind.`);
+      console.warn("[ClerkWebhook] No email address found in user.created payload");
     }
-
-
   }
 
   if (type === "user.updated") {

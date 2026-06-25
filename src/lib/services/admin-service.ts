@@ -2,9 +2,7 @@ import { BaseService } from "./base-service";
 import * as schema from "@/db/schema";
 import { eq, sql, desc, or, lt, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { emailService } from "./email-service";
-import { getBossInvitationTemplate } from "@/lib/templates/email-templates";
-import { normalizePhoneToUsername, isValidTurkishPhone, sanitizePhoneTo10 } from "@/lib/utils";
+import { normalizePhoneToUsername, sanitizePhoneTo10 } from "@/lib/utils";
 
 const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches, invitations } = schema;
 
@@ -437,7 +435,7 @@ export class AdminService extends BaseService {
   }
 
   async transferCompanyOwnership(organizationId: string, newBossEmail: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS"; message: string }> {
-    const { dbUser } = await this.requireRole(["SUPER_ADMIN"]);
+    await this.requireRole(["SUPER_ADMIN"]);
 
     if (!organizationId?.trim()) {
       throw new Error("Organizasyon ID boş olamaz.");

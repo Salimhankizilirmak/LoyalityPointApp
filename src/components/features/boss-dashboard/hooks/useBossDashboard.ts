@@ -87,7 +87,6 @@ export function useBossDashboard(initialData?: any) {
   const [reassigningEmployee, setReassigningEmployee] = useState<Employee | null>(null);
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showUsernameWarning, setShowUsernameWarning] = useState(false);
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteType, setDeleteType] = useState<"branch" | "staff">("branch");
@@ -173,13 +172,6 @@ export function useBossDashboard(initialData?: any) {
     }
   }, [error]);
 
-  useEffect(() => {
-    if (bossInfo && (!bossInfo.username || bossInfo.username.trim() === "")) {
-      setShowUsernameWarning(true);
-    } else if (bossInfo && bossInfo.username) {
-      setShowUsernameWarning(false);
-    }
-  }, [bossInfo]);
 
   // Filters & Calculations
   const managers = employees.filter(e => e.role === "manager");
@@ -350,7 +342,6 @@ export function useBossDashboard(initialData?: any) {
       reassigningEmployee,
       showSignOutOverlay,
       showProfileModal,
-      showUsernameWarning,
       isDeleting,
       deleteType,
       isTogglingStatus,
@@ -379,7 +370,6 @@ export function useBossDashboard(initialData?: any) {
       setReassigningEmployee,
       setShowSignOutOverlay,
       setShowProfileModal,
-      setShowUsernameWarning,
       setIsDeleting,
       setDeleteType,
       setIsTogglingStatus,

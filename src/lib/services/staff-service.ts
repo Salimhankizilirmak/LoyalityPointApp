@@ -1,5 +1,5 @@
 import { BaseService } from "./base-service";
-import { normalizePhoneToUsername, isValidTurkishPhone, sanitizePhoneTo10 } from "@/lib/utils";
+import { normalizePhoneToUsername, sanitizePhoneTo10 } from "@/lib/utils";
 import { users, staffProfiles, branches, organizations, userBranches } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 
@@ -141,11 +141,6 @@ export class StaffService extends BaseService {
     const normalizedPhone = normalizePhoneToUsername(data.phone); // Clerk için eski formatı koruyoruz
 
     try {
-      const bossName = currentUser.firstName && currentUser.lastName
-        ? `${currentUser.firstName} ${currentUser.lastName}`
-        : "Yönetici";
-      const translatedRole = data.role === "manager" ? "Müdür" : "Kasiyer";
-
       // ─── CLERK DAVETİ ─────────────────────────────────
       const clerkInv = await client.invitations.createInvitation({
         emailAddress: emailLower,
