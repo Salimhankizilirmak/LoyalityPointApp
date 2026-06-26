@@ -23,16 +23,16 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
-  title: "LoyaltyPoints | Yeni Nesil Müşteri Sadakat Sistemi",
-  description: "İşletmeniz için modern, QR kod tabanlı ve güvenli müşteri sadakat platformu. Puan kazandırın, müşteri bağlılığını artırın.",
-  keywords: ["sadakat programı", "puan sistemi", "müşteri sadakati", "QR kod puan", "LC Waikiki sadakat"],
-  authors: [{ name: "LoyaltyPoints Team" }],
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://okutkazan.app"),
+  title: "Okut Kazan | Yeni Nesil QR Kodlu Sadakat Sistemi",
+  description: "Okut Kazan ile işletmenizi büyütün. Çok şubeli Kafe, Restoran, Perakende ve Kuaförler için tasarlanmış modern, güvenli ve hızlı QR kod tabanlı müşteri sadakat ve puan platformu.",
+  keywords: ["dijital sadakat kartı", "çok şubeli puan sistemi", "kafe QR kod sistemi", "müşteri sadakati", "sadakat programı"],
+  authors: [{ name: "Okut Kazan Team" }],
   openGraph: {
-    title: "LoyaltyPoints | Müşterilerinizi Yakından Tanıyın",
-    description: "QR kod ile saniyeler içinde puan kazandırın ve detaylı raporlama ile işletmenizi büyütün.",
-    url: "https://loyaltypoints.app",
-    siteName: "LoyaltyPoints",
+    title: "Okut Kazan | Müşterilerinizi Yakından Tanıyın",
+    description: "Uygulama indirmeden QR kod ile saniyeler içinde puan kazandırın ve detaylı raporlama ile işletmenizi büyütün.",
+    url: "https://okutkazan.app",
+    siteName: "Okut Kazan",
     locale: "tr_TR",
     type: "website",
     images: [
@@ -40,19 +40,19 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "LoyaltyPoints Dashboard",
+        alt: "Okut Kazan Dashboard",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LoyaltyPoints | Müşteri Sadakat Sistemi",
+    title: "Okut Kazan | Müşteri Sadakat Sistemi",
     description: "Yeni nesil QR kod tabanlı sadakat platformu.",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Loyalty",
+    title: "Okut Kazan",
   },
   formatDetection: {
     telephone: false,
@@ -95,6 +95,64 @@ export default async function RootLayout({
                   }
                 } catch (e) {}
               })()`
+            }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@graph": [
+                  {
+                    "@type": "Organization",
+                    "@id": "https://okutkazan.app/#organization",
+                    "name": "Okut Kazan",
+                    "url": "https://okutkazan.app",
+                    "logo": "https://okutkazan.app/okka-logo.png",
+                    "description": "Yeni nesil QR kodlu müşteri sadakat ve puan sistemi."
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "Okut Kazan",
+                    "applicationCategory": "BusinessApplication",
+                    "operatingSystem": "Web",
+                    "offers": {
+                      "@type": "Offer",
+                      "price": "0",
+                      "priceCurrency": "TRY"
+                    }
+                  },
+                  {
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                      {
+                        "@type": "Question",
+                        "name": "Okut Kazan nedir?",
+                        "acceptedAnswer": {
+                          "@type": "Answer",
+                          "text": "Okut Kazan, Kafe, Restoran, Perakende, Güzellik Merkezleri ve Kuaförler için tasarlanmış yeni nesil dijital sadakat kartı ve çok şubeli puan sistemidir."
+                        }
+                      },
+                      {
+                        "@type": "Question",
+                        "name": "Müşteriler nasıl puan kazanır?",
+                        "acceptedAnswer": {
+                          "@type": "Answer",
+                          "text": "Müşteriler herhangi bir uygulama indirme zorunluluğu olmadan, doğrudan telefon kameralarıyla mağazadaki QR kodu okutarak saniyeler içinde puan kazanıp harcayabilirler."
+                        }
+                      },
+                      {
+                        "@type": "Question",
+                        "name": "Çok şubeli işletmeleri destekler mi?",
+                        "acceptedAnswer": {
+                          "@type": "Answer",
+                          "text": "Evet, Şifrelenmiş multi-tenant veri izolasyon kalkanı sayesinde sınırsız şube ve yetki bazlı personel yönetimi desteklenir."
+                        }
+                      }
+                    ]
+                  }
+                ]
+              })
             }}
           />
         </head>

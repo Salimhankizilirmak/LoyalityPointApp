@@ -11,6 +11,7 @@ export default function AuthCallbackPage() {
   const router = useRouter();
   const [errorTimeout, setErrorTimeout] = useState(false);
   const [invitationError, setInvitationError] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const hasSignedOut = useRef(false);
 
   useEffect(() => {
@@ -85,9 +86,27 @@ export default function AuthCallbackPage() {
     if (invitationError && !hasSignedOut.current) {
       console.log("[AuthCallback] 👻 Ghost Session Shield: Invitation error detected, signing out silently...");
       hasSignedOut.current = true;
-      signOut();
+      setIsSigningOut(true);
+      signOut().finally(() => {
+        setIsSigningOut(false);
+      });
     }
   }, [invitationError, signOut]);
+
+  // 🛡️ Ultimate Kalkan: Çıkış tamamlanmadan sekmeyi kapatmayı önle
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSigningOut) {
+        e.preventDefault();
+        e.returnValue = "Oturum güvenli bir şekilde kapatılıyor, lütfen ayrılmadan önce bekleyin.";
+        return e.returnValue;
+      }
+    };
+    if (isSigningOut) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isSigningOut]);
 
   if (invitationError) {
     return (

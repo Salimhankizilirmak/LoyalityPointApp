@@ -53,7 +53,7 @@ export async function GET() {
         const cleanEmail = email.trim().toLowerCase();
         const inviteForUser = await db.select()
           .from(invitations)
-          .where(eq(sql<string>`LOWER(${invitations.email})`, cleanEmail))
+          .where(eq(invitations.email, cleanEmail))
           .get();
 
         if (inviteForUser && inviteForUser.phoneNumber) {
@@ -124,7 +124,7 @@ export async function GET() {
       // Turso 'invitations' tablosundan kullanıcının e-postasına göre kaydını bul.
       const invite = await db.select()
         .from(invitations)
-        .where(eq(sql<string>`LOWER(${invitations.email})`, email))
+        .where(eq(invitations.email, email))
         .get();
 
       // B2B mimarisinde davetiye bulunmalıdır ve branchId zorunludur.

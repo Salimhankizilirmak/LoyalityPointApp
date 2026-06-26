@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Loyalty Point App',
-    short_name: 'Loyalty',
+    name: 'Okut Kazan',
+    short_name: 'Okut Kazan',
     description: 'Yeni nesil müşteri sadakat ve puan platformu.',
     start_url: '/',
     display: 'standalone',

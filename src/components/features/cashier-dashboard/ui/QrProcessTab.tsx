@@ -78,7 +78,7 @@ export function QrProcessTab() {
       <div className="flex-1 flex flex-col gap-6 min-w-0">
         <GlassPanel className="p-6 flex flex-col h-[400px] lg:h-[500px]">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-headline-md text-headline-md text-on-surface">Scan Loyalty Pass</h3>
+            <h3 className="font-headline-md text-headline-md text-on-surface">Okut Kazan Pass Okut</h3>
             <span className="px-3 py-1 bg-surface-container-highest rounded-full font-label-sm text-label-sm text-on-surface-variant flex items-center gap-2 border border-white/5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Camera Active

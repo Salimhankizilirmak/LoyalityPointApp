@@ -16,11 +16,11 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   return (
     <html lang="tr">
       <head>
-        <title>Kritik Sistem Hatası - Loyalty</title>
-        <meta name="description" content="Loyalty platformu kritik sistem hata kurtarma istasyonu." />
+        <title>Kritik Sistem Hatası - Okut Kazan</title>
+        <meta name="description" content="Okut Kazan platformu kritik sistem hata kurtarma istasyonu." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta property="og:title" content="Kritik Sistem Hatası - Loyalty" />
-        <meta property="og:description" content="Loyalty platformu kritik sistem hata kurtarma istasyonu." />
+        <meta property="og:title" content="Kritik Sistem Hatası - Okut Kazan" />
+        <meta property="og:description" content="Okut Kazan platformu kritik sistem hata kurtarma istasyonu." />
       </head>
       <body className="bg-[#0a0a0f] text-white min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans select-none m-0">
         {/* Radial Neon Glows */}

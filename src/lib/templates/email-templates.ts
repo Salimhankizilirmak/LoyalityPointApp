@@ -1,5 +1,5 @@
 /**
- * Email templates for Loyalty Platform.
+ * Email templates for Okut Kazan Platform.
  * Follows the Prestige v2 design system: Indigo (#4f46e5) & Cyan (#06b6d4) theme.
  * All purple (#8083ff) tones are removed/replaced.
  */
@@ -52,7 +52,7 @@ export function getEmployeeInvitationTemplate(inviteLink: string, role: "manager
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Loyalty Personel Davetiyesi</title>
+        <title>Okut Kazan Personel Davetiyesi</title>
         <style>
           body {
             background-color: #0b0f19;
@@ -167,12 +167,12 @@ export function getEmployeeInvitationTemplate(inviteLink: string, role: "manager
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">LOYALTY</div>
+            <div class="logo">OKUT KAZAN</div>
           </div>
           <div class="content">
             <h1>${headerText}</h1>
             <p>Merhaba,</p>
-            <p>Loyalty sadakat puanı platformunda şube personeli olarak görev almanız için bir davet aldınız.</p>
+            <p>Okut Kazan sadakat puanı platformunda şube personeli olarak görev almanız için bir davet aldınız.</p>
             
             <div class="info-box">
               <div class="info-item">
@@ -190,12 +190,12 @@ export function getEmployeeInvitationTemplate(inviteLink: string, role: "manager
               <a href="${inviteLink}" class="btn" target="_blank">Daveti Onayla ve Kayıt Ol</a>
             </div>
             <div style="font-size: 12px; color: #4b5563; text-align: center; margin: 16px 0 24px 0; line-height: 1.5; padding: 0 20px;">
-              <strong>KVKK ve Aydınlatma Metni:</strong> Butona tıklayarak sisteme kayıt olduğunuzda, Loyalty platformu Kullanıcı Sözleşmesi ve KVKK Aydınlatma Metni şartlarını okuduğunuzu, sadakat programı kapsamında kişisel verilerinizin işlenmesine <strong>Açık Rıza</strong> verdiğinizi kabul etmiş sayılarsınız.
+              <strong>KVKK ve Aydınlatma Metni:</strong> Butona tıklayarak sisteme kayıt olduğunuzda, Okut Kazan platformu Kullanıcı Sözleşmesi ve KVKK Aydınlatma Metni şartlarını okuduğunuzu, sadakat programı kapsamında kişisel verilerinizin işlenmesine <strong>Açık Rıza</strong> verdiğinizi kabul etmiş sayılarsınız.
             </div>
             <p>Bu bağlantı güvenliğiniz için tek kullanımlıktır. Eğer bu daveti beklemiyorsanız, lütfen bu e-postayı dikkate almayın.</p>
           </div>
           <div class="footer">
-            © ${currentYear} Loyalty. Tüm hakları saklıdır.<br>
+            © ${currentYear} Okut Kazan. Tüm hakları saklıdır.<br>
             Sorularınız için <a href="mailto:novexistech@gmail.com">novexistech@gmail.com</a> adresiyle iletişime geçebilirsiniz.
           </div>
         </div>
@@ -245,7 +245,7 @@ export function getCustomerInvitationTemplate(email: string, customerName: strin
               <tr>
                 <td style="padding: 30px 40px; background-color: #181820; border-top: 1px solid #2a2a36; text-align: center;">
                   <p style="margin: 0; font-size: 12px; color: #767283; line-height: 1.6;">
-                    <strong>KVKK ve Aydınlatma Metni:</strong> Butona tıklayarak sisteme kayıt olduğunuzda, Loyalty platformu Kullanıcı Sözleşmesi ve KVKK Aydınlatma Metni şartlarını okuduğunuzu, sadakat programı kapsamında kişisel verilerinizin işlenmesine <strong>Açık Rıza</strong> verdiğinizi kabul etmiş sayılarsınız.
+                    <strong>KVKK ve Aydınlatma Metni:</strong> Butona tıklayarak sisteme kayıt olduğunuzda, Okut Kazan platformu Kullanıcı Sözleşmesi ve KVKK Aydınlatma Metni şartlarını okuduğunuzu, sadakat programı kapsamında kişisel verilerinizin işlenmesine <strong>Açık Rıza</strong> verdiğinizi kabul etmiş sayılarsınız.
                   </p>
                 </td>
               </tr>

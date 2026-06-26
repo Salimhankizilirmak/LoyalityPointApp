@@ -17,7 +17,7 @@ export function DigitalWalletCard({ pts }: DigitalWalletCardProps) {
       <div className="flex justify-between items-start w-full relative z-10">
         <div className="flex flex-col">
           <span className="text-[10px] font-black tracking-widest text-cyan-400 uppercase font-mono">
-            Loyalty Card
+            Okut Kazan Kartı
           </span>
           <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest mt-0.5">
             Sadakat Programı

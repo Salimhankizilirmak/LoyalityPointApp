@@ -82,7 +82,7 @@ export function AddOrgModal({ onClose, onAdd, isDarkMode = true }: AddOrgModalPr
               </div>
               {key === "slug" && form.slug && (
                 <p className="text-cyan-600 text-[10px] mt-1 ml-1 font-bold">
-                  loyaltycore.io/{form.slug}
+                  okutkazan.com/{form.slug}
                 </p>
               )}
             </div>
