@@ -3,6 +3,9 @@
 import { AlertTriangle, Store, Mail, Phone, MoreVertical } from "lucide-react";
 import { BossInfo, Branch, Employee } from "@/components/features/boss-dashboard/types";
 import { useState } from "react";
+import { AddBranchModal } from "@/components/features/boss-dashboard/ui/AddBranchModal";
+import { createBranch } from "../actions";
+import { useRouter } from "next/navigation";
 
 interface BranchesClientProps {
   profile: BossInfo | null;
@@ -11,9 +14,25 @@ interface BranchesClientProps {
 }
 
 export function BranchesClient({ profile, branches, members }: BranchesClientProps) {
+  const router = useRouter();
+  const [showAddBranch, setShowAddBranch] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const currentBranches = profile?.currentBranches || branches.length;
   const branchLimit = profile?.branchLimit || 1;
   const isQuotaLimitReached = currentBranches >= branchLimit;
+
+  const handleAddBranch = async (data: { name: string; city: string }) => {
+    try {
+      await createBranch(data.name, data.city);
+      setShowAddBranch(false);
+      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Şube oluşturulurken bir hata oluştu.");
+      setTimeout(() => setError(null), 3000);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -88,6 +107,7 @@ export function BranchesClient({ profile, branches, members }: BranchesClientPro
 
         {/* Yeni Şube Ekle Kartı */}
         <div 
+          onClick={() => !isQuotaLimitReached && setShowAddBranch(true)}
           className={`border border-dashed rounded-2xl p-5 flex flex-col items-center justify-center min-h-[200px] transition-colors ${
             isQuotaLimitReached 
               ? "bg-slate-900/50 border-white/5 opacity-50 cursor-not-allowed" 
@@ -109,6 +129,20 @@ export function BranchesClient({ profile, branches, members }: BranchesClientPro
           )}
         </div>
       </div>
+
+      {showAddBranch && (
+        <AddBranchModal
+          isDarkMode={true}
+          onClose={() => setShowAddBranch(false)}
+          onAdd={handleAddBranch}
+        />
+      )}
+
+      {error && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] px-6 py-3 bg-rose-500 text-white rounded-xl shadow-lg font-medium text-sm animate-in fade-in slide-in-from-top-4">
+          ⚠️ {error}
+        </div>
+      )}
     </div>
   );
 }
