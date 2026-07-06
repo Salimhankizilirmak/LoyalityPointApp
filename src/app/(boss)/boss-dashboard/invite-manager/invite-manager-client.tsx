@@ -146,7 +146,7 @@ export function InviteManagerClient({ branches }: InviteManagerClientProps) {
                 >
                   <option value="" disabled>Şube Seçin</option>
                   {branches.map((b) => (
-                    <option key={b.id} value={b.id.toString()}>{b.name}</option>
+                    <option key={b.id} value={b.name}>{b.name}</option>
                   ))}
                 </select>
                 <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-400">
