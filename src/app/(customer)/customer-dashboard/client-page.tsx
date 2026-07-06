@@ -1,12 +1,13 @@
 "use client";
 
 import { useCustomerDashboard } from "@/components/features/customer-dashboard/hooks/useCustomerDashboard";
-import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
+
 import { CustomerDashboardModals } from "@/components/features/customer-dashboard/modals/CustomerDashboardModals";
-import { SidebarNavigation } from "@/components/features/customer-dashboard/ui/SidebarNavigation";
+import { UniversalSidebar } from "@/components/ui/UniversalSidebar";
 import { DigitalWalletCard } from "@/components/features/customer-dashboard/ui/DigitalWalletCard";
 import { AntiFraudQR } from "@/components/features/customer-dashboard/ui/AntiFraudQR";
 import { LiveLedgerTimeline } from "@/components/features/customer-dashboard/ui/LiveLedgerTimeline";
+import { ActiveCampaignsSection } from "@/components/features/customer-dashboard/ui/ActiveCampaignsSection";
 
 interface CustomerDashboardClientPageProps {
   initialCustomerData: {
@@ -59,27 +60,28 @@ export function CustomerDashboardClientPage({
 
   return (
     <div className="flex-1 flex min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Profil Ayarları Modalı */}
-      <ProfileSettingsModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        isDarkMode={true}
-      />
+
 
       {/* Ortak Modaller ve Çıkış Overlay'i */}
       <CustomerDashboardModals state={state} actions={actions} />
 
       {/* MASAÜSTÜ SOL DİKEY MENÜ */}
-      <SidebarNavigation
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        userFullName={userFullName}
-        userEmail={userEmail}
-        userAvatar={userAvatar}
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
-        signOut={() => signOut({ redirectUrl: "/" })}
-        setShowProfileModal={setShowProfileModal}
+      <UniversalSidebar
+        title="Müşteri Paneli"
+        navItems={[
+          {
+            name: "Cüzdanım",
+            icon: require("lucide-react").Wallet,
+            isActive: activeTab === "cuzdan",
+            onClick: () => setActiveTab("cuzdan")
+          },
+          {
+            name: "İşlem Geçmişi",
+            icon: require("lucide-react").History,
+            isActive: activeTab === "islemler",
+            onClick: () => setActiveTab("islemler")
+          }
+        ]}
       />
 
       {/* ANA İÇERİK ALANI */}
@@ -97,8 +99,12 @@ export function CustomerDashboardClientPage({
               <div className="lg:col-span-5 flex flex-col gap-6">
                 <DigitalWalletCard pts={pts} />
                 <AntiFraudQR />
+                {/* Aktif Kampanyalar - Mobil görünümü için sol kolona */}
+                <div className="lg:hidden">
+                  <ActiveCampaignsSection />
+                </div>
               </div>
-              {/* Sağ Sütun: Defter Akışı */}
+              {/* Sağ Sütun: Defter Akışı & Kampanyalar */}
               <div className="hidden md:block lg:col-span-7">
                 <LiveLedgerTimeline
                   activeTab={activeTab}
@@ -108,6 +114,8 @@ export function CustomerDashboardClientPage({
                   totalPages={totalPages}
                   setCurrentPage={setCurrentPage}
                 />
+                {/* Aktif Kampanyalar - Desktop */}
+                <ActiveCampaignsSection />
               </div>
             </div>
           )}

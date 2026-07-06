@@ -3,12 +3,15 @@
 import React from "react";
 import { Terminal, Network, ShieldAlert, Activity, Key, BookOpen, Headset, Plus } from "lucide-react";
 import { UserButton, OrganizationSwitcher } from "@clerk/nextjs";
+import Image from "next/image";
 
 export function ManagerSidebar() {
   return (
     <nav className="hidden md:flex bg-surface-container-lowest fixed left-0 top-0 h-screen w-64 border-r border-outline-variant/20 shadow-sm flex-col py-6 px-4 z-40">
       <div className="mb-8 px-4 flex items-center justify-between">
-        <h1 className="font-headline-sm text-[20px] text-primary font-bold">Okut Kazan OS</h1>
+        <div className="relative w-32 h-10 rounded overflow-hidden">
+          <Image src="/okka-logo.png" alt="Logo" fill className="object-contain object-left" />
+        </div>
       </div>
       
       <div className="flex items-center gap-3 px-4 mb-8">

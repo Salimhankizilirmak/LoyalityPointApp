@@ -8,6 +8,7 @@ import { SecondaryButton } from "@/components/ui/SecondaryButton";
 import { searchCustomerAction, earnPointsAction, burnPointsAction } from "@/app/(cashier)/cashier-dashboard/actions";
 import { CheckCircle2, AlertCircle, Search, QrCode } from "lucide-react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 interface CustomerInfo {
   id: string;
@@ -78,7 +79,12 @@ export function QrProcessTab() {
       <div className="flex-1 flex flex-col gap-6 min-w-0">
         <GlassPanel className="p-6 flex flex-col h-[400px] lg:h-[500px]">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-headline-md text-headline-md text-on-surface">Okut Kazan Pass Okut</h3>
+            <div className="flex items-center gap-2">
+              <div className="relative w-24 h-6">
+                <Image src="/okka-logo.png" alt="Logo" fill className="object-contain object-left" />
+              </div>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Pass Okut</h3>
+            </div>
             <span className="px-3 py-1 bg-surface-container-highest rounded-full font-label-sm text-label-sm text-on-surface-variant flex items-center gap-2 border border-white/5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Camera Active
@@ -132,8 +138,8 @@ export function QrProcessTab() {
           <div className="bg-surface-container-low rounded-xl p-4 border border-white/5 mb-6">
             <div className="flex justify-between items-baseline">
               <span className="font-body-md text-on-surface-variant">Available Balance</span>
-              <span className="font-display text-display text-primary tracking-tight text-3xl">
-                {customerInfo ? customerInfo.totalPoints.toLocaleString("tr-TR") : "0"} <span className="text-lg text-primary/70">Puan</span>
+              <span className="font-display text-display text-primary tracking-tight text-[12px]">
+                {customerInfo ? customerInfo.totalPoints.toLocaleString("tr-TR") : "0"} <span className="text-[12px] text-primary/70">Puan</span>
               </span>
             </div>
           </div>
@@ -155,9 +161,9 @@ export function QrProcessTab() {
             </div>
             
             {msg && (
-              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className={`p-4 rounded-xl text-sm flex items-start gap-3 ${msg.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className={`p-4 rounded-xl text-[10px] flex items-start gap-3 ${msg.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                 <div className="mt-0.5">{msg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}</div>
-                <div className="text-base">{msg.text}</div>
+                <div className="text-[12px]">{msg.text}</div>
               </motion.div>
             )}
 

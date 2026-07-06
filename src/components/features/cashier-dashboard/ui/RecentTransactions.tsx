@@ -91,7 +91,7 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <History className="w-5 h-5 text-cyan-400" />
-          <h3 className="text-on-surface font-headline-sm text-base font-bold">Son İşlemler</h3>
+          <h3 className="text-on-surface font-headline-sm text-[12px] font-bold">Son İşlemler</h3>
         </div>
         <button
           onClick={loadTransactions}
@@ -104,7 +104,7 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-4 flex items-center gap-2">
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] mb-4 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
           <span>{error}</span>
         </div>
@@ -113,11 +113,11 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
       {loading && transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-4 text-on-surface-variant gap-3">
           <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
-          <p className="text-xs">Yükleniyor...</p>
+          <p className="text-[10px]">Yükleniyor...</p>
         </div>
       ) : transactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-4 text-on-surface-variant text-center gap-2">
-          <p className="text-sm font-medium">Henüz işlem gerçekleştirilmedi</p>
+          <p className="text-[10px] font-medium">Henüz işlem gerçekleştirilmedi</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -159,17 +159,17 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
                       )}
                       <div>
                         {isVoided && (
-                          <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 text-[8px] font-black uppercase tracking-wider">
+                          <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-black uppercase tracking-wider">
                             İptal
                           </span>
                         )}
                         {isVoidRecord && (
-                          <span className="px-1.5 py-0.5 rounded bg-red-600/30 text-red-300 border border-red-500/40 text-[8px] font-black uppercase tracking-wider">
+                          <span className="px-1.5 py-0.5 rounded bg-red-600/30 text-red-300 border border-red-500/40 text-[10px] font-black uppercase tracking-wider">
                             Void
                           </span>
                         )}
                         {!isVoided && !isVoidRecord && (
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
                             isEarn ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
                           }`}>
                             {isEarn ? "Earn" : "Burn"}
@@ -179,7 +179,7 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded-lg text-xs font-bold font-mono ${
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono ${
                         isVoidRecord
                           ? "bg-red-500/10 text-red-400"
                           : isEarn
@@ -193,25 +193,25 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
 
                   {/* Kart Orta Bölüm: Müşteri */}
                   <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-slate-200 truncate">{tx.customerName}</p>
-                    <p className="text-[9px] font-mono text-slate-500">{tx.customerPhone}</p>
+                    <p className="text-[10px] font-bold text-slate-200 truncate">{tx.customerName}</p>
+                    <p className="text-[10px] font-mono text-slate-500">{tx.customerPhone}</p>
                   </div>
 
                   {/* Kart Alt Bilgi Grid */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-[9px] text-slate-400">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-[10px] text-slate-400">
                     <div>
-                      <p className="text-slate-500 uppercase font-bold tracking-wider text-[8px]">Tutar</p>
+                      <p className="text-slate-500 uppercase font-bold tracking-wider text-[10px]">Tutar</p>
                       <p className="font-semibold text-slate-300">{formatCurrency(tx.amountSpent)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-slate-500 uppercase font-bold tracking-wider text-[8px]">Kasiyer</p>
+                      <p className="text-slate-500 uppercase font-bold tracking-wider text-[10px]">Kasiyer</p>
                       <p className="font-semibold text-slate-300 truncate">{tx.cashierName.split(" ")[0]}</p>
                     </div>
                   </div>
 
                   {/* Kart En Alt Eylem ve Saat */}
                   <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                    <div className="flex items-center gap-1 text-[9px] text-slate-500 font-mono">
+                    <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
                       <Clock className="w-3 h-3 text-cyan-400/30" />
                       <span>{tx.createdAtFormatted.split(",")[1] || tx.createdAtFormatted}</span>
                     </div>
@@ -220,7 +220,7 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
                       <button
                         onClick={() => handleVoid(tx.id)}
                         disabled={voidingId !== null}
-                        className="h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 text-[9px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-30"
+                        className="h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-30"
                       >
                         {voidingId === tx.id ? (
                           <RefreshCw className="w-3 h-3 animate-spin" />
@@ -240,18 +240,18 @@ export function RecentTransactions({ refreshTrigger }: RecentTransactionsProps) 
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1 || loading}
-              className="h-10 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/20 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
+              className="h-10 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/20 text-[10px] font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <ChevronLeft size={14} />
               <span>Önceki</span>
             </button>
-            <span className="text-xs font-bold text-slate-400 font-mono">
+            <span className="text-[10px] font-bold text-slate-400 font-mono">
               Sayfa {page}
             </span>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={transactions.length < 5 || loading}
-              className="h-10 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/20 text-xs font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
+              className="h-10 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/20 text-[10px] font-bold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <span>Sonraki</span>
               <ChevronRight size={14} />

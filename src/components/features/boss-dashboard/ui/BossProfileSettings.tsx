@@ -55,7 +55,6 @@ export function BossProfileSettings({
   hasNoUsername,
   invitations
 }: BossProfileSettingsProps) {
-  const [localRate, setLocalRate] = useState(pointRate);
   const [localValidity, setLocalValidity] = useState(validityMonths);
 
   // Name Edit State
@@ -86,19 +85,25 @@ export function BossProfileSettings({
           </div>
           <div>
             <h2 className={`font-bold text-lg ${isDarkMode ? "text-white" : "text-slate-900"}`}>Mağaza Yönetimi & Ayarlar</h2>
-            <p className="text-slate-500 text-xs">Organizasyon ayarlarını, puan mekanizmasını ve şube ekiplerini yönetin.</p>
+            <p className="text-slate-500 text-xs">Puan geçerlilik süresini yönetin. Kazanım oranı artık şube yöneticileri tarafından belirlenmektedir.</p>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div>
-            <label className="text-slate-500 text-[11px] font-bold uppercase tracking-wider mb-2 block">Puan Kazanım Oranı (%)</label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range" min="1" max="50" value={localRate} onChange={e => setLocalRate(Number(e.target.value))}
-                className={`flex-1 accent-blue-600 h-1.5 rounded-lg cursor-pointer ${isDarkMode ? "bg-slate-700" : "bg-slate-200"}`}
-              />
-              <span className={`w-12 text-center font-black text-sm ${isDarkMode ? "text-white" : "text-slate-800"}`}>%{localRate}</span>
+          {/* Bilgilendirme: Oran yönetimi artık şube yöneticisinde */}
+          <div className={`flex items-start gap-3 p-4 rounded-2xl border ${
+            isDarkMode ? "bg-blue-500/5 border-blue-500/20" : "bg-blue-50 border-blue-200"
+          }`}>
+            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="text-blue-400 text-xs font-black">i</span>
+            </div>
+            <div>
+              <p className={`text-xs font-semibold ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
+                Puan Kazanım Oranı
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Her şubenin kazanım oranı artık şube yöneticileri tarafından ayrı ayrı belirlenir. şube yöneticisi paneli &rarr; Kampanyalar sekmesinden ayarlanabilir.
+              </p>
             </div>
           </div>
 
@@ -117,7 +122,7 @@ export function BossProfileSettings({
           </div>
 
           <button
-            onClick={() => onSaveSettings(localRate, localValidity)}
+            onClick={() => onSaveSettings(pointRate, localValidity)}
             disabled={savingSettings}
             className={`w-full py-4 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all ${settingsSaved ? "bg-emerald-600 shadow-lg shadow-emerald-500/20" : "bg-blue-600 shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99]"
               }`}

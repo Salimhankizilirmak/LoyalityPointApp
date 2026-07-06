@@ -73,13 +73,13 @@ export function BranchMiniStats({
             <Icon size={15} className={color} />
           </div>
           <p
-            className={`font-bold text-base font-mono leading-none ${
+            className={`font-bold text-[10px] font-mono leading-none ${
               isDarkMode ? "text-white" : "text-slate-800"
             }`}
           >
             {value}
           </p>
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-wider font-mono">
+          <p className="text-[10px] text-slate-500 font-black uppercase tracking-wider font-mono">
             {label}
           </p>
         </motion.div>

@@ -1,8 +1,7 @@
 "use client";
 
 import { EmployeeManagement } from "../ui/EmployeeManagement";
-import { Employee } from "../types";
-import { InvitationsAuditFeed } from "@/components/features/invitations/ui/InvitationsAuditFeed";
+import { Employee, Transaction } from "../types";
 
 interface InvitationItem {
   id: string;
@@ -15,6 +14,7 @@ interface InvitationItem {
 
 interface StaffSectionProps {
   cashiers: Employee[];
+  transactions: Transaction[];
   isDarkMode: boolean;
   handleUpdateCashier: (id: string, f: string, l: string) => Promise<void>;
   handleRemoveCashier: (id: string) => Promise<void>;
@@ -26,6 +26,7 @@ interface StaffSectionProps {
 
 export function StaffSection({
   cashiers,
+  transactions,
   isDarkMode,
   handleUpdateCashier,
   handleRemoveCashier,
@@ -34,28 +35,20 @@ export function StaffSection({
   loadingId,
   invitations
 }: StaffSectionProps) {
+  
   return (
     <div className="space-y-6">
-      <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => setShowInvite(true)}
-            className="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold"
-          >
-            Kasiyer Davet Et
-          </button>
-        </div>
+      <div className="glass-panel-elevated rounded-3xl p-4 sm:p-5 transition-all">
         <EmployeeManagement
           employees={cashiers}
+          transactions={transactions}
           isDarkMode={isDarkMode}
           onUpdate={handleUpdateCashier}
           onRemove={handleRemoveCashier}
           onToggleStatus={handleToggleStatus}
           loadingId={loadingId}
+          onAddClick={() => setShowInvite(true)}
         />
-      </div>
-      <div className="mt-8">
-        <InvitationsAuditFeed invitations={invitations} isDarkMode={isDarkMode} />
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ export function CustomersSection({
   onSearchChange
 }: CustomersSectionProps) {
   return (
-    <div className="glass-panel-elevated rounded-3xl p-8 transition-all">
+    <div className="glass-panel-elevated rounded-3xl p-4 sm:p-5 transition-all">
       <CustomerManagement 
         customers={customers}
         transactions={transactions}

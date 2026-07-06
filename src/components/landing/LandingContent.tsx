@@ -81,9 +81,9 @@ function NeonQRCard() {
             <div className="w-32 h-32 md:w-40 md:h-40 bg-neutral-950 rounded-2xl flex items-center justify-center border border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.4)]">
               <QrCode className="w-20 h-20 md:w-24 md:h-24 text-cyan-400 drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]" />
             </div>
-            <p className="mt-6 font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 tracking-widest text-lg drop-shadow-sm">
-              OKUT KAZAN
-            </p>
+            <div className="mt-6 relative w-32 h-10 md:w-40 md:h-12 drop-shadow-sm">
+              <Image src="/okka-logo.png" alt="Logo" fill className="object-contain" />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -234,8 +234,8 @@ export default function LandingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white overflow-hidden selection:bg-emerald-500/30 font-sans">
-      <div className="absolute inset-0 z-0 pointer-events-none">
+    <div className="relative w-full min-h-screen bg-neutral-950 text-white overflow-x-hidden selection:bg-emerald-500/30 font-sans">
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/20 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/20 blur-[120px]" />
       </div>
@@ -243,19 +243,15 @@ export default function LandingContent() {
       {/* Header */}
       <header className="relative z-10 container mx-auto px-6 py-6 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center">
+          <div className="relative w-32 h-10 md:w-40 md:h-12 flex items-center justify-center">
             {/* Logo using standard Image to prevent missing imports */}
             <Image
               src="/okka-logo.png"
-              alt="Okut Kazan Logo"
-              width={48}
-              height={48}
-              className="object-contain"
+              alt="Logo"
+              fill
+              className="object-contain object-left"
             />
           </div>
-          <span className="text-xl md:text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-            Okut Kazan
-          </span>
         </div>
         <div className="flex items-center gap-4 font-medium text-sm">
           {!isSignedIn ? (
@@ -288,7 +284,7 @@ export default function LandingContent() {
           className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-indigo-400 text-sm font-medium mb-8 backdrop-blur-md"
         >
           <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-          Müşteriniz okutsun, işletmeniz kazansın: Okut Kazan!
+          Müşteriniz okutsun, işletmeniz kazansın!
         </motion.div>
 
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight max-w-4xl mb-6">

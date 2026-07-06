@@ -11,35 +11,149 @@ export class StaffService extends BaseService {
     if (!localUser) return [];
 
     let targetOrgIds: string[] = [];
+    let targetBranchIds: string[] = [];
 
     if (isSuper) {
       const allOrgs = await this.db.select().from(organizations).all();
       targetOrgIds = allOrgs.map(o => o.id);
-    } else {
+    } else if (localUser.role === "BOSS") {
       const bossOrgs = await this.db.select().from(organizations).where(eq(organizations.bossId, localUser.id)).all();
       targetOrgIds = bossOrgs.map(o => o.id);
+    } else {
+      // MANAGER veya CASHIER için: Onlara atanan şube veya organizasyonu bul
+      const assignments = await this.db.select().from(userBranches).where(eq(userBranches.userId, localUser.id)).all();
+      const profile = await this.db.select().from(staffProfiles).where(eq(staffProfiles.userId, localUser.id)).get();
+      const invite = await this.db.select().from(invitations).where(eq(invitations.email, localUser.email)).get();
+      
+      const branchIds = [...new Set([...assignments.map(a => a.branchId), profile?.branchId, invite?.branchId].filter(Boolean))] as string[];
+      if (branchIds.length > 0) {
+        targetBranchIds = branchIds;
+        const bList = await this.db.select().from(branches).where(inArray(branches.id, branchIds)).all();
+        targetOrgIds = [...new Set(bList.map(b => b.orgId))];
+      } else if (invite?.organizationId) {
+        targetOrgIds = [invite.organizationId];
+      }
     }
 
-    if (targetOrgIds.length === 0) return [];
+    if (targetOrgIds.length === 0 && targetBranchIds.length === 0) return [];
 
     // Query members in these organizations
+    // INNER JOIN replaced with LEFT JOIN + Invitations fallback to support accepted staff missing staffProfiles
     const members = await this.db.select({
       id: users.id,
       clerkId: users.clerkId,
       email: users.email,
       role: users.role,
-      branchName: branches.name,
-      branchId: branches.id,
-      isActive: staffProfiles.isActive,
+      branchName: sql<string>`COALESCE(${branches.name}, 'Belirsiz Şube')`,
+      branchId: sql<string>`COALESCE(${branches.id}, ${invitations.branchId})`,
+      isActive: sql<boolean>`COALESCE(${staffProfiles.isActive}, true)`,
     })
     .from(users)
-    .innerJoin(staffProfiles, eq(users.id, staffProfiles.userId))
-    .innerJoin(branches, eq(staffProfiles.branchId, branches.id))
-    .where(sql`${branches.orgId} IN (${sql.join(targetOrgIds.map(id => sql`${id}`), sql`, `)})`)
+    .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId))
+    .leftJoin(branches, eq(staffProfiles.branchId, branches.id))
+    .leftJoin(invitations, and(eq(users.email, invitations.email), eq(invitations.status, "ACCEPTED")))
+    .where(
+      and(
+        targetBranchIds.length > 0
+          ? sql`COALESCE(${branches.id}, ${invitations.branchId}) IN (${sql.join(targetBranchIds.map(id => sql`${id}`), sql`, `)})`
+          : sql`COALESCE(${branches.orgId}, ${invitations.organizationId}) IN (${sql.join(targetOrgIds.map(id => sql`${id}`), sql`, `)})`,
+        or(eq(users.role, "MANAGER"), eq(users.role, "CASHIER"), eq(users.role, "BOSS"))
+      )
+    )
     .all();
 
     const client = await this.getClerkClient();
+
+    // Fetch stats for these members
+    const activeMemberIds = members.map(m => m.id);
+    let txStats: any[] = [];
+    if (activeMemberIds.length > 0) {
+      const { loyaltyTransactions } = await import("@/db/schema");
+      txStats = await this.db.select({
+        cashierId: loyaltyTransactions.cashierId,
+        type: loyaltyTransactions.type,
+        status: loyaltyTransactions.status,
+        pointsAmount: loyaltyTransactions.pointsAmount,
+        amountSpent: loyaltyTransactions.amountSpent,
+        createdAt: loyaltyTransactions.createdAt,
+      })
+      .from(loyaltyTransactions)
+      .where(
+        and(
+          inArray(loyaltyTransactions.cashierId, activeMemberIds),
+          eq(loyaltyTransactions.status, "SUCCESS")
+        )
+      )
+      .all();
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayTimestamp = Math.floor(startOfToday.getTime() / 1000);
+
+    const statsMap = new Map<string, { txCount: number; pointsEarned: number; pointsSpent: number; dailyAmount: number }>();
+    for (const tx of txStats) {
+      if (!statsMap.has(tx.cashierId)) {
+        statsMap.set(tx.cashierId, { txCount: 0, pointsEarned: 0, pointsSpent: 0, dailyAmount: 0 });
+      }
+      const stats = statsMap.get(tx.cashierId)!;
+      stats.txCount += 1;
+      if (tx.type === "EARN") {
+        stats.pointsEarned += tx.pointsAmount;
+      } else if (tx.type === "BURN") {
+        stats.pointsSpent += tx.pointsAmount;
+      }
+      
+      const txTime = typeof tx.createdAt === "number" ? tx.createdAt : (tx.createdAt ? Math.floor(tx.createdAt.getTime() / 1000) : 0);
+      if (txTime >= todayTimestamp) {
+         stats.dailyAmount += (tx.amountSpent || 0);
+      }
+    }
+
+    // --- Kasiyer Counter Verileri ---
+    // 1) acceptedAt: Kasiyerin daveti kabul ettiği tarih (invitations tablosundan)
+    const acceptedInvitations = await this.db.select({
+      email: invitations.email,
+      createdAt: invitations.createdAt,
+      status: invitations.status,
+    })
+    .from(invitations)
+    .where(eq(invitations.status, "ACCEPTED"))
+    .all();
+
+    const acceptedAtMap = new Map<string, Date | number | null>();
+    for (const inv of acceptedInvitations) {
+      const normalizedEmail = inv.email.trim().toLowerCase();
+      // acceptedAt olarak createdAt kullanıyoruz (davet oluşturulma tarihi zaten kartlarda gösteriliyordu)
+      // Gerçek onay tarihi henüz ayrı bir kolonda tutulmadığı için createdAt'i davet tarihi olarak koruyacağız
+      acceptedAtMap.set(normalizedEmail, inv.createdAt);
+    }
+
+    // 2) invitedCustomerCount: Her kasiyerin CUSTOMER rolünde davet ettiği müşteri sayısı
+    const customerInviteCounts = await this.db.select({
+      invitedBy: invitations.invitedBy,
+      count: sql<number>`count(*)`.as("count"),
+    })
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.role, "CUSTOMER"),
+        inArray(invitations.invitedBy, activeMemberIds)
+      )
+    )
+    .groupBy(invitations.invitedBy)
+    .all();
+
+    const invitedCustomerMap = new Map<string, number>();
+    for (const row of customerInviteCounts) {
+      invitedCustomerMap.set(row.invitedBy, row.count);
+    }
+
     const activeMembers = await Promise.all(members.map(async (m) => {
+      const stats = statsMap.get(m.id) || { txCount: 0, pointsEarned: 0, pointsSpent: 0, dailyAmount: 0 };
+      const normalizedEmail = m.email.trim().toLowerCase();
+      const acceptedAt = acceptedAtMap.get(normalizedEmail) || null;
+      const invitedCustomerCount = invitedCustomerMap.get(m.id) || 0;
       try {
         const u = await client.users.getUser(m.clerkId);
         return {
@@ -50,6 +164,12 @@ export class StaffService extends BaseService {
           branch: m.branchName,
           avatar: `${(u.firstName || "?")[0]}${(u.lastName || "?")[0]}`.toUpperCase(),
           status: m.isActive ? ("active" as const) : ("suspended" as const),
+          txCount: stats.txCount,
+          pointsEarned: stats.pointsEarned,
+          pointsSpent: stats.pointsSpent,
+          dailyAmount: stats.dailyAmount,
+          acceptedAt,
+          invitedCustomerCount,
         };
       } catch {
         return {
@@ -60,6 +180,12 @@ export class StaffService extends BaseService {
           branch: m.branchName,
           avatar: m.email.charAt(0).toUpperCase() + "?",
           status: m.isActive ? ("active" as const) : ("suspended" as const),
+          txCount: stats.txCount,
+          pointsEarned: stats.pointsEarned,
+          pointsSpent: stats.pointsSpent,
+          dailyAmount: stats.dailyAmount,
+          acceptedAt,
+          invitedCustomerCount,
         };
       }
     }));

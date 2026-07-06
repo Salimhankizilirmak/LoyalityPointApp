@@ -40,7 +40,7 @@ export function GlobalToast({ message, onClose }: GlobalToastProps) {
                 )}
               </div>
               <div>
-                <p className="text-xs font-bold tracking-tight">{message.text}</p>
+                <p className="text-[10px] font-bold tracking-tight">{message.text}</p>
               </div>
             </div>
 

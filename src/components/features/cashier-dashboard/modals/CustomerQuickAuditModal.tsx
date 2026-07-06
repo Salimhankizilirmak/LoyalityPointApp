@@ -77,8 +77,8 @@ export function CustomerQuickAuditModal({
 
             {/* Başlık */}
             <div className="mb-5 space-y-0.5">
-              <h2 className="text-xs font-black uppercase tracking-widest text-cyan-400">Müşteri İşlem Analizi</h2>
-              <h3 className="text-lg font-bold tracking-tight">Sadakat Kart Geçmişi</h3>
+              <h3 className="text-[12px] font-black uppercase tracking-widest text-cyan-400">Müşteri İşlem Analizi</h3>
+              <h3 className="text-[12px] font-bold tracking-tight">Sadakat Kart Geçmişi</h3>
             </div>
 
             {/* Müşteri Özet Kartı */}
@@ -92,16 +92,16 @@ export function CustomerQuickAuditModal({
                   {customer.avatar}
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-bold text-sm leading-none flex items-center gap-2">
+                  <h3 className="font-bold text-[12px] leading-none flex items-center gap-2">
                     {customer.name}
                     <span
-                      className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
                         TIER_COLORS[customer.tier].bg
                       } ${TIER_COLORS[customer.tier].color} ${TIER_COLORS[customer.tier].border}`}
                     >
                       {customer.tier}
                     </span>
-                  </h4>
+                  </h3>
                   <p className="text-[10px] font-mono text-slate-500">{customer.phone}</p>
                 </div>
               </div>
@@ -122,15 +122,15 @@ export function CustomerQuickAuditModal({
 
             {/* İşlem Listesi */}
             <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Son 5 İşlem Kaydı</h4>
+              <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-500">Son 5 İşlem Kaydı</h3>
 
               {loading ? (
                 <div className="py-12 flex flex-col items-center justify-center gap-3">
                   <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
-                  <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Veriler Getiriliyor...</span>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Veriler Getiriliyor...</span>
                 </div>
               ) : transactions.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-wider border border-dashed border-white/5 rounded-2xl">
+                <div className="py-12 text-center text-slate-500 text-[10px] font-bold uppercase tracking-wider border border-dashed border-white/5 rounded-2xl">
                   Henüz bir işlem kaydı bulunmamaktadır.
                 </div>
               ) : (
@@ -171,7 +171,7 @@ export function CustomerQuickAuditModal({
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] font-bold">
+                              <span className="text-[10px] font-bold">
                                 {isVoided
                                   ? "İptal Edildi (Voided)"
                                   : isVoidRecord
@@ -181,18 +181,18 @@ export function CustomerQuickAuditModal({
                                   : "Puan Harcama"}
                               </span>
                               {isVoided && (
-                                <span className="px-1.5 py-0.5 rounded bg-red-500/25 text-[8px] font-black uppercase text-red-400">
+                                <span className="px-1.5 py-0.5 rounded bg-red-500/25 text-[10px] font-black uppercase text-red-400">
                                   İptal
                                 </span>
                               )}
                             </div>
-                            <span className="text-[9px] font-mono text-slate-500">{tx.createdAtFormatted}</span>
+                            <span className="text-[10px] font-mono text-slate-500">{tx.createdAtFormatted}</span>
                           </div>
                         </div>
 
                         <div className="text-right">
                           <p
-                            className={`text-xs font-mono font-black ${
+                            className={`text-[10px] font-mono font-black ${
                               isVoided || isVoidRecord
                                 ? "text-red-400"
                                 : isEarn
@@ -204,7 +204,7 @@ export function CustomerQuickAuditModal({
                             {tx.pointsAmount} Pts
                           </p>
                           {tx.amountSpent && tx.amountSpent > 0 ? (
-                            <p className="text-[9px] text-slate-500 font-mono font-medium">
+                            <p className="text-[10px] text-slate-500 font-mono font-medium">
                               {fmtCurrency(tx.amountSpent)}
                             </p>
                           ) : null}

@@ -97,8 +97,8 @@ export function CashierTransactionModal({
                   {isEarn ? <Coins size={16} /> : <CreditCard size={16} />}
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider">Kasa İşlemi</h3>
-                  <p className="text-[9px] text-slate-500 font-mono truncate max-w-[200px]">
+                  <h3 className="text-[12px] font-black uppercase tracking-wider">Kasa İşlemi</h3>
+                  <p className="text-[10px] text-slate-500 font-mono truncate max-w-[200px]">
                     Müşteri: {customer.name}
                   </p>
                 </div>
@@ -119,7 +119,7 @@ export function CashierTransactionModal({
             <div className="space-y-4 py-4 relative z-10">
               {/* Tab/Toggle Yapısı */}
               <div className="space-y-1">
-                <label className={`text-[8px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
+                <label className={`text-[10px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
                   İşlem Tipi Seçimi
                 </label>
                 <div className="grid grid-cols-2 gap-2 bg-slate-950/20 p-1 rounded-2xl border border-white/5">
@@ -152,7 +152,7 @@ export function CashierTransactionModal({
               {/* Tutar / Puan Girdi Alanları */}
               {isEarn ? (
                 <div className="space-y-1">
-                  <label className={`text-[8px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
+                  <label className={`text-[10px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
                     Alışveriş Tutarı (₺)
                   </label>
                   <input
@@ -160,7 +160,7 @@ export function CashierTransactionModal({
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="Ödeme tutarını giriniz..."
-                    className={`w-full px-3 py-2 text-xs font-bold border rounded-xl outline-none transition-all min-h-[36px] ${
+                    className={`w-full px-3 py-2 text-[10px] font-bold border rounded-xl outline-none transition-all min-h-[36px] ${
                       isDarkMode
                         ? "bg-[#09090b]/80 border-white/10 text-white focus:shadow-none"
                         : "bg-slate-50 border-slate-200 text-slate-900 focus:shadow-none"
@@ -170,7 +170,7 @@ export function CashierTransactionModal({
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <label className={`text-[8px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
+                    <label className={`text-[10px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
                       Toplam Alışveriş Tutarı (TL)
                     </label>
                     <input
@@ -178,7 +178,7 @@ export function CashierTransactionModal({
                       value={totalCartAmount}
                       onChange={(e) => setTotalCartAmount(e.target.value)}
                       placeholder="Toplam sepet tutarı..."
-                      className={`w-full px-3 py-2 text-xs font-bold border rounded-xl outline-none transition-all min-h-[36px] ${
+                      className={`w-full px-3 py-2 text-[10px] font-bold border rounded-xl outline-none transition-all min-h-[36px] ${
                         isDarkMode
                           ? "bg-[#09090b]/80 border-white/10 text-white focus:shadow-none"
                           : "bg-slate-50 border-slate-200 text-slate-900 focus:shadow-none"
@@ -186,7 +186,7 @@ export function CashierTransactionModal({
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className={`text-[8px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
+                    <label className={`text-[10px] font-black uppercase tracking-widest block ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}>
                       Harcatılacak Puan (1 Puan = 1 TL)
                     </label>
                     <input
@@ -194,7 +194,7 @@ export function CashierTransactionModal({
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder={`Maksimum bakiye: ${customer.pts}`}
-                      className={`w-full px-3 py-2 text-xs font-bold border rounded-xl outline-none transition-all min-h-[36px] ${
+                      className={`w-full px-3 py-2 text-[10px] font-bold border rounded-xl outline-none transition-all min-h-[36px] ${
                         isDarkMode
                           ? "bg-[#09090b]/80 border-white/10 text-white focus:shadow-none"
                           : "bg-slate-50 border-slate-200 text-slate-900 focus:shadow-none"
@@ -207,10 +207,10 @@ export function CashierTransactionModal({
               {/* Dinamik Puan Önizlemesi (Yalnızca Puan Yükleme Eylemi İçin) */}
               {isEarn && ptsPreview > 0 && (
                 <div className={`flex items-center justify-between p-2 rounded-xl border transition-colors duration-300 ${themeClasses.badge}`}>
-                  <span className="text-[8px] font-black uppercase tracking-wider font-mono">
+                  <span className="text-[10px] font-black uppercase tracking-wider font-mono">
                     Kazanılacak Puan
                   </span>
-                  <span className="text-sm font-bold font-mono">
+                  <span className="text-[10px] font-bold font-mono">
                     +{fmt(ptsPreview)} Pts
                   </span>
                 </div>
@@ -218,13 +218,13 @@ export function CashierTransactionModal({
 
               {/* Reaktif Parçalı Tahsilat (Split Payment) Özeti */}
               {!isEarn && totalCartNum > 0 && amountNum > 0 && (
-                <div className="p-3 rounded-2xl border text-xs font-semibold space-y-1.5 transition-all bg-amber-500/10 border-amber-500/20 text-amber-400">
+                <div className="p-3 rounded-2xl border text-[10px] font-semibold space-y-1.5 transition-all bg-amber-500/10 border-amber-500/20 text-amber-400">
                   <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-wider">
                     <span>Finansal Özet (Parçalı Tahsilat)</span>
                     <span className="font-mono text-amber-500 font-bold">1 Pts = 1 TL</span>
                   </div>
                   <div className="border-t border-dashed border-amber-500/20 my-1" />
-                  <p className="leading-relaxed text-[11px]">
+                  <p className="leading-relaxed text-[10px]">
                     <span className="font-black text-white">{fmt(totalCartNum)} TL</span> değerindeki alışveriş için <span className="font-black text-white">{fmt(amountNum)} Puan</span> düşülecek, kalan <span className="font-black text-white">{fmt(Math.max(0, totalCartNum - amountNum))} TL</span> nakit/kart olarak tahsil edilecek.
                   </p>
                 </div>
@@ -243,7 +243,7 @@ export function CashierTransactionModal({
             <div className="relative z-10 pt-2 border-t border-white/5 flex gap-2">
               <button
                 onClick={onClose}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all border min-h-[38px] cursor-pointer ${
+                className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border min-h-[38px] cursor-pointer ${
                   isDarkMode 
                     ? "bg-slate-800 hover:bg-slate-700 border-white/5 text-slate-300" 
                     : "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700"
@@ -255,7 +255,7 @@ export function CashierTransactionModal({
               <button
                 onClick={handleTx}
                 disabled={isInvalid || isPending}
-                className={`flex-[2] py-2.5 rounded-xl font-bold text-xs text-white transition-all flex items-center justify-center gap-1.5 min-h-[38px] disabled:opacity-40 disabled:cursor-not-allowed ${themeClasses.button}`}
+                className={`flex-[2] py-2.5 rounded-xl font-bold text-[10px] text-white transition-all flex items-center justify-center gap-1.5 min-h-[38px] disabled:opacity-40 disabled:cursor-not-allowed ${themeClasses.button}`}
               >
                 <span>{isPending ? "İşlem Yürütülüyor..." : "İşlemi Tamamla"}</span>
                 <ChevronRight size={14} />

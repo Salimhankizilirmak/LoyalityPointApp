@@ -9,7 +9,8 @@ import {
   burnPointsAction, 
   registerCustomerAction, 
   getBranchStatus,
-  getCustomerRecentTransactionsAction
+  getCustomerRecentTransactionsAction,
+  getCashierStatsAction
 } from "@/app/(cashier)/cashier-dashboard/actions";
 
 
@@ -122,6 +123,26 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
       clearInterval(interval);
     };
   }, [initialBranchStatus]);
+
+  // Fetch Stats on mount
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await getCashierStatsAction();
+        if (res.success && res.stats) {
+          setStats(s => ({
+            ...s,
+            totalTxToday: res.stats.todayTxCount,
+            newMembersToday: res.stats.todayNewCustomers,
+            ptsGivenToday: res.stats.totalRevenue
+          }));
+        }
+      } catch (e) {
+        console.error("Stats fetch error:", e);
+      }
+    };
+    fetchStats();
+  }, []);
 
   // Global Toast auto-dismiss (3 seconds)
   useEffect(() => {

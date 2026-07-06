@@ -59,8 +59,8 @@ export function CustomerTransactionsHistoryModal({
                   <Clock size={16} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider">İşlem Geçmişi (Son 10 Kayıt)</h3>
-                  <p className="text-[9px] text-slate-500 font-mono truncate max-w-[280px]">
+                  <h3 className="text-[12px] font-black uppercase tracking-wider">İşlem Geçmişi (Son 10 Kayıt)</h3>
+                  <p className="text-[10px] text-slate-500 font-mono truncate max-w-[280px]">
                     Müşteri: {customer.name} ({customer.phone})
                   </p>
                 </div>
@@ -82,12 +82,12 @@ export function CustomerTransactionsHistoryModal({
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-2">
                   <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
-                  <p className="text-xs font-mono">İşlem geçmişi yükleniyor...</p>
+                  <p className="text-[10px] font-mono">İşlem geçmişi yükleniyor...</p>
                 </div>
               ) : transactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-500 text-center gap-2">
                   <AlertCircle size={24} className="text-slate-600" />
-                  <p className="text-xs font-mono">Kayıtlı sadakat işlemi bulunmamaktadır.</p>
+                  <p className="text-[10px] font-mono">Kayıtlı sadakat işlemi bulunmamaktadır.</p>
                 </div>
               ) : (
                 transactions.map((tx) => {
@@ -134,14 +134,14 @@ export function CustomerTransactionsHistoryModal({
                               </span>
                             )}
                           </div>
-                          <p className="text-[9px] text-slate-500 font-mono mt-0.5">
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
                             {tx.createdAtFormatted}
                           </p>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className={`font-mono text-xs font-bold ${
+                        <span className={`font-mono text-[10px] font-bold ${
                           isVoid ? "text-slate-500" : isEarn ? "text-emerald-400" : "text-cyan-400"
                         }`}>
                           {tx.pointsAmount > 0 ? `+${tx.pointsAmount}` : tx.pointsAmount} Pts

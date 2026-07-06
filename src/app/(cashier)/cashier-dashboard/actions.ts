@@ -68,10 +68,10 @@ export async function searchCustomerAction(phoneNumber: string) {
  * Yeni müşteri kaydı.
  * organizationId kasiyerin aktif bağlamından peşin çözülür – istemciden alınmaz.
  */
-export async function registerCustomerAction(name: string, phoneNumber: string, email: string) {
+export async function registerCustomerAction(name: string | null | undefined, phoneNumber: string, email: string) {
   try {
-    if (!name?.trim() || !phoneNumber?.trim() || !email?.trim()) {
-      return { success: false, error: "Ad soyad, telefon numarası ve e-posta adresi zorunludur." };
+    if (!phoneNumber?.trim() || !email?.trim()) {
+      return { success: false, error: "Telefon numarası ve e-posta adresi zorunludur." };
     }
     if (!email.includes("@")) {
       return { success: false, error: "Geçerli bir e-posta adresi giriniz." };
@@ -79,7 +79,8 @@ export async function registerCustomerAction(name: string, phoneNumber: string, 
 
     const { dbUser, branchId, orgId } = await resolveCashierContext();
 
-    const parts = name.trim().split(/\s+/);
+    const safeName = name?.trim() || "İsimsiz Müşteri";
+    const parts = safeName.split(/\s+/);
     const firstName = parts.slice(0, -1).join(" ") || parts[0];
     const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
     
@@ -591,10 +592,13 @@ export async function getFilteredTransactionsAction(filters: {
         cashierEmail: users.email,
         customerEmail: invitations.email,
         invitationPhone: invitations.phoneNumber,
+        invitationStatus: invitations.status,
+        invitationCreatedAt: invitations.createdAt,
+        customerCreatedAt: customers.createdAt,
       })
       .from(invitations)
       .leftJoin(users, eq(invitations.email, users.email))
-      .leftJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
+      .leftJoin(customers, eq(customers.phoneNumber, sql`'0' || substr(${invitations.phoneNumber}, -10)`))
       .leftJoin(loyaltyTransactions, eq(customers.id, loyaltyTransactions.customerId))
       .where(queryCondition)
       .orderBy(orderByColumn)
@@ -607,7 +611,7 @@ export async function getFilteredTransactionsAction(filters: {
       .select({ count: sql<number>`count(${invitations.id})` })
       .from(invitations)
       .leftJoin(users, eq(invitations.email, users.email))
-      .leftJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
+      .leftJoin(customers, eq(customers.phoneNumber, sql`'0' || substr(${invitations.phoneNumber}, -10)`))
       .leftJoin(loyaltyTransactions, eq(customers.id, loyaltyTransactions.customerId))
       .where(queryCondition)
       .get();
@@ -631,7 +635,13 @@ export async function getFilteredTransactionsAction(filters: {
       pointsAmount: tx.pointsAmount || 0,
       status: tx.status || "SUCCESS",
       parentTransactionId: tx.parentTransactionId,
-      createdAtFormatted: tx.createdAt ? formatter.format(tx.createdAt) : "Davet Bekliyor",
+      createdAtFormatted: tx.createdAt 
+        ? formatter.format(tx.createdAt) 
+        : tx.invitationStatus === "ACCEPTED" && tx.customerCreatedAt 
+          ? formatter.format(tx.customerCreatedAt) 
+          : tx.invitationCreatedAt 
+            ? formatter.format(tx.invitationCreatedAt) 
+            : "",
       customerName: tx.customerName || tx.customerEmail.split("@")[0],
       customerPhone: tx.customerPhone || tx.invitationPhone || "Belirtilmemiş",
       cashierName: tx.cashierName || tx.cashierEmail || "Sistem",
@@ -735,7 +745,7 @@ export async function getCashierAcceptedCustomersAction() {
         createdAt: customers.createdAt,
       })
       .from(invitations)
-      .innerJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
+      .innerJoin(customers, eq(customers.phoneNumber, sql`'0' || substr(${invitations.phoneNumber}, -10)`))
       .where(and(
         eq(invitations.branchId, branchId),
         eq(invitations.role, "CUSTOMER"),
@@ -770,7 +780,7 @@ export async function getBranchCustomerInvitationsAction() {
         totalPoints: customers.totalPoints,
       })
       .from(invitations)
-      .leftJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
+      .leftJoin(customers, eq(customers.phoneNumber, sql`'0' || substr(${invitations.phoneNumber}, -10)`))
       .where(and(
         eq(invitations.branchId, branchId),
         eq(invitations.role, "CUSTOMER")
@@ -803,7 +813,7 @@ export async function getTransactionsWithCustomers(page: number = 1) {
         createdAt: customers.createdAt,
       })
       .from(invitations)
-      .innerJoin(customers, sql`substr(${customers.phoneNumber}, -10) = ${invitations.phoneNumber}`)
+      .innerJoin(customers, eq(customers.phoneNumber, sql`'0' || substr(${invitations.phoneNumber}, -10)`))
       .where(and(
         eq(invitations.branchId, branchId),
         eq(invitations.role, "CUSTOMER"),
@@ -821,6 +831,82 @@ export async function getTransactionsWithCustomers(page: number = 1) {
     return { success: true, customers: serialized };
   } catch (error) {
     return { success: false, customers: [] };
+  }
+}
+
+/**
+ * Kasiyerin günlük ve toplam performans istatistiklerini getirir.
+ * - todayTxCount: O gün yaptığı işlem sayısı
+ * - todayNewCustomers: O gün eklediği/davet ettiği müşteri sayısı
+ * - totalTxCount: Toplam işlem sayısı
+ * - totalRevenue: Toplam kazanç (kuruş cinsinden)
+ */
+export async function getCashierStatsAction() {
+  try {
+    const { dbUser, branchId } = await resolveCashierContext();
+    
+    // Türkiye saati (UTC+3) baz alınarak günün başlangıcı (00:00) hesaplanıyor
+    const now = new Date();
+    const istanbulOffsetMs = 3 * 60 * 60 * 1000;
+    const nowIstanbul = new Date(now.getTime() + istanbulOffsetMs);
+    nowIstanbul.setUTCHours(0, 0, 0, 0);
+    const startOfToday = new Date(nowIstanbul.getTime() - istanbulOffsetMs);
+
+    // a) O gün yaptığı işlem sayısı (todayTxCount)
+    const todayTxCountResult = await db
+      .select({ count: sql<number>`count(${loyaltyTransactions.id})` })
+      .from(loyaltyTransactions)
+      .where(
+        and(
+          eq(loyaltyTransactions.cashierId, dbUser.id),
+          eq(loyaltyTransactions.branchId, branchId),
+          gte(loyaltyTransactions.createdAt, startOfToday)
+        )
+      )
+      .get();
+      
+    // b) O gün eklenen yeni müşteri sayısı (todayNewCustomers)
+    // Kasiyerin (invitedBy) oluşturduğu davetler üzerinden hesaplıyoruz.
+    const todayNewCustomersResult = await db
+      .select({ count: sql<number>`count(${invitations.id})` })
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.invitedBy, dbUser.id),
+          eq(invitations.branchId, branchId),
+          gte(invitations.createdAt, startOfToday)
+        )
+      )
+      .get();
+
+    // c) Toplam yaptığı işlem sayısı veya tutarı (totalTx)
+    const totalTxResult = await db
+      .select({
+        count: sql<number>`count(${loyaltyTransactions.id})`,
+        revenue: sql<number>`COALESCE(SUM(CASE WHEN ${loyaltyTransactions.type} = 'EARN' THEN ${loyaltyTransactions.amountSpent} ELSE 0 END), 0)`
+      })
+      .from(loyaltyTransactions)
+      .where(
+        and(
+          eq(loyaltyTransactions.cashierId, dbUser.id),
+          eq(loyaltyTransactions.branchId, branchId)
+        )
+      )
+      .get();
+
+    return {
+      success: true,
+      stats: {
+        todayTxCount: todayTxCountResult?.count || 0,
+        todayNewCustomers: todayNewCustomersResult?.count || 0,
+        totalTxCount: totalTxResult?.count || 0,
+        totalRevenue: totalTxResult?.revenue || 0,
+      }
+    };
+
+  } catch (error: unknown) {
+    console.error("[getCashierStatsAction] Error:", error);
+    return { success: false, error: "İstatistikler alınırken bir hata oluştu." };
   }
 }
 

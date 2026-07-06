@@ -204,8 +204,7 @@ export function getEmployeeInvitationTemplate(inviteLink: string, role: "manager
   `;
 }
 
-export function getCustomerInvitationTemplate(email: string, customerName: string, organizationName: string, branchName?: string): string {
-  const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign-up?email=${encodeURIComponent(email)}`;
+export function getCustomerInvitationTemplate(inviteLink: string, customerName: string, organizationName: string, branchName?: string): string {
   const locationText = branchName ? `${organizationName} - ${branchName}` : organizationName;
   return `
     <!DOCTYPE html>
@@ -234,7 +233,7 @@ export function getCustomerInvitationTemplate(email: string, customerName: strin
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 30px auto;">
                     <tr>
                       <td align="center" style="border-radius: 8px;">
-                        <a href="${joinUrl}" target="_blank" style="padding: 14px 32px; display: inline-block; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; background: linear-gradient(135deg, #06b6d4 0%, #4f46e5 100%); border-radius: 8px; box-shadow: 0 4px 14px 0 rgba(6, 182, 212, 0.3);">
+                        <a href="${inviteLink}" target="_blank" style="padding: 14px 32px; display: inline-block; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; background: linear-gradient(135deg, #06b6d4 0%, #4f46e5 100%); border-radius: 8px; box-shadow: 0 4px 14px 0 rgba(6, 182, 212, 0.3);">
                           Daveti Kabul Et & Başla
                         </a>
                       </td>

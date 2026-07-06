@@ -110,33 +110,7 @@ export function UserMenu({ user, signOut, isDarkMode, onSettingsClick }: UserMen
 
             {/* Menu Items */}
             <div className="p-1.5 space-y-1">
-              {onSettingsClick ? (
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    onSettingsClick();
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${isDarkMode
-                      ? "hover:bg-slate-800 text-slate-200"
-                      : "hover:bg-slate-50 text-slate-700"
-                    }`}
-                >
-                  <Settings size={14} className="text-slate-400" />
-                  <span>Profili Yönet</span>
-                </button>
-              ) : (
-                <Link
-                  href={settingsPath}
-                  onClick={() => setIsOpen(false)}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer ${isDarkMode
-                      ? "hover:bg-slate-800 text-slate-200"
-                      : "hover:bg-slate-50 text-slate-700"
-                    }`}
-                >
-                  <Settings size={14} className="text-slate-400" />
-                  <span>Profili Yönet</span>
-                </Link>
-              )}
+              {/* Profile Management removed as per requirements */}
 
               <button
                 onClick={() => {

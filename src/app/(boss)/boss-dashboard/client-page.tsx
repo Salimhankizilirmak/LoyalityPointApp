@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 // Components
 
-import { BossHeader } from "@/components/features/boss-dashboard/ui/BossHeader";
+
 import {
   OverviewSection,
   AllBranchesSection,
@@ -93,19 +93,6 @@ export function BossDashboardClient({ initialData }: BossDashboardClientProps) {
     <div className={`min-h-screen w-full transition-colors duration-500 font-sans ${state.isDarkMode ? "bg-[#0f172a] text-white" : "bg-slate-50 text-slate-900"}`}>
       {state.error && <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] px-6 py-3 bg-rose-500 text-white rounded-xl shadow-lg font-medium text-sm animate-in fade-in slide-in-from-top-4">⚠️ {state.error}</div>}
 
-      <BossHeader
-        user={user}
-        orgName={safeBossInfo.orgName}
-        activeOrgId={state.activeOrgId}
-        allOrgs={state.allOrgs}
-        onSelectOrg={actions.handleSelectOrg}
-        isDarkMode={state.isDarkMode}
-        setIsDarkMode={actions.setIsDarkMode}
-        activeTab={state.activeTab}
-        setActiveTab={actions.setActiveTab}
-        signOut={() => signOut({ redirectUrl: "/" })}
-        tabs={TABS}
-      />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {state.activeTab === 0 && (
           <OverviewSection

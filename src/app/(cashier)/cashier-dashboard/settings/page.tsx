@@ -10,7 +10,7 @@ export default function CashierSettingsPage() {
       <div className="max-w-4xl mx-auto mb-6">
         <Link 
           href="/cashier-dashboard" 
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors uppercase tracking-wider cursor-pointer"
+          className="inline-flex items-center gap-2 text-[10px] font-semibold text-slate-400 hover:text-white transition-colors uppercase tracking-wider cursor-pointer"
         >
           <ArrowLeft size={14} />
           <span>Panele Geri Dön</span>

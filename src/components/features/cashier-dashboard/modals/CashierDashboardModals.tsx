@@ -38,8 +38,8 @@ export function CashierDashboardModals({
             <div className="w-24 h-24 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto border-2 border-rose-500/20">
               <AlertTriangle size={48} className="text-rose-500" />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight">Şubeniz Kapanmıştır</h1>
-            <p className="text-slate-400 text-lg leading-relaxed">
+            <h3 className="text-[12px] font-black text-white tracking-tight">Şubeniz Kapanmıştır</h3>
+            <p className="text-slate-400 text-[12px] leading-relaxed">
               Bu şube artık sistemde aktif değildir. Daha fazla bilgi için lütfen yöneticinizle iletişime geçin.
             </p>
           </div>
@@ -59,8 +59,8 @@ export function CashierDashboardModals({
             <div className="w-24 h-24 rounded-3xl bg-amber-500/10 flex items-center justify-center mx-auto border-2 border-amber-500/20">
               <Lock size={40} className="text-amber-500" />
             </div>
-            <h2 className="text-3xl font-black text-white tracking-tight">Şube Geçici Olarak Kapalı</h2>
-            <p className="text-slate-400 text-lg leading-relaxed">
+            <h3 className="text-[12px] font-black text-white tracking-tight">Şube Geçici Olarak Kapalı</h3>
+            <p className="text-slate-400 text-[12px] leading-relaxed">
               Şubeniz şu anda hizmete kapalıdır. İşlemler geçici olarak durdurulmuştur.
             </p>
           </div>

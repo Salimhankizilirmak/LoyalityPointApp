@@ -138,6 +138,7 @@ export class CustomerService extends BaseService {
       profileId: customerProfiles.id,
       clerkId: users.clerkId,
       email: users.email,
+      username: users.username,
       currentPoints: customerProfiles.currentPoints,
     })
     .from(customerProfiles)
@@ -159,18 +160,18 @@ export class CustomerService extends BaseService {
           clerkId: c.clerkId,
           firstName: u.firstName || "İsimsiz",
           lastName: u.lastName || "Müşteri",
-          phone: (meta.phone as string) || "",
+          phone: c.username || (meta.phone as string) || "",
           email: c.email,
           currentPoints: c.currentPoints,
         };
       } catch {
         // Fetch user details from DB to get the name
-        const dbUser = await this.db.select({ name: users.name, email: users.email, clerkId: users.clerkId })
+        const dbUser = await this.db.select({ name: users.name, email: users.email, clerkId: users.clerkId, username: users.username })
           .from(users)
           .where(eq(users.id, c.id))
           .get();
 
-        const phone = dbUser?.clerkId.startsWith("mock_") ? dbUser.clerkId.replace("mock_", "") : "";
+        const phone = dbUser?.username || c.username || (dbUser?.clerkId.startsWith("mock_") ? dbUser.clerkId.replace("mock_", "") : "");
         const fullName = dbUser?.name || "";
         const parts = fullName.split(" ");
         const firstName = parts[0] || (dbUser?.email ? dbUser.email.split("@")[0] : "İsimsiz");
@@ -285,10 +286,13 @@ export class CustomerService extends BaseService {
     const orgName = org?.name || "Sadakat Platformu";
 
     const { emailService } = await import("@/lib/services/email-service");
+    if (!invitation.url) {
+      throw new Error("Davet bağlantısı oluşturulamadı.");
+    }
     const { getCustomerInvitationTemplate } = await import("@/lib/templates/email-templates");
     const customerFullname = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
     const html = getCustomerInvitationTemplate(
-      data.email,
+      invitation.url,
       customerFullname,
       orgName
     );

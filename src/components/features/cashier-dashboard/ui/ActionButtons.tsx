@@ -50,7 +50,7 @@ export function ActionButtons({
         />
         <div>
           <p
-            className={`text-xs font-black uppercase tracking-wider ${
+            className={`text-[10px] font-black uppercase tracking-wider ${
               disabled
                 ? "text-slate-600"
                 : txType === "EARN"
@@ -62,7 +62,7 @@ export function ActionButtons({
           >
             Puan Yükle
           </p>
-          <p className="text-[9px] text-slate-500">Alışveriş Üzerinden Earn</p>
+          <p className="text-[10px] text-slate-500">Alışveriş Üzerinden Earn</p>
         </div>
       </motion.button>
 
@@ -95,7 +95,7 @@ export function ActionButtons({
         />
         <div>
           <p
-            className={`text-xs font-black uppercase tracking-wider ${
+            className={`text-[10px] font-black uppercase tracking-wider ${
               disabled
                 ? "text-slate-600"
                 : txType === "BURN"
@@ -107,7 +107,7 @@ export function ActionButtons({
           >
             Puan Harca
           </p>
-          <p className="text-[9px] text-slate-500">Bakiyeden Redeem</p>
+          <p className="text-[10px] text-slate-500">Bakiyeden Redeem</p>
         </div>
       </motion.button>
     </div>

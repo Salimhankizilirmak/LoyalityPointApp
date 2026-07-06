@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { 
   getManagerProfile, 
@@ -14,7 +15,8 @@ import {
   deleteCustomer,
   toggleStaffStatus
 } from "@/app/(manager)/manager-dashboard/actions";
-import { Transaction, Customer, Employee } from "../types";
+import { getCampaignsAction } from "@/app/(manager)/manager-dashboard/campaign-actions";
+import { Transaction, Customer, Employee, ActivityItem, ActivityType } from "../types";
 import { getInvitationsAction } from "@/app/actions/invitation-actions";
 
 interface InvitationItem {
@@ -29,19 +31,21 @@ interface InvitationItem {
 // Debounce helper to protect database quotas
 function useDebounce<T>(value: T, delay: number = 300): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
+
     return () => {
       clearTimeout(handler);
     };
   }, [value, delay]);
+
   return debouncedValue;
 }
 
 export function useManagerDashboard(initialData?: any) {
-  const [activeTab, setActiveTab] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(true);
   
   // Real Data State
@@ -61,12 +65,39 @@ export function useManagerDashboard(initialData?: any) {
     }
     return [];
   });
-  const [customers, setCustomers] = useState<Customer[]>(() => (initialData?.customers || []) as Customer[]);
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    const baseCusts = ((initialData?.customers || []) as Customer[]).map(c => ({...c, status: "active" as const}));
+    const pendingCustomerInvites: Customer[] = (initialData?.invitations || [])
+      .filter((inv: any) => inv.status !== "ACCEPTED" && (inv.role === "CUSTOMER" || inv.role === "customer"))
+      .map((inv: any) => ({
+        id: `inv-${inv.id}`,
+        firstName: inv.email.split("@")[0],
+        lastName: "(Davet Bekliyor)",
+        phone: "-",
+        email: inv.email,
+        currentPoints: 0,
+        status: "pending",
+        createdAt: inv.createdAt,
+      }));
+    return [...baseCusts, ...pendingCustomerInvites];
+  });
   const [cashiers, setCashiers] = useState<Employee[]>(() => {
+    let baseCashiers: Employee[] = [];
     if (initialData?.members) {
-      return (initialData.members as Employee[]).filter(e => e.role === "cashier");
+      baseCashiers = (initialData.members as Employee[]).filter(e => e.role === "cashier");
     }
-    return [];
+    const pendingInvites: Employee[] = (initialData?.invitations || [])
+      .filter((inv: any) => inv.status !== "ACCEPTED" && (inv.role === "admin" || inv.role === "manager" || inv.role === "cashier" || inv.role === "CASHIER" || inv.role === "MANAGER"))
+      .map((inv: any) => ({
+      id: `inv-${inv.id}`,
+      name: inv.email.split("@")[0],
+      email: inv.email,
+      role: inv.role.toLowerCase() === "admin" ? "manager" : "cashier",
+      status: "pending",
+      avatar: "",
+      createdAt: inv.createdAt,
+    }));
+    return [...baseCashiers, ...pendingInvites];
   });
   const [branchInfo, setBranchInfo] = useState<{id: string, name: string, orgId: string} | null>(() => {
     if (initialData?.profile) {
@@ -79,6 +110,7 @@ export function useManagerDashboard(initialData?: any) {
     return null;
   });
   const [invitations, setInvitations] = useState<InvitationItem[]>(() => initialData?.invitations || []);
+  const [campaigns, setCampaigns] = useState<any[]>(() => initialData?.campaigns || []);
   
   // Loading and Error States
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -95,15 +127,19 @@ export function useManagerDashboard(initialData?: any) {
 
   const refreshData = useCallback(async () => {
     try {
-      const [profile, txs, custs, emps, invitesList] = await Promise.all([
+      const [profile, txs, custs, emps, invitesList, campaignsRes] = await Promise.all([
         getManagerProfile(),
         getBranchTransactions(),
         getCustomers(debouncedCustomerSearch),
         getOrgMembers(),
-        getInvitationsAction()
+        getInvitationsAction(),
+        getCampaignsAction()
       ]);
       
       setInvitations(invitesList);
+      if (campaignsRes?.success && campaignsRes.campaigns) {
+        setCampaigns(campaignsRes.campaigns);
+      }
       setBranchInfo({ 
         id: profile?.branchId || "", 
         name: profile?.branchName || "Yükleniyor...", 
@@ -123,11 +159,35 @@ export function useManagerDashboard(initialData?: any) {
       }));
 
       setTransactions(mappedTxs);
-      setCustomers(custs as Customer[]);
+      const baseCusts = (custs as Customer[]).map(c => ({...c, status: "active" as const}));
+      const pendingCustomerInvites: Customer[] = invitesList
+        .filter((inv: any) => inv.status !== "ACCEPTED" && (inv.role === "CUSTOMER" || inv.role === "customer"))
+        .map((inv: any) => ({
+          id: `inv-${inv.id}`,
+          firstName: inv.email.split("@")[0],
+          lastName: "(Davet Bekliyor)",
+          phone: "-",
+          email: inv.email,
+          currentPoints: 0,
+          status: "pending",
+          createdAt: inv.createdAt,
+        }));
+      setCustomers([...baseCusts, ...pendingCustomerInvites]);
       
-      // Sadece kasiyerleri filtrele
+      // Kasiyerleri ve davetleri filtreleyip birleştir
       const filteredCashiers = (emps as Employee[]).filter(e => e.role === "cashier");
-      setCashiers(filteredCashiers);
+      const pendingInvites: Employee[] = invitesList
+        .filter((inv: any) => inv.status !== "ACCEPTED" && (inv.role === "admin" || inv.role === "manager" || inv.role === "cashier" || inv.role === "CASHIER" || inv.role === "MANAGER"))
+        .map((inv: any) => ({
+        id: `inv-${inv.id}`,
+        name: inv.email.split("@")[0],
+        email: inv.email,
+        role: inv.role.toLowerCase() === "admin" ? "manager" : "cashier",
+        status: "pending",
+        avatar: "",
+        createdAt: inv.createdAt,
+      }));
+      setCashiers([...filteredCashiers, ...pendingInvites]);
     } catch (err) {
       console.error("Manager data fetch error:", err);
       setError("Veriler senkronize edilirken bir sunucu hatası oluştu.");
@@ -294,9 +354,59 @@ export function useManagerDashboard(initialData?: any) {
     );
   });
 
+  // Unified Activity Feed — transactions + invitations merged & sorted by time desc
+  const activityFeed: ActivityItem[] = [
+    // Map loyalty transactions
+    ...transactions.map((tx): ActivityItem => {
+      const isVoided = tx.status === "VOIDED" || tx.type === "void";
+      const actType: ActivityType = isVoided ? "void" : (tx.type === "earned" ? "earned" : tx.type === "spent" ? "spent" : "earned");
+      return {
+        id: String(tx.id),
+        type: actType,
+        actorName: tx.cashier || "Kasiyer",
+        targetName: tx.customer,
+        pts: tx.pts,
+        amount: tx.amount,
+        time: tx.time,
+        rawTime: 0, // transactions have no raw ms in current shape; sort stable
+        status: tx.status,
+        originalTx: tx,
+      };
+    }),
+    // Map invitations
+    ...invitations.map((inv): ActivityItem => {
+      const isAccepted = inv.status === "ACCEPTED";
+      const isCashier = inv.role === "admin" || inv.role === "manager" || inv.role === "cashier";
+      let actType: ActivityType;
+      if (isCashier) {
+        actType = isAccepted ? "cashier_accepted" : "cashier_invited";
+      } else {
+        actType = isAccepted ? "customer_accepted" : "customer_invited";
+      }
+      const rawMs = inv.createdAt ? (typeof inv.createdAt === "number" ? inv.createdAt : new Date(inv.createdAt as Date).getTime()) : 0;
+      return {
+        id: `inv-${inv.id}`,
+        type: actType,
+        actorName: inv.email.split("@")[0],
+        time: inv.createdAt ? new Date(inv.createdAt as Date).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "--:--",
+        rawTime: rawMs,
+      };
+    }),
+    // Map campaign updates
+    ...campaigns.filter(c => c.updatedAt).map((c): ActivityItem => {
+      const updatedTime = new Date(c.updatedAt);
+      return {
+        id: `camp-upd-${c.id}`,
+        type: "system",
+        actorName: "Sistem",
+        targetName: `"${c.name}" süresi güncellendi`,
+        time: updatedTime.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        rawTime: updatedTime.getTime(),
+      };
+    }),
+  ].sort((a, b) => b.rawTime - a.rawTime);
+
   return {
-    activeTab,
-    setActiveTab,
     isDarkMode,
     setIsDarkMode,
     transactions: filteredTransactions,
@@ -320,6 +430,7 @@ export function useManagerDashboard(initialData?: any) {
     handleDeleteCustomer,
     handleToggleStatus,
     handleEditPointsSave,
-    invitations
+    invitations,
+    activityFeed,
   };
 }

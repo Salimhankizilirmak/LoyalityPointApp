@@ -103,10 +103,10 @@ export function ScannerSection({
       {!customer ? (
         <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #f1f5f9" }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-slate-800 font-semibold text-sm">Müşteri İşlemi</h2>
+            <h3 className="text-slate-800 font-semibold text-[12px]">Müşteri İşlemi</h3>
             <button 
               onClick={() => setShowAddCustomer(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all min-h-[36px]"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all min-h-[36px]"
             >
               <Plus size={13} />Yeni Müşteri
             </button>
@@ -121,13 +121,13 @@ export function ScannerSection({
               onChange={e => setScanInput(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === "Enter" && handleScan(scanInput)}
               placeholder="Müşteri Telefon veya ID..."
-              className="w-full pl-9 pr-28 py-3 rounded-xl text-sm text-slate-800 font-mono outline-none min-h-[44px]"
+              className="w-full pl-9 pr-28 py-3 rounded-xl text-[10px] text-slate-800 font-mono outline-none min-h-[44px]"
               style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }} 
             />
             <button 
               onClick={() => handleScan(scanInput)} 
               disabled={scanning || !scanInput}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-lg text-xs font-semibold text-white min-h-[36px] flex items-center"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-lg text-[10px] font-semibold text-white min-h-[36px] flex items-center"
               style={{ background: scanInput ? INDIGO : "#cbd5e1" }}
             >
               {scanning ? "..." : "Sorgula"}
@@ -142,7 +142,7 @@ export function ScannerSection({
               style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
             >
               <XCircle size={14} className="text-red-500" />
-              <span className="text-red-600 text-xs font-medium">{txError}</span>
+              <span className="text-red-600 text-[10px] font-medium">{txError}</span>
             </motion.div>
           )}
         </div>
@@ -162,20 +162,20 @@ export function ScannerSection({
               >
                 <ArrowLeft size={14} className="text-slate-500" />
               </button>
-              <p className="text-slate-500 text-xs">Müşteri listesine dön</p>
+              <p className="text-slate-500 text-[10px]">Müşteri listesine dön</p>
             </div>
 
             <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #f1f5f9", boxShadow: "0 1px 8px rgba(79,70,229,0.06)" }}>
               <div className="flex items-center gap-4">
                 <div 
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold"
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-[10px] font-bold"
                   style={{ background: LIGHT, color: INDIGO }}
                 >
                   {customer.avatar}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-slate-900 font-bold text-base">{customer.name}</h3>
+                    <h3 className="text-slate-900 font-bold text-[12px]">{customer.name}</h3>
                     <span 
                       className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
                       style={TIER_COLORS[customer.tier]}
@@ -183,10 +183,10 @@ export function ScannerSection({
                       {customer.tier}
                     </span>
                   </div>
-                  <p className="text-slate-400 text-xs">{customer.phone}</p>
+                  <p className="text-slate-400 text-[10px]">{customer.phone}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold" style={{ color: INDIGO }}>{fmt(customer.pts)}</p>
+                  <p className="text-[10px] font-bold" style={{ color: INDIGO }}>{fmt(customer.pts)}</p>
                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Mevcut Puan</p>
                 </div>
               </div>
@@ -202,14 +202,14 @@ export function ScannerSection({
                 <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
                   <CheckCircle size={36} className="text-emerald-500" />
                 </div>
-                <h3 className="text-slate-900 font-bold text-lg mb-1">İşlem Başarılı!</h3>
-                <p className="text-slate-500 text-sm">
+                <h3 className="text-slate-900 font-bold text-[12px] mb-1">İşlem Başarılı!</h3>
+                <p className="text-slate-500 text-[10px]">
                   {txType === "EARN" ? `+${fmt(ptsPreview)} puan eklendi` : `-${fmt(ptsPreview)} puan kullanıldı`}
                 </p>
               </motion.div>
             ) : (
               <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #f1f5f9" }}>
-                <h3 className="text-slate-800 font-semibold text-sm mb-4">Puan İşlemi</h3>
+                <h3 className="text-slate-800 font-semibold text-[12px] mb-4">Puan İşlemi</h3>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {([["EARN", "Puan Yükle", Star, "#059669", "rgba(5,150,105,0.08)"], ["BURN", "Puan Harca", Gift, "#d97706", "rgba(217,119,6,0.08)"]] as const).map(([type, label, Icon, color, bg]) => (
                     <button 
@@ -222,7 +222,7 @@ export function ScannerSection({
                       }}
                     >
                       <Icon size={20} style={{ color }} className="mb-2" />
-                      <p className="text-xs font-bold" style={{ color: txType === type ? color : "#64748b" }}>{label}</p>
+                      <p className="text-[10px] font-bold" style={{ color: txType === type ? color : "#64748b" }}>{label}</p>
                     </button>
                   ))}
                 </div>
@@ -244,7 +244,7 @@ export function ScannerSection({
                           value={amount} 
                           onChange={e => setAmount(e.target.value)}
                           placeholder={txType === "EARN" ? "Tutar giriniz..." : `Max: ${customer.pts}`}
-                          className="w-full px-4 py-3 rounded-xl text-base font-bold text-slate-800 outline-none min-h-[44px]"
+                          className="w-full px-4 py-3 rounded-xl text-[10px] font-bold text-slate-800 outline-none min-h-[44px]"
                           style={{ background: "#f8fafc", border: `2px solid ${amount ? "#c7d2fe" : "#e2e8f0"}` }} 
                         />
                       </div>
@@ -260,7 +260,7 @@ export function ScannerSection({
                           <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: txType === "EARN" ? "#059669" : "#d97706" }}>
                             {txType === "EARN" ? "Kazanılacak" : "Harcanacak"}
                           </span>
-                          <span className="text-xl font-bold" style={{ color: txType === "EARN" ? "#059669" : "#d97706" }}>
+                          <span className="text-[10px] font-bold" style={{ color: txType === "EARN" ? "#059669" : "#d97706" }}>
                             {txType === "EARN" ? "+" : "-"}{fmt(ptsPreview)}
                           </span>
                         </div>
@@ -268,7 +268,7 @@ export function ScannerSection({
                       
                       {txError && (
                         <div 
-                          className="flex items-center gap-2 p-3 rounded-xl border text-rose-600 text-xs font-semibold"
+                          className="flex items-center gap-2 p-3 rounded-xl border text-rose-600 text-[10px] font-semibold"
                           style={{ background: "#fef2f2", borderColor: "#fecaca" }}
                         >
                           <XCircle size={14} className="text-rose-500" />
@@ -279,7 +279,7 @@ export function ScannerSection({
                       <button 
                         onClick={handleTx} 
                         disabled={!amount || ptsPreview <= 0 || scanning || isPending}
-                        className="w-full py-4 rounded-2xl font-bold text-sm text-white transition-all shadow-lg min-h-[44px]"
+                        className="w-full py-4 rounded-2xl font-bold text-[10px] text-white transition-all shadow-lg min-h-[44px]"
                         style={{ 
                           background: amount && ptsPreview > 0 ? INDIGO : "#cbd5e1", 
                           boxShadow: amount && ptsPreview > 0 ? "0 4px 20px rgba(79,70,229,0.2)" : "none" 

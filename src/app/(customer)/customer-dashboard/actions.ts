@@ -209,3 +209,26 @@ export async function getCustomerLedgerTransactionsAction() {
   }
 }
 
+/**
+ * Müşterinin organizasyonundaki tüm şubelerin aktif kampanyalarını getirir.
+ */
+export async function getActiveCampaignsForCustomerAction() {
+  try {
+    const { sessionClaims } = await auth();
+    const metadata = (sessionClaims?.metadata || {}) as Record<string, unknown>;
+    const orgId = metadata.orgId as string;
+
+    if (!orgId) {
+      return { success: false, error: "Organizasyon bilgisi bulunamadı.", campaigns: [] };
+    }
+
+    const { campaignService } = await import("@/lib/services/campaign-service");
+    const campaigns = await campaignService.getActiveCampaignsByOrg(orgId);
+
+    return { success: true, campaigns };
+  } catch (error: unknown) {
+    console.error("[getActiveCampaignsForCustomerAction] Error:", error);
+    return { success: false, error: "Kampanyalar yüklenemedi.", campaigns: [] };
+  }
+}
+

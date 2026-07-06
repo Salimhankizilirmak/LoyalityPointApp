@@ -1,6 +1,6 @@
 import { BaseService } from "./base-service";
-import { customers, loyaltyRules, loyaltyTransactions, branches, users } from "@/db/schema";
-import { eq, gte, and, sql, desc } from "drizzle-orm";
+import { customers, loyaltyRules, loyaltyTransactions, branches, users, campaigns } from "@/db/schema";
+import { eq, gte, and, sql, desc, lte } from "drizzle-orm";
 
 export class LoyaltyService extends BaseService {
   /**
@@ -24,7 +24,7 @@ export class LoyaltyService extends BaseService {
 
     return await this.db.transaction(async (tx) => {
       // 1. Şubeden orgId çöz
-      const branch = await tx.select({ orgId: branches.orgId })
+      const branch = await tx.select({ orgId: branches.orgId, defaultEarnRatio: branches.defaultEarnRatio })
         .from(branches)
         .where(eq(branches.id, branchId))
         .get();
@@ -32,13 +32,41 @@ export class LoyaltyService extends BaseService {
       if (!branch) throw new Error("Şube bulunamadı.");
       const { orgId } = branch;
 
-      // 2. Kazanım kuralını çek (varsayılan: 10 = %10)
-      const rule = await tx.select({ earnRatio: loyaltyRules.earnRatio })
-        .from(loyaltyRules)
-        .where(eq(loyaltyRules.organizationId, orgId))
+      // 2. Oran Çözümleme: Öncelik Sırası:
+      //    a) Aktif kampanya (tarih aralığı içinde)
+      //    b) Şubenin varsayılan kazanım oranı (defaultEarnRatio)
+      //    c) loyaltyRules tablosu (geriye dönük uyumluluk)
+      const now = new Date();
+
+      const activeCampaign = await tx
+        .select({ earnRatio: campaigns.earnRatio })
+        .from(campaigns)
+        .where(
+          and(
+            eq(campaigns.branchId, branchId),
+            eq(campaigns.isActive, true),
+            lte(campaigns.startDate, now),
+            gte(campaigns.endDate, now)
+          )
+        )
         .get();
 
-      const earnRatio = rule?.earnRatio ?? 10;
+      let earnRatio: number;
+
+      if (activeCampaign) {
+        // Kampanya aktif: kampanya oranı önceliklidir
+        earnRatio = activeCampaign.earnRatio;
+      } else if (branch.defaultEarnRatio) {
+        // Şubenin varsayılan oranı
+        earnRatio = branch.defaultEarnRatio;
+      } else {
+        // Geriye dönük uyumluluk: loyaltyRules tablosu
+        const rule = await tx.select({ earnRatio: loyaltyRules.earnRatio })
+          .from(loyaltyRules)
+          .where(eq(loyaltyRules.organizationId, orgId))
+          .get();
+        earnRatio = rule?.earnRatio ?? 10;
+      }
 
       // 3. Finansal Formül Düzeltmesi (kuruş bazında saf tam sayı): Math.floor((amountSpentInKurus * earnRatio) / 10000)
       const pointsEarned = Math.floor((amountSpentInKurus * earnRatio) / 10000);
@@ -66,6 +94,8 @@ export class LoyaltyService extends BaseService {
         amountSpent: amountSpentInKurus,
         pointsAmount: pointsEarned,
       });
+
+      await tx.update(customers).set({ lastActiveAt: new Date() }).where(eq(customers.id, customerId));
 
       console.log(`[LoyaltyService] ✅ EARN: customerId=${customerId}, earned=${pointsEarned}, newTotal=${updated[0].newTotal}`);
 
@@ -155,6 +185,8 @@ export class LoyaltyService extends BaseService {
         amountSpent: 0,
         pointsAmount: pointsToBurn,
       });
+
+      await tx.update(customers).set({ lastActiveAt: new Date() }).where(eq(customers.id, customerId));
 
       console.log(`[LoyaltyService] 🔥 BURN: customerId=${customerId}, burned=${pointsToBurn}, newTotal=${result[0].newTotal}`);
 
@@ -327,6 +359,8 @@ export class LoyaltyService extends BaseService {
         pointsAmount: -originalTx.pointsAmount,
         status: "SUCCESS"
       });
+
+      await tx.update(customers).set({ lastActiveAt: new Date() }).where(eq(customers.id, originalTx.customerId));
 
       console.log(`[LoyaltyService] ↩️ VOID SUCCESS: originalTxId=${transactionId}, customerId=${customer.id}, newTotal=${newTotal}`);
 

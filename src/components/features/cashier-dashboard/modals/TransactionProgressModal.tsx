@@ -45,10 +45,10 @@ export function TransactionProgressModal({
                 <div className="space-y-4 py-6 flex flex-col items-center justify-center">
                   <Loader2 size={36} className="text-cyan-400 animate-spin" />
                   <div className="space-y-1">
-                    <h3 className="text-sm font-black text-white tracking-tight">
+                    <h3 className="text-[12px] font-black text-white tracking-tight">
                       İşlem Gerçekleştiriliyor
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-[10px] text-slate-400">
                       Lütfen sistem onayını bekleyiniz...
                     </p>
                   </div>
@@ -62,16 +62,16 @@ export function TransactionProgressModal({
                     <XCircle size={24} />
                   </div>
                   <div className="space-y-1.5">
-                    <h3 className="text-sm font-black text-red-400 tracking-tight">
+                    <h3 className="text-[12px] font-black text-red-400 tracking-tight">
                       İşlem Başarısız Oldu
                     </h3>
-                    <p className="text-xs text-slate-300 px-4 leading-relaxed">
+                    <p className="text-[10px] text-slate-300 px-4 leading-relaxed">
                       {txError}
                     </p>
                   </div>
                   <button
                     onClick={onClose}
-                    className="mt-2 px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/5 text-xs font-bold text-white transition-all cursor-pointer"
+                    className="mt-2 px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/5 text-[10px] font-bold text-white transition-all cursor-pointer"
                   >
                     Kapat ve Tekrar Dene
                   </button>
@@ -87,29 +87,29 @@ export function TransactionProgressModal({
                       <Receipt size={16} />
                     </div>
                     <div>
-                      <h3 className="text-xs font-black uppercase text-emerald-400 tracking-wider">
+                      <h3 className="text-[12px] font-black uppercase text-emerald-400 tracking-wider">
                         İşlem Makbuzu
                       </h3>
-                      <p className="text-[9px] text-slate-500 font-mono">
+                      <p className="text-[10px] text-slate-500 font-mono">
                         {receipt.timestamp} • BAŞARILI
                       </p>
                     </div>
                   </div>
 
                   {/* Makbuz Gövdesi (POS Fişi Ergonomisi) */}
-                  <div className="space-y-3 font-mono text-xs bg-slate-950/50 p-4 rounded-2xl border border-white/5 relative">
+                  <div className="space-y-3 font-mono text-[10px] bg-slate-950/50 p-4 rounded-2xl border border-white/5 relative">
                     {/* Kesik Kağıt Efekti Süslemesi */}
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
 
                     <div className="space-y-1">
                       <p className="text-[10px] text-slate-500 uppercase font-black">Müşteri</p>
-                      <p className="font-bold text-white text-xs truncate">{receipt.customerName}</p>
+                      <p className="font-bold text-white text-[10px] truncate">{receipt.customerName}</p>
                       <p className="text-[10px] text-slate-400">{receipt.customerPhone}</p>
                     </div>
 
                     <div className="border-t border-dashed border-white/10 my-2" />
 
-                    <div className="flex justify-between items-center text-xs">
+                    <div className="flex justify-between items-center text-[10px]">
                       <span className="text-slate-500 uppercase font-black text-[10px]">İşlem Türü</span>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
                         receipt.txType === "EARN"
@@ -121,7 +121,7 @@ export function TransactionProgressModal({
                     </div>
 
                     {receipt.refId && (
-                      <div className="flex justify-between items-center text-xs">
+                      <div className="flex justify-between items-center text-[10px]">
                         <span className="text-slate-500 uppercase font-black text-[10px]">Referans No</span>
                         <span className="font-bold text-slate-300 font-mono">#{receipt.refId}</span>
                       </div>
@@ -162,13 +162,13 @@ export function TransactionProgressModal({
                       <p className="text-[10px] text-slate-500 uppercase font-black text-center">Sadakat Puanı Bakiyesi</p>
                       <div className="flex items-center justify-center gap-4 bg-slate-900/80 p-2.5 rounded-xl border border-white/5">
                         <div className="text-center">
-                          <p className="text-[8px] text-slate-500 uppercase">Eski</p>
-                          <p className="font-bold text-slate-400 font-mono text-sm">{fmt(receipt.oldPoints)}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Eski</p>
+                          <p className="font-bold text-slate-400 font-mono text-[10px]">{fmt(receipt.oldPoints)}</p>
                         </div>
                         <ArrowRight size={14} className="text-slate-500" />
                         <div className="text-center">
-                          <p className="text-[8px] text-emerald-500 uppercase font-bold">Yeni</p>
-                          <p className="font-black text-emerald-400 font-mono text-base">{fmt(receipt.newPoints)}</p>
+                          <p className="text-[10px] text-emerald-500 uppercase font-bold">Yeni</p>
+                          <p className="font-black text-emerald-400 font-mono text-[10px]">{fmt(receipt.newPoints)}</p>
                         </div>
                       </div>
                     </div>
@@ -177,7 +177,7 @@ export function TransactionProgressModal({
                   {/* Kapat Butonu */}
                   <button
                     onClick={onClose}
-                    className={`w-full py-2.5 rounded-xl text-xs font-black uppercase text-white shadow-lg transition-all cursor-pointer text-center bg-gradient-to-r ${
+                    className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase text-white shadow-lg transition-all cursor-pointer text-center bg-gradient-to-r ${
                       receipt.txType === "EARN"
                         ? "from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400"
                         : "from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400"

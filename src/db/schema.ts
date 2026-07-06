@@ -32,6 +32,7 @@ export const branches = sqliteTable("branches", {
   city: text("city").notNull(),
   isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
   managerId: text("manager_id").references(() => users.id, { onDelete: "set null" }),
+  defaultEarnRatio: integer("default_earn_ratio").default(10).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`),
 });
 
@@ -82,6 +83,7 @@ export const customers = sqliteTable("customers", {
   name: text("name").notNull(),
   totalPoints: integer("total_points").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+  lastActiveAt: integer("last_active_at", { mode: "timestamp" }),
 }, (t) => ({
   // Composite UNIQUE: Aynı organizasyonda aynı telefon numarası ikinci kez kaydedilemez
   orgPhoneIdx: uniqueIndex("org_phone_idx").on(t.organizationId, t.phoneNumber),
@@ -109,6 +111,35 @@ export const loyaltyTransactions = sqliteTable("loyalty_transactions", {
   parentTransactionId: text("parent_transaction_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
+
+// ─── KAMPANYA TABLOSU ────────────────────────────────────────────────────────
+
+export const campaigns = sqliteTable("campaigns", {
+  id: text("id").$defaultFn(() => createId()).primaryKey(),
+  branchId: text("branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  earnRatio: integer("earn_ratio").notNull(),
+  startDate: integer("start_date", { mode: "timestamp" }).notNull(),
+  endDate: integer("end_date", { mode: "timestamp" }).notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+  description: text("description"),
+  createdBy: text("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
+  inactivityThresholdDays: integer("inactivity_threshold_days").notNull().default(60),
+});
+
+export const campaignSends = sqliteTable("campaign_sends", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").notNull().references(() => campaigns.id),
+  customerId: text("customer_id").notNull().references(() => customers.id),
+  status: text("status").notNull(), // "pending" | "sent" | "failed"
+  error: text("error"),
+  sentAt: integer("sent_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+}, (t) => ({
+  campaignCustomerUniq: uniqueIndex("campaign_customer_uniq").on(t.campaignId, t.customerId),
+}));
 
 // ─── TERMINAL (POS KASA) TABLOLARI ──────────────────────────────────────────
 
@@ -248,4 +279,19 @@ export const terminalChallengesRelations = relations(terminalChallenges, ({ one 
     fields: [terminalChallenges.terminalId],
     references: [terminals.id],
   }),
+}));
+
+export const campaignsRelations = relations(campaigns, ({ one }) => ({
+  branch: one(branches, {
+    fields: [campaigns.branchId],
+    references: [branches.id],
+  }),
+  creator: one(users, {
+    fields: [campaigns.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const branchesCampaignsRelations = relations(branches, ({ many, one }) => ({
+  campaigns: many(campaigns),
 }));

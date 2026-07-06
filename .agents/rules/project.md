@@ -1,4 +1,4 @@
-# LoyaltyPointApp — Proje Kuralları ve Mimari Standartlar
+# Okut Kazan — Proje Kuralları ve Mimari Standartlar
 
 > Bu dosya projenin tek kaynak of truth'udur. Ajan her görev öncesi bu dosyayı okur.
 > Hiçbir kural "şimdilik" geçici değildir. Tüm kurallar production standardındadır.
@@ -25,7 +25,7 @@ Her görev sonrası: `npx tsc --noEmit`
 
 ## 1. PROJE KİMLİĞİ
 
-**LoyaltyPointApp**, Türk işletmelerine yönelik çok kiracılı (multi-tenant) B2B SaaS sadakat ekosistemidir.
+**Okut Kazan**, Türk işletmelerine yönelik çok kiracılı (multi-tenant) B2B SaaS sadakat ekosistemidir.
 
 - **Framework:** Next.js 15+ App Router
 - **Auth:** Clerk Enterprise (JWT claims tabanlı RBAC)
@@ -338,10 +338,25 @@ Her yeni özellik eklenirken şu sorular yanıtlanmalıdır:
 | Telefon format farkı (`+90` vs `90`) | Mükerrer müşteri kaydı | syncCustomerData'da normalize et |
 | Super Admin daveti Clerk'te askıda, DB'de silindi | Mükerrer davet hatası | Davet öncesi Clerk'te aktif davet kontrolü |
 
-### 8.6 Açık TODO'lar
+### 8.6 Kasiyer Counter Mekanizması
+
+`staff-service.ts` → `getOrgMembers` metodu, her kasiyer için şu counter verileri döndürür:
+
+| Alan | Kaynak | Hesaplama |
+|------|--------|-----------|
+| `txCount` | `loyaltyTransactions` | `COUNT(*)` — `cashierId` eşleşmesi |
+| `pointsEarned` | `loyaltyTransactions` | `SUM(pointsAmount)` — `type = 'EARN'` |
+| `pointsSpent` | `loyaltyTransactions` | `SUM(pointsAmount)` — `type = 'BURN'` |
+| `dailyAmount` | `loyaltyTransactions` | `SUM(amountSpent)` — `createdAt >= today` |
+| `invitedCustomerCount` | `invitations` | `COUNT(*)` — `invitedBy = cashierId AND role = 'CUSTOMER'` |
+| `acceptedAt` | `invitations` | `createdAt` — `email eşleşmesi AND status = 'ACCEPTED'` |
+
+**Önemli:** `invitedCustomerCount` ve `acceptedAt` şu anda **Live Count/Query** ile hesaplanmaktadır. İleride performans ihtiyacına göre `staffProfiles` tablosuna dedicated counter kolonları eklenebilir.
+
+### 8.7 Açık TODO'lar
 
 - **Telefon→Username Otomasyonu Sonrası UX:** 
-  hasNoUsername artık nadiren true olmalı; eğer true ise (webhook gecikmesi durumunda) disable olan butonların yanına kısa bir "Hesabınız senkronize ediliyor, birkaç saniye bekleyin" tooltip/mesajı eklenebilir.
+- **Counter Migration:** `invitedCustomerCount` ileride `staffProfiles` tablosuna kolon olarak eklenip upsert mantığıyla güncellenecek.
 
 ---
 
@@ -390,6 +405,12 @@ Her server action başında:
 
 Bu üç kontrol eksik olan hiçbir action production'a çıkmaz.
 
+### 9.5 Veritabanı ve Performans (SQLite İndeksleme)
+
+- SQLite'ta indekslerin verimli çalışması (B-Tree) için eşitlik koşullarının sol tarafı (LHS) daima yalın bırakılmalıdır.
+- `like('%' || kolon)` şeklinde cümlenin başına `%` (wildcard) eklenmesi, indeksleri bozar ve Full Table Scan'e yol açar. Bu tür kullanımlar **KESİNLİKLE YASAKTIR**.
+- Eşleştirme işlemlerinde, Drizzle ORM tarafında sağ taraf (RHS) manipüle edilmeli, sol taraftaki kolon fonksiyon içine alınmamalıdır. (Örn: `eq(customers.phoneNumber, sql\`'0' || substr(${invitations.phoneNumber}, -10)\`)`)
+
 ---
 
 ## 10. ARAYÜZ STANDARTLARI (Taste Skill Uyumu)
@@ -401,6 +422,47 @@ Proje glassmorphic premium tasarım dilini korur. Yeni UI yazılırken:
 - Türkçe copy: tüm buton, label, hata mesajı ve bildirimler Türkçe
 - `tr-TR` number formatting: para birimi ve sayısal değerler
 - Renk paleti ve cam efektleri mevcut `GlassPanel` ve `GlassInput` bileşenleriyle tutarlı
+- **Tema Bütünlüğü:** Tüm dashboardlar (Kasiyer Paneli vb.), ana Landing sayfasındaki karanlık, modern, neon/indigo temasını yansıtmalı (örn. `bg-neutral-950` arkaplan, transparan sidebar, `okka-logo.png` kullanımı). İşlemler ve müşteriler gibi farklı veri türleri aynı sayfada tab ile sıkıştırılmak yerine, ayrı rotalara ayrılarak `Sidebar` üzerinden yönetilmeli.
+
+### 10.1 Glassmorphic Kart Standardı
+
+Tüm kart tabanlı bileşenler aşağıdaki referans sınıfları kullanır:
+
+```
+Kart:     bg-[#0a0a0f]/40 backdrop-blur-xl border border-white/5 rounded-3xl
+Hover:    hover:border-indigo-500/30 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)]
+Glow:     bg-cyan-500/10 blur-[60px] (absolute positioned, -z-10)
+Avatar:   bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 text-cyan-300 border-cyan-500/20
+Stat Box: bg-neutral-900/60 rounded-xl p-3 border border-white/5
+```
+
+**Uygulanan bileşenler:** `CustomerManagement.tsx`
+
+### 10.2 B2B Kurumsal Kart Standardı
+
+Dashboards içinde profesyonel ve resmiiyet gerektiren kısımlarda (örneğin Personel/Ekip Yönetimi) neon/glow kullanımı yasaktır. `/ui-ux-pro-max` yönergeleri uyarınca şu yapı benimsenmiştir:
+- Arka plan: `bg-[#0F172A]`
+- Çerçeve: `border-slate-800`
+- Metinler: `text-slate-300`, `text-slate-400`
+- Terminoloji: B2B kurumsal terminoloji (Örn: "Harcattırdığı" yerine "Harcama Hacmi")
+- Resim Fallback: Kırık `<img>` (<img src="??"> gibi) render hatalarını önlemek için url formatı kontrol edilir (`emp.avatar.startsWith("http")`). Hata varsa, isim ve soy ismin baş harflerinden oluşan Slate tonlu bir logo (`<div className="font-bold bg-slate-800 text-slate-300 ...">`) render edilir.
+
+**Uygulanan bileşenler:** `EmployeeManagement.tsx`
+
+### 10.2 Müşteri Sayfası Düzeni
+
+- **Yapı:** Üstte telefon ile arama çubuğu, altta **2×2 Grid** kart düzeni (`grid-cols-1 md:grid-cols-2`)
+- **Kart sayısı:** Arama yoksa `filteredCustomers.slice(0, 4)` — en son işlem yapan 4 müşteri
+- **Scroll:** Yok. Responsive yapıda mobilde 1 kolon, tablet/desktop'ta 2 kolon.
+- **Arama sonuçları:** Telefon numarası ile filtrelenmiş tüm sonuçlar aynı kart formatında gösterilir.
+
+### 10.3 Kampanyalar Sayfası Düzeni
+
+- **Yapı:** Split View — üstte KPI Ribbon (4 mini istatistik kartı), altta iki sütunlu grid
+- **Sol sütun:** Şube Kazanım Oranı ayar kartı + Yeni Kampanya formu
+- **Sağ sütun:** Aktif Kampanya kartı + Geçmiş Kampanyalar listesi
+- **Genişlik:** `max-w-7xl` (eskiden `max-w-4xl`)
+- **Renk paleti:** Indigo/Cyan neon gradient — Landing temasıyla tutarlı
 
 ---
 
@@ -416,6 +478,7 @@ Proje glassmorphic premium tasarım dilini korur. Yeni UI yazılırken:
 ## 12. YASAK LİSTESİ — ASLA YAPILMAYACAKLAR
 
 ```
+❌ like('%' || kolon) gibi indeksleri bozan Full Table Scan sorguları
 ❌ page.tsx içinde useState / useEffect
 ❌ page.tsx 150 satırı geçemez
 ❌ Sayfa içinde db.select() çağrısı

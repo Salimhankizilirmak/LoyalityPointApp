@@ -1,6 +1,7 @@
 "use client";
 
 import { Wallet } from "lucide-react";
+import Image from "next/image";
 
 interface DigitalWalletCardProps {
   pts: number;
@@ -16,9 +17,9 @@ export function DigitalWalletCard({ pts }: DigitalWalletCardProps) {
       {/* Kart Üst Kılavuz */}
       <div className="flex justify-between items-start w-full relative z-10">
         <div className="flex flex-col">
-          <span className="text-[10px] font-black tracking-widest text-cyan-400 uppercase font-mono">
-            Okut Kazan Kartı
-          </span>
+          <div className="relative w-20 h-4 mb-1">
+            <Image src="/okka-logo.png" alt="Logo" fill className="object-contain object-left" />
+          </div>
           <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest mt-0.5">
             Sadakat Programı
           </span>

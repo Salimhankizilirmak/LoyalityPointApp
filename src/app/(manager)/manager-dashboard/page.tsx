@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { ManagerDashboardClient } from "./client-page";
-import { getManagerProfile, getBranchTransactions, getCustomers, getOrgMembers } from "./actions";
+import { OverviewClient } from "./client-page";
+import { getManagerProfile, getBranchTransactions, getOrgMembers } from "./actions";
 import { getInvitationsAction } from "@/app/actions/invitation-actions";
 import { checkLayoutGuard } from "@/lib/layout-guard";
 
@@ -37,26 +37,23 @@ export default async function ManagerDashboardPage() {
     ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.emailAddresses[0].emailAddress.split("@")[0]) 
     : (claims?.fullName || "Yönetici");
 
-  const [profile, txs, invitesList, custs, emps] = await Promise.all([
+  const [profile, txs, emps, invitesList] = await Promise.all([
     safeFetch(getManagerProfile()),
     safeFetch(getBranchTransactions()),
+    safeFetch(getOrgMembers()),
     safeFetch(getInvitationsAction()),
-    safeFetch(getCustomers("")),
-    safeFetch(getOrgMembers())
   ]);
 
   return (
-    <ManagerDashboardClient 
+    <OverviewClient 
       initialManagerName={managerName}
       initialBranchName={branchName}
       initialData={{
         profile,
         transactions: txs,
-        invitations: invitesList,
-        customers: custs,
-        members: emps
+        members: emps,
+        invitations: invitesList ?? [],
       }}
     />
   );
 }
-

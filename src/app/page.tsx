@@ -7,12 +7,12 @@ import { redirect } from "next/navigation";
 export const metadata: Metadata = {
   title: "Okut Kazan - Yeni Nesil Müşteri Sadakat Sistemi",
   description: "İşletmeniz için modern, QR kod tabanlı sadakat ve puan yönetim sistemi. Müşterilerinizi QR kod ile daha yakından tanıyın.",
-  keywords: ["sadakat sistemi", "loyalty point", "qr kod", "puan yönetimi", "müşteri sadakati"],
+  keywords: ["sadakat sistemi", "okut kazan", "qr kod", "puan yönetimi", "müşteri sadakati"],
   openGraph: {
     title: "Okut Kazan - Yeni Nesil Müşteri Sadakat Sistemi",
     description: "İşletmeniz için modern, QR kod tabanlı sadakat ve puan yönetim sistemi.",
     type: "website",
-    url: "https://loyaltypoints.app",
+    url: "https://okutkazan.app",
     siteName: "Okut Kazan",
     images: [
       {

@@ -1,5 +1,5 @@
 /**
- * 🔐 Loyalty Point App - Merkezi Rol Tanımları
+ * 🔐 Okut Kazan - Merkezi Rol Tanımları
  * 
  * Sistemdeki 5 temel rolün hiyerarşisi ve tanımları.
  */

@@ -2,8 +2,8 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, branches, userBranches, invitations } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { users, organizations, branches, userBranches, invitations, customers } from "@/db/schema";
+import { eq, and, inArray, or, isNull } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 
 type ClerkPayload = {
@@ -15,6 +15,9 @@ type ClerkPayload = {
     public_user_data?: { user_id?: string; identifier?: string; username?: string | null };
     organization?: { id?: string };
     username?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    image_url?: string | null;
   };
 };
 
@@ -62,6 +65,9 @@ export async function POST(req: Request) {
   if (type === "user.created") {
     const clerkId = data.id || "";
     const email = data.email_addresses?.[0]?.email_address || "";
+    const firstName = data.first_name || "";
+    const lastName = data.last_name || "";
+    const name = `${firstName} ${lastName}`.trim() || null;
 
     console.log(`[ClerkWebhook] user.created event triggered. ClerkId: ${clerkId}, Email: ${email}`);
 
@@ -76,12 +82,14 @@ export async function POST(req: Request) {
         const rawPhone = inviteRecord?.phoneNumber || "";
         console.log(`[ClerkWebhook] Found phone number in invitations: ${rawPhone}`);
 
+        let cleanPhone = "";
+
         if (rawPhone) {
           // Çekilen telefon numarasındaki tüm boşluk, parantez ve ülke kodlarını temizleyerek başında 0 olan 11 haneli düz rakam formatına (05XXXXXXXXX) getir.
           const digits = rawPhone.replace(/\D/g, "");
           const match = digits.match(/5\d{9}$/);
           if (match) {
-            const cleanPhone = "0" + match[0];
+            cleanPhone = "0" + match[0];
             console.log(`[ClerkWebhook] Formatted clean phone: ${cleanPhone}`);
 
             // clerkClient API'sini kullanarak kullanıcının Clerk profilindeki username alanına güncelle.
@@ -99,6 +107,27 @@ export async function POST(req: Request) {
         } else {
           console.warn(`[ClerkWebhook] No phone number found in invitations for email: ${email}`);
         }
+
+        if (name && cleanPhone) {
+            // Update all customers with this phone number where name is missing or "İsimsiz Müşteri"
+            const result = await db.update(customers)
+              .set({ name })
+              .where(
+                and(
+                  eq(customers.phoneNumber, cleanPhone),
+                  or(
+                    eq(customers.name, "İsimsiz Müşteri"),
+                    eq(customers.name, ""),
+                    isNull(customers.name)
+                  )
+                )
+              )
+              .returning();
+              
+            if (result.length > 0) {
+                console.log(`[ClerkWebhook] Customer name updated to '${name}' for ${result.length} record(s) with phone ${cleanPhone}`);
+            }
+        }
       } catch (dbErr) {
         console.error("[ClerkWebhook] Error querying invitations database:", dbErr);
       }
@@ -110,11 +139,11 @@ export async function POST(req: Request) {
   if (type === "user.updated") {
     const clerkId = data.id || "";
     const email = data.email_addresses?.[0]?.email_address?.toLowerCase() || "";
-    const firstName = ((data as Record<string, unknown>).first_name as string) || "";
-    const lastName = ((data as Record<string, unknown>).last_name as string) || "";
+    const firstName = data.first_name || ((data as Record<string, unknown>).first_name as string) || "";
+    const lastName = data.last_name || ((data as Record<string, unknown>).last_name as string) || "";
     const name = `${firstName} ${lastName}`.trim() || null;
     const username = data.username || null;
-    const imageUrl = ((data as Record<string, unknown>).image_url as string) || null;
+    const imageUrl = data.image_url || ((data as Record<string, unknown>).image_url as string) || null;
 
     console.log(`[ClerkWebhook] 👤 User updated event: ClerkId=${clerkId}, Email=${email}, Username=${username}, Name=${name}, ImageUrl=${imageUrl}`);
 
@@ -135,6 +164,39 @@ export async function POST(req: Request) {
       console.log(`[ClerkWebhook] 👤 Updated local user details for ClerkId=${clerkId}`);
     } else {
       console.log(`[ClerkWebhook] ℹ️ User ${clerkId} not found in local DB, skipping update.`);
+    }
+
+    if (name && email) {
+      try {
+        const inviteRecord = await db.select().from(invitations).where(eq(invitations.email, email.trim().toLowerCase())).get();
+        if (inviteRecord && inviteRecord.phoneNumber) {
+          const rawPhone = inviteRecord.phoneNumber;
+          const digits = rawPhone.replace(/\D/g, "");
+          const match = digits.match(/5\d{9}$/);
+          if (match) {
+            const cleanPhone = "0" + match[0];
+            const result = await db.update(customers)
+              .set({ name })
+              .where(
+                and(
+                  eq(customers.phoneNumber, cleanPhone),
+                  or(
+                    eq(customers.name, "İsimsiz Müşteri"),
+                    eq(customers.name, ""),
+                    isNull(customers.name)
+                  )
+                )
+              )
+              .returning();
+              
+            if (result.length > 0) {
+                console.log(`[ClerkWebhook] Customer name updated to '${name}' for ${result.length} record(s) with phone ${cleanPhone} via user.updated`);
+            }
+          }
+        }
+      } catch (err) {
+         console.error("[ClerkWebhook] Customer name update error in user.updated:", err);
+      }
     }
   }
 

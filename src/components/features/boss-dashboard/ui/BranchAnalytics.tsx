@@ -8,10 +8,17 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell
 } from "recharts";
 
 interface ChartDataItem {
@@ -80,6 +87,7 @@ export function BranchAnalytics({
   isLoading = false,
 }: BranchAnalyticsProps) {
   const [mounted, setMounted] = useState(false);
+  const [chartType, setChartType] = useState<"alan" | "sütun">("alan");
 
   // 🕒 Scheduled with setTimeout to bypass linter setState-in-effect restrictions
   useEffect(() => {
@@ -167,134 +175,91 @@ export function BranchAnalytics({
       </div>
 
       {/* 📈 2. Recharts Neon Zaman Serisi Grafiği */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.15 }}
-        className={`glass-panel bg-[#0a0a0f]/40 backdrop-blur-xl border border-cyan-500/20 rounded-3xl p-6 relative overflow-hidden transition-all ${
-          isLoading ? "opacity-50" : ""
-        }`}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-lg font-black tracking-tight text-white">Performans Grafik Trendi</h3>
-            <p className="text-slate-400 text-xs font-medium">Seçili dönemdeki günlük ciro ve sadakat hareketi</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Line/Area/Bar Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          className={`glass-panel bg-[#0a0a0f]/40 backdrop-blur-xl border border-cyan-500/20 rounded-3xl p-6 relative overflow-hidden transition-all lg:col-span-2 ${
+            isLoading ? "opacity-50" : ""
+          }`}
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <div>
+              <h3 className="text-lg font-black tracking-tight text-white">Performans Grafik Trendi</h3>
+              <p className="text-slate-400 text-xs font-medium">Seçili dönemdeki günlük ciro ve sadakat hareketi</p>
+            </div>
+            
+            <div className="flex items-center gap-2 bg-slate-900/50 p-1 rounded-xl border border-white/5">
+              {([
+                { id: "alan", label: "Alan" },
+                { id: "sütun", label: "Sütun" }
+              ] as const).map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => setChartType(type.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    chartType === type.id 
+                      ? "bg-cyan-500/20 text-cyan-400" 
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+
+            {isLoading && (
+              <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+                <Loader2 className="animate-spin" size={14} /> Yükleniyor...
+              </div>
+            )}
           </div>
-          {isLoading && (
-            <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
-              <Loader2 className="animate-spin" size={14} /> Veriler Yükleniyor...
-            </div>
-          )}
-        </div>
 
-        {/* Recharts Render Container */}
-        <div className="h-[350px] w-full relative">
-          {!mounted ? (
-            <div className="absolute inset-0 bg-[#0a0a0f]/20 rounded-3xl animate-pulse flex items-center justify-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-              Grafik Yükleniyor...
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 border border-dashed border-white/5 rounded-2xl">
-              <Calendar size={32} className="text-slate-600" />
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Bu şubede veri bulunmamaktadır</p>
-              <p className="text-[10px] text-slate-500">Seçtiğiniz tarih aralığında işlem kaydı bulunamadı.</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData.map((d) => ({
-                  ...d,
-                  revenue: d.revenue / 100, // Ciro kuruş bazlı olduğu için grafiğe TL cinsinden yansıtıyoruz
-                }))}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  {/* Neon Cyan Gradient for Revenue */}
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                  </linearGradient>
-                  {/* Neon Teal Gradient for Points Earned */}
-                  <linearGradient id="colorPointsEarned" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
-                  </linearGradient>
-                  {/* Neon Coral Gradient for Points Burned */}
-                  <linearGradient id="colorPointsBurned" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-
-                {/* Faint Grid Lines */}
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-
-                {/* X Axis */}
-                <XAxis
-                  dataKey="date"
-                  stroke="#ffffff30"
-                  tick={{ fill: "#94a3b8", fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  dy={10}
-                />
-
-                {/* Y Axis */}
-                <YAxis
-                  stroke="#ffffff30"
-                  tick={{ fill: "#94a3b8", fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  dx={-10}
-                />
-
-                {/* Beautiful custom Tooltip */}
-                <Tooltip 
-                  content={
-                    <CustomTooltip 
-                      currencyFormatter={currencyFormatter} 
-                      numberFormatter={numberFormatter} 
-                    />
-                  } 
-                />
-
-                {/* Neon Cyan Area for Revenue */}
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#06b6d4"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorRevenue)"
-                  name="Ciro (TL)"
-                />
-
-                {/* Neon Teal Area for Points Earned */}
-                <Area
-                  type="monotone"
-                  dataKey="pointsEarned"
-                  stroke="#14b8a6"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorPointsEarned)"
-                  name="Kazanılan Puan"
-                />
-
-                {/* Neon Coral Area for Points Burned */}
-                <Area
-                  type="monotone"
-                  dataKey="pointsBurned"
-                  stroke="#f43f5e"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorPointsBurned)"
-                  name="Harcanan Puan"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </motion.div>
+          <div className="h-[350px] w-full relative">
+            {!mounted ? (
+              <div className="absolute inset-0 bg-[#0a0a0f]/20 rounded-3xl animate-pulse flex items-center justify-center text-slate-500 text-xs font-bold uppercase tracking-wider">
+                Grafik Yükleniyor...
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 border border-dashed border-white/5 rounded-2xl">
+                <Calendar size={32} className="text-slate-600" />
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Bu şubede veri bulunmamaktadır</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                {chartType === "alan" ? (
+                  <AreaChart data={chartData.map((d) => ({ ...d, revenue: d.revenue / 100 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#06b6d4" stopOpacity={0.2} /><stop offset="95%" stopColor="#06b6d4" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="colorPointsEarned" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#14b8a6" stopOpacity={0.2} /><stop offset="95%" stopColor="#14b8a6" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="colorPointsBurned" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.1} /><stop offset="95%" stopColor="#f43f5e" stopOpacity={0} /></linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                    <XAxis dataKey="date" stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dy={10} />
+                    <YAxis stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dx={-10} />
+                    <Tooltip content={<CustomTooltip currencyFormatter={currencyFormatter} numberFormatter={numberFormatter} />} />
+                    <Area type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" name="Ciro (TL)" />
+                    <Area type="monotone" dataKey="pointsEarned" stroke="#14b8a6" strokeWidth={2} fillOpacity={1} fill="url(#colorPointsEarned)" name="Kazanılan Puan" />
+                    <Area type="monotone" dataKey="pointsBurned" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorPointsBurned)" name="Harcanan Puan" />
+                  </AreaChart>
+                ) : (
+                  <BarChart data={chartData.map((d) => ({ ...d, revenue: d.revenue / 100 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                    <XAxis dataKey="date" stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dy={10} />
+                    <YAxis stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dx={-10} />
+                    <Tooltip content={<CustomTooltip currencyFormatter={currencyFormatter} numberFormatter={numberFormatter} />} />
+                    <Bar dataKey="revenue" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Ciro (TL)" />
+                    <Bar dataKey="pointsEarned" fill="#14b8a6" radius={[4, 4, 0, 0]} name="Kazanılan Puan" />
+                    <Bar dataKey="pointsBurned" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Harcanan Puan" />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+            )}
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }

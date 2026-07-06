@@ -33,10 +33,10 @@ export function InviteProgressModal({ submitting, toastMessage }: InviteProgress
               <div className="space-y-4 py-4 flex flex-col items-center justify-center">
                 <Loader2 size={32} className="text-cyan-400 animate-spin" />
                 <div className="space-y-1">
-                  <h3 className="text-sm font-black text-white tracking-tight">
+                  <h3 className="text-[12px] font-black text-white tracking-tight">
                     Davet Gönderiliyor
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-[10px] text-slate-400">
                     Lütfen işlem tamamlanana kadar bekleyiniz...
                   </p>
                 </div>
@@ -53,10 +53,10 @@ export function InviteProgressModal({ submitting, toastMessage }: InviteProgress
                   </div>
                 )}
                 <div className="space-y-1">
-                  <h3 className={`text-sm font-black tracking-tight ${toastMessage.type === "success" ? "text-emerald-400" : "text-red-400"}`}>
+                  <h3 className={`text-[12px] font-black tracking-tight ${toastMessage.type === "success" ? "text-emerald-400" : "text-red-400"}`}>
                     {toastMessage.type === "success" ? "Davet Başarılı" : "Hata Oluştu"}
                   </h3>
-                  <p className="text-xs text-slate-300 px-4 leading-relaxed">
+                  <p className="text-[10px] text-slate-300 px-4 leading-relaxed">
                     {toastMessage.text}
                   </p>
                 </div>

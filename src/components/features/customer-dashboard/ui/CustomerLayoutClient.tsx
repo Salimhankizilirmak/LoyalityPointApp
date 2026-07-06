@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, ReactNode } from "react";
-import { ProfileSettingsModal } from "@/components/features/profile-settings/ui/ProfileSettingsModal";
+
 
 interface CustomerLayoutClientProps {
   children: ReactNode;
@@ -12,7 +12,7 @@ interface CustomerLayoutClientProps {
 export function CustomerLayoutClient({
   children,
 }: CustomerLayoutClientProps) {
-  const [showProfileSettings, setShowProfileSettings] = useState(false);
+
 
   return (
     <div className="relative min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -24,11 +24,7 @@ export function CustomerLayoutClient({
         {children}
       </div>
 
-      <ProfileSettingsModal
-        isOpen={showProfileSettings}
-        onClose={() => setShowProfileSettings(false)}
-        isDarkMode={true}
-      />
+
     </div>
   );
 }

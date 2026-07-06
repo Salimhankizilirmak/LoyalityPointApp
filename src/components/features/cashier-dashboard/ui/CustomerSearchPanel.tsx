@@ -70,9 +70,9 @@ export function CustomerSearchPanel({
         <div className="absolute -top-12 -left-12 w-32 h-32 rounded-full bg-cyan-500/5 blur-3xl pointer-events-none" />
         <div className="flex items-center justify-between gap-4 relative z-10">
           <div className="space-y-0.5">
-            <h2 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}>
+            <h3 className={`text-[12px] font-black uppercase tracking-wider ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}>
               Müşteri Sorgulama
-            </h2>
+            </h3>
             <p className={`text-[10px] ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
               11 haneli telefon numarasını girin.
             </p>
@@ -97,7 +97,7 @@ export function CustomerSearchPanel({
                 }
               }}
               placeholder="05XXXXXXXXX"
-              className={`w-full pl-9 pr-20 py-2 border rounded-xl text-xs font-mono outline-none transition-all placeholder-slate-600 min-h-[38px] ${
+              className={`w-full pl-9 pr-20 py-2 border rounded-xl text-[10px] font-mono outline-none transition-all placeholder-slate-600 min-h-[38px] ${
                 isDarkMode
                   ? "bg-[#09090b]/80 border-white/10 text-white focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(6,182,212,0.15)]"
                   : "bg-slate-50 border-slate-200 text-slate-900 focus:border-cyan-500"
@@ -144,10 +144,10 @@ export function CustomerSearchPanel({
                 <Info size={20} />
               </div>
               <div className="space-y-1">
-                <h3 className={`text-xs font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
+                <h3 className={`text-[12px] font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
                   Müşteri Profil Maskesi
                 </h3>
-                <p className="text-[11px] text-slate-500 max-w-[280px] leading-relaxed">
+                <p className="text-[10px] text-slate-500 max-w-[280px] leading-relaxed">
                   Lütfen müşteri bilgilerini görmek için sorgulama yapınız.
                 </p>
               </div>
@@ -166,19 +166,19 @@ export function CustomerSearchPanel({
               {/* Üst Kısım: Müşteri Künyesi */}
               <div className="flex items-center justify-between gap-4 relative z-10 w-full flex-shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-sm font-black text-white shadow-lg flex-shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-lg flex-shrink-0">
                     {customer.avatar}
                   </div>
                   <div className="space-y-0.5 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <h3 className={`text-xs font-bold truncate ${isDarkMode ? "text-white" : "text-slate-800"}`}>
+                      <h3 className={`text-[12px] font-bold truncate ${isDarkMode ? "text-white" : "text-slate-800"}`}>
                         {customer.name}
                       </h3>
-                      <span className={`px-1 py-0.5 rounded text-[7px] font-black uppercase border shrink-0 ${TIER_COLORS[customer.tier].bg} ${TIER_COLORS[customer.tier].color} ${TIER_COLORS[customer.tier].border}`}>
+                      <span className={`px-1 py-0.5 rounded text-[10px] font-black uppercase border shrink-0 ${TIER_COLORS[customer.tier].bg} ${TIER_COLORS[customer.tier].color} ${TIER_COLORS[customer.tier].border}`}>
                         {customer.tier}
                       </span>
                     </div>
-                    <p className={`text-[9px] font-mono ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    <p className={`text-[10px] font-mono ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
                       {customer.phone}
                     </p>
                   </div>
@@ -186,10 +186,10 @@ export function CustomerSearchPanel({
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="text-right">
-                    <p className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 font-mono tracking-tight leading-none">
+                    <p className="text-[10px] font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 font-mono tracking-tight leading-none">
                       {fmt(customer.pts)}
                     </p>
-                    <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest font-mono">
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest font-mono">
                       Bakiye
                     </p>
                   </div>
@@ -212,7 +212,7 @@ export function CustomerSearchPanel({
                 <div className="bg-slate-950/20 rounded-2xl border border-white/5 p-4 space-y-3">
                   <div className="flex items-center gap-1.5 pb-2 border-b border-white/5">
                     <Clock size={12} className="text-cyan-400" />
-                    <span className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+                    <span className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
                       En Son Tekil İşlem
                     </span>
                   </div>
@@ -222,10 +222,10 @@ export function CustomerSearchPanel({
                       Yükleniyor...
                     </div>
                   ) : lastTransaction ? (
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-[10px]">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
                             lastTransaction.status === "VOIDED" || lastTransaction.type === "VOID"
                               ? "bg-red-500/20 text-red-400 border border-red-500/30"
                               : lastTransaction.type === "EARN"
@@ -240,13 +240,13 @@ export function CustomerSearchPanel({
                             </span>
                           )}
                         </div>
-                        <p className="text-[9px] text-slate-500 font-mono mt-0.5">
+                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">
                           {lastTransaction.createdAtFormatted}
                         </p>
                       </div>
 
                       <div className="text-right">
-                        <span className={`font-mono font-bold text-sm ${
+                        <span className={`font-mono font-bold text-[10px] ${
                           lastTransaction.status === "VOIDED"
                             ? "text-slate-500 line-through"
                             : lastTransaction.type === "EARN"
@@ -269,7 +269,7 @@ export function CustomerSearchPanel({
               <div className="relative z-10 flex-shrink-0 pt-2 border-t border-white/5">
                 <button
                   onClick={onOpenHistoryModal}
-                  className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border min-h-[38px] ${
+                  className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border min-h-[38px] ${
                     isDarkMode
                       ? "bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/30 text-indigo-300 shadow-[0_4px_15px_rgba(99,102,241,0.1)]"
                       : "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700"
