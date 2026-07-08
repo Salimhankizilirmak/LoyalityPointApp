@@ -12,7 +12,8 @@ export default async function QrInvitePage() {
   await checkLayoutGuard();
   const ctx = await resolveActiveBranchContext();
 
-  const appUrl = "https://okutkazan.novexistech.com";
+  // Eğer NEXT_PUBLIC_APP_URL .env'de tanımlanmışsa (yeni Vercel) onu kullan, yoksa production'a düş.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://okutkazan.novexistech.com";
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto px-4 py-8">
