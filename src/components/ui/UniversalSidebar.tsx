@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut } from "lucide-react";
-import { useState, ElementType } from "react";
+import { Menu, X, LogOut, Edit2, Check } from "lucide-react";
+import { useState, useEffect, ElementType } from "react";
 import Image from "next/image";
 import { UserButton, OrganizationSwitcher, useClerk } from "@clerk/nextjs";
 
@@ -20,12 +20,38 @@ interface UniversalSidebarProps {
   subtitle?: string;
   navItems: SidebarNavItem[];
   showOrganizationSwitcher?: boolean;
+  onEditProfile?: (newName: string) => Promise<void>;
 }
 
-export function UniversalSidebar({ title, subtitle, navItems, showOrganizationSwitcher = false }: UniversalSidebarProps) {
+export function UniversalSidebar({ title, subtitle, navItems, showOrganizationSwitcher = false, onEditProfile }: UniversalSidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const { signOut } = useClerk();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(title);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  useEffect(() => {
+    setEditValue(title);
+  }, [title]);
+
+  const handleSaveProfile = async () => {
+    if (!onEditProfile) return;
+    if (editValue.trim() === "" || editValue === title) {
+      setIsEditing(false);
+      return;
+    }
+    try {
+      setIsUpdating(true);
+      await onEditProfile(editValue);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsUpdating(false);
+      setIsEditing(false);
+    }
+  };
 
   return (
     <>
@@ -71,8 +97,45 @@ export function UniversalSidebar({ title, subtitle, navItems, showOrganizationSw
           <div className="w-10 h-10 rounded-full flex items-center justify-center">
             <UserButton />
           </div>
-          <div>
-            <div className="font-bold text-sm text-slate-200 truncate w-40">{title}</div>
+          <div className="flex-1 min-w-0 pr-2">
+            <div className="flex items-center justify-between group">
+              {isEditing ? (
+                <div className="flex items-center gap-1">
+                  <input 
+                    type="text" 
+                    value={editValue} 
+                    onChange={(e) => setEditValue(e.target.value)}
+                    disabled={isUpdating}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveProfile();
+                      if (e.key === "Escape") {
+                        setEditValue(title);
+                        setIsEditing(false);
+                      }
+                    }}
+                    autoFocus
+                    className="w-24 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  />
+                  <button onClick={handleSaveProfile} disabled={isUpdating} className="p-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30">
+                    <Check size={12} />
+                  </button>
+                  <button onClick={() => { setEditValue(title); setIsEditing(false); }} disabled={isUpdating} className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <div className="font-bold text-sm text-slate-200 truncate pr-2" title={title}>{title}</div>
+              )}
+              {onEditProfile && !isEditing && (
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-cyan-400 flex-shrink-0"
+                  title="İsmi Düzenle"
+                >
+                  <Edit2 size={12} />
+                </button>
+              )}
+            </div>
             {subtitle ? (
               <div className="text-[10px] text-slate-400 mt-1 truncate w-40">{subtitle}</div>
             ) : showOrganizationSwitcher ? (
@@ -144,7 +207,11 @@ export function UniversalSidebar({ title, subtitle, navItems, showOrganizationSw
         {/* Bottom Area */}
         <div className="p-4 border-t border-white/5">
           <button
-            onClick={() => signOut({ redirectUrl: "/" })}
+            onClick={() => {
+              // Uygulama seviyesindeki çerezleri temizle
+              document.cookie = "active_branch_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+              signOut({ redirectUrl: "/" });
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[12px] font-bold text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
           >
             <LogOut size={18} />

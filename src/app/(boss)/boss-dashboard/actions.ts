@@ -17,8 +17,8 @@ export async function getBossProfile() {
   return await organizationService.getBossProfile();
 }
 
-export async function updateOrgSettings(pointRate: number, validityMonths: number) {
-  return await organizationService.updateSettings(pointRate, validityMonths);
+export async function updateOrgSettings(pointRate: number, validityMonths: number, pointsEquivalent: number = 1, tlEquivalent: number = 1) {
+  return await organizationService.updateSettings(pointRate, validityMonths, pointsEquivalent, tlEquivalent);
 }
 
 export async function createBranch(name: string, city: string) {

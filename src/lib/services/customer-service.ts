@@ -20,13 +20,18 @@ export class CustomerService extends BaseService {
     }
 
     // JIT Self-Healing: Webhook gecikmesine karşı ilk girişte davetiye durumunu mühürle
+    let inviteName = null;
     if (dbUser.email) {
-      await this.db.update(invitations)
-        .set({ status: "ACCEPTED" })
-        .where(and(
-          eq(invitations.email, dbUser.email.toLowerCase()),
-          eq(invitations.status, "PENDING")
-        ));
+      const existingInvite = await this.db.select().from(invitations).where(eq(invitations.email, dbUser.email.toLowerCase())).get();
+      if (existingInvite) {
+        if (existingInvite.customerName) inviteName = existingInvite.customerName;
+        await this.db.update(invitations)
+          .set({ status: "ACCEPTED" })
+          .where(and(
+            eq(invitations.email, dbUser.email.toLowerCase()),
+            eq(invitations.status, "PENDING")
+          ));
+      }
     }
 
     const meta = (user.publicMetadata || {}) as Record<string, unknown>;
@@ -87,7 +92,7 @@ export class CustomerService extends BaseService {
       const insertedCustomer = await this.db.insert(customers).values({
         organizationId: orgId,
         phoneNumber: primaryPhone,
-        name: `${user.firstName || "İsimsiz"} ${user.lastName || "Müşteri"}`.trim(),
+        name: inviteName || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "İsimsiz Müşteri",
         totalPoints: 0,
       }).returning();
       customerRecord = insertedCustomer[0];
@@ -203,14 +208,40 @@ export class CustomerService extends BaseService {
     return enriched;
   }
 
-  async updateCustomer(id: string, data: Partial<typeof customerProfiles.$inferInsert>) {
+  async updateCustomer(id: string, data: Partial<typeof customerProfiles.$inferInsert> & { firstName?: string, lastName?: string }) {
     await this.requireOrg();
     
     const profile = await this.db.select().from(customerProfiles).where(eq(customerProfiles.id, id)).get()
       || await this.db.select().from(customerProfiles).where(eq(customerProfiles.userId, id)).get();
       
     if (profile) {
-      await this.db.update(customerProfiles).set(data).where(eq(customerProfiles.id, profile.id));
+      const { firstName, lastName, ...profileData } = data;
+      
+      // Update Name in Clerk & Users if provided
+      if (firstName !== undefined || lastName !== undefined) {
+         const userRec = await this.db.select().from(users).where(eq(users.id, profile.userId)).get();
+         if (userRec) {
+            const client = await this.getClerkClient();
+            const currentClerkUser = await client.users.getUser(userRec.clerkId);
+            const newFirst = firstName !== undefined ? firstName : currentClerkUser.firstName || "";
+            const newLast = lastName !== undefined ? lastName : currentClerkUser.lastName || "";
+            const computedName = `${newFirst} ${newLast}`.trim() || null;
+            
+            await client.users.updateUser(userRec.clerkId, {
+               firstName: newFirst,
+               lastName: newLast
+            });
+            
+            await this.db.update(users).set({ name: computedName }).where(eq(users.id, profile.userId));
+            
+            // customers tablosundaki name'i de guncelle
+            await this.db.update(customers).set({ name: computedName || "İsimsiz Müşteri" }).where(eq(customers.phoneNumber, userRec.username || ""));
+         }
+      }
+      
+      if (Object.keys(profileData).length > 0) {
+        await this.db.update(customerProfiles).set(profileData as Partial<typeof customerProfiles.$inferInsert>).where(eq(customerProfiles.id, profile.id));
+      }
     }
     return { success: true };
   }
@@ -310,6 +341,7 @@ export class CustomerService extends BaseService {
       clerkInviteId: invitation.id,
       email: data.email.trim().toLowerCase(),
       phoneNumber: cleanedPhone,
+      customerName: customerFullname,
       organizationId: data.orgId,
       branchId: data.branchId,
       role: "CUSTOMER",

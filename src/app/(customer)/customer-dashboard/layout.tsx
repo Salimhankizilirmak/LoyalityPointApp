@@ -12,8 +12,9 @@ export default async function CustomerLayout({ children }: CustomerLayoutProps) 
   let dbUser = null;
   try {
     dbUser = await checkLayoutGuard();
-  } catch (error) {
+  } catch (error: any) {
     if (isRedirectError(error)) throw error;
+    if (error && error.digest === "DYNAMIC_SERVER_USAGE") throw error;
     console.error("[CustomerLayout] Layout guard validation failed:", error);
   }
 

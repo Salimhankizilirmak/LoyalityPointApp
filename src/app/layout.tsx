@@ -5,6 +5,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import { trTR } from '@clerk/localizations'
 import { auth } from "@clerk/nextjs/server";
 import RootAuthBoundary from "@/components/providers/RootAuthBoundary";
+import { IosInstallPrompt } from "@/components/ui/ios-install-prompt";
 import "./globals.css";
 
 const inter = Inter({
@@ -158,6 +159,7 @@ export default async function RootLayout({
         </head>
         <body className="min-h-full flex flex-col bg-background text-foreground">
           <RootAuthBoundary>{children}</RootAuthBoundary>
+          <IosInstallPrompt />
         </body>
       </html>
     </ClerkProvider>

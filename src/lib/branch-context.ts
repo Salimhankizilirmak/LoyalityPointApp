@@ -23,8 +23,11 @@ export type BranchContext = {
  * - Cross-Org bulaşmasını önler: çerezdeki şubeyi org'a göre doğrular.
  */
 export async function resolveActiveBranchContext(): Promise<BranchContext | null> {
-  const { userId, orgId } = await auth();
-  if (!userId || !orgId) return null;
+  const { userId, orgId, sessionClaims } = await auth();
+  const claims = sessionClaims as any;
+  const activeOrgId = orgId || claims?.metadata?.orgId || claims?.o?.id;
+
+  if (!userId || !activeOrgId) return null;
 
   const dbUser = await db.select().from(users).where(eq(users.clerkId, userId)).get();
   if (!dbUser) return null;
@@ -36,7 +39,7 @@ export async function resolveActiveBranchContext(): Promise<BranchContext | null
     const orgBranches = await db
       .select({ id: branches.id, name: branches.name, city: branches.city })
       .from(branches)
-      .where(eq(branches.orgId, orgId))
+      .where(eq(branches.orgId, activeOrgId))
       .all();
     availableBranches = orgBranches;
   } else {

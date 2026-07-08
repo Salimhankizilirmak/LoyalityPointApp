@@ -21,6 +21,37 @@ export class ManagerService extends BaseService {
       role: dbUser.role.toLowerCase()
     };
   }
+
+  async getStoreSettings() {
+    const { loyaltyRules } = await import("@/db/schema");
+    const data = await this.getMyBranchData();
+    const rule = await this.db.select().from(loyaltyRules).where(eq(loyaltyRules.organizationId, data.orgId)).get();
+    
+    return {
+      pointsEquivalent: rule?.pointsEquivalent ?? 1,
+      tlEquivalent: rule?.tlEquivalent ?? 1,
+      earnRatio: rule?.earnRatio ?? 10
+    };
+  }
+
+  async updateStoreSettings(pointsEquivalent: number, tlEquivalent: number) {
+    const { loyaltyRules } = await import("@/db/schema");
+    const { purgeCacheTag, CACHE_TAGS } = await import("@/lib/cache-registry");
+    const data = await this.getMyBranchData();
+
+    await this.db
+      .insert(loyaltyRules)
+      .values({ organizationId: data.orgId, pointsEquivalent, tlEquivalent, earnRatio: 10 })
+      .onConflictDoUpdate({
+        target: loyaltyRules.organizationId,
+        set: { pointsEquivalent, tlEquivalent },
+      });
+
+    // Önbellek geçersiz kılma (Bu ayarlar Boss profil önbelleğine bağlı)
+    purgeCacheTag(CACHE_TAGS.bossProfile(data.orgId));
+    
+    return { success: true };
+  }
 }
 
 export const managerService = new ManagerService();

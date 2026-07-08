@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
 import { randomBytes } from "crypto";
 
@@ -17,6 +17,7 @@ export const users = sqliteTable("users", {
 export const organizations = sqliteTable("organizations", {
   id: text("id").$defaultFn(() => createId()).primaryKey(),
   name: text("name").notNull(),
+  registrationCode: text("registration_code").unique(),
   bossId: text("boss_id").references(() => users.id, { onDelete: "cascade" }),
   bossEmail: text("boss_email"),
   branchLimit: integer("branch_limit").default(1).notNull(),
@@ -82,6 +83,7 @@ export const customers = sqliteTable("customers", {
   phoneNumber: text("phone_number").notNull(),
   name: text("name").notNull(),
   totalPoints: integer("total_points").notNull().default(0),
+  registrationSource: text("registration_source").notNull().default("CASHIER_INVITE"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
   lastActiveAt: integer("last_active_at", { mode: "timestamp" }),
 }, (t) => ({
@@ -94,6 +96,8 @@ export const loyaltyRules = sqliteTable("loyalty_rules", {
   // Her organizasyonun tek aktif kural seti olabilir (UNIQUE kısıtı)
   organizationId: text("organization_id").notNull().unique().references(() => organizations.id, { onDelete: "cascade" }),
   earnRatio: integer("earn_ratio").notNull().default(10),
+  pointsEquivalent: integer("points_equivalent").notNull().default(1),
+  tlEquivalent: integer("tl_equivalent").notNull().default(1),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
@@ -119,6 +123,8 @@ export const campaigns = sqliteTable("campaigns", {
   branchId: text("branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   earnRatio: integer("earn_ratio").notNull(),
+  campaignType: text("campaign_type", { enum: ["multiplier", "tiered"] }).default("multiplier").notNull(),
+  tiers: text("tiers", { mode: "json" }),
   startDate: integer("start_date", { mode: "timestamp" }).notNull(),
   endDate: integer("end_date", { mode: "timestamp" }).notNull(),
   isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
@@ -169,6 +175,7 @@ export const invitations = sqliteTable("invitations", {
   clerkInviteId: text("clerk_invite_id").unique(),
   email: text("email").notNull(),
   phoneNumber: text("phone_number"),
+  customerName: text("customer_name"),
   organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   branchId: text("branch_id").references(() => branches.id, { onDelete: "cascade" }),
   role: text("role", { enum: ["BOSS", "MANAGER", "CASHIER", "CUSTOMER"] }).notNull().default("BOSS"),
@@ -176,6 +183,21 @@ export const invitations = sqliteTable("invitations", {
   invitedBy: text("invited_by").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
   expiresAt: integer("expires_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now') + 604800)`),
+});
+
+
+export const qrCustomerRequests = sqliteTable("qr_customer_requests", {
+  id: text("id").$defaultFn(() => createId()).primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  branchId: text("branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phoneNumber: text("phone_number").notNull(),
+  status: text("status", { enum: ["PENDING", "APPROVED", "REJECTED"] }).notNull().default("PENDING"),
+  clerkTicketUrl: text("clerk_ticket_url"),
+  ipAddress: text("ip_address"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
 
 // ─── İLİŞKİLER ───────────────────────────────────────────────────────────────
@@ -294,4 +316,40 @@ export const campaignsRelations = relations(campaigns, ({ one }) => ({
 
 export const branchesCampaignsRelations = relations(branches, ({ many, one }) => ({
   campaigns: many(campaigns),
+}));
+
+// ─── QR REGISTRATION & LIVE ACTIVITY TABLES ──────────────────────────────────
+
+export const customerRegistrationRequests = sqliteTable("customer_registration_requests", {
+  id: text("id").$defaultFn(() => createId()).primaryKey(),
+  orgId: text("org_id").notNull(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  clerkUserId: text("clerk_user_id"),
+  status: text("status").notNull().default("PENDING_APPROVAL"), // PENDING_APPROVAL | APPROVED | REJECTED
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+  approvedByCashierId: text("approved_by_cashier_id"),
+  decidedAt: integer("decided_at", { mode: "timestamp" }),
+});
+
+export const registrationAttempts = sqliteTable("registration_attempts", {
+  id: text("id").$defaultFn(() => createId()).primaryKey(),
+  ip: text("ip").notNull(),
+  orgId: text("org_id").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+});
+
+export const activityLogs = sqliteTable("activity_logs", {
+  id: text("id").$defaultFn(() => createId()).primaryKey(),
+  orgId: text("org_id").notNull(),
+  type: text("type").notNull(),
+  actorName: text("actor_name"),
+  actorRole: text("actor_role"),
+  targetName: text("target_name"),
+  description: text("description").notNull(),
+  metadata: text("metadata"), 
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(strftime('%s', 'now'))`),
+}, (t) => ({
+  orgTimeIdx: index("activity_logs_org_time_idx").on(t.orgId, t.createdAt),
 }));

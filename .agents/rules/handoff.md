@@ -12,7 +12,15 @@
 
 ---
 
-## Son Oturum (2026-07-06 — Güncel Oturum)
+## Son Oturum (2026-07-07 — Güncel Oturum)
+
+**Tamamlanan işler:**
+- **iOS PWA Kurulum Desteği (IosInstallPrompt):** Apple Safari tarayıcısının otomatik PWA yükleme istemini desteklememesi sorunu giderildi. iOS cihazlardan giren kullanıcılar için "Paylaş -> Ana Ekrana Ekle" yönlendirmesini yapan şık ve animasyonlu (Framer Motion) bir Bottom Sheet / Toast bileşeni geliştirildi. Performans düşüşü yaşanmaması için bileşene 3 saniye gecikme (delay) eklendi.
+- **Dil ve İletişim Kuralı:** Proje genelindeki tüm ajan iletişimlerinin (plan, hata analizi, status raporu vb.) Türkçe olması kuralı projeye eklendi.
+
+---
+
+## Önceki Oturum (2026-07-06)
 
 **Tamamlanan işler:**
 - **Yetkilendirme ve Kasiyer Görünürlüğü (`staff-service.ts`):** `MANAGER` yetkisiyle girenlerin, `getOrgMembers` sorgusundan boş liste alması yetki sınırları düzeltilerek çözüldü. Artık şube yöneticileri yalnızca atandıkları şubedeki (pending veya accepted fark etmeksizin) personeli eksiksiz görebiliyor.
@@ -97,6 +105,7 @@
 
 ## Önemli Kararlar / Standartlar
 
+- **İletişim Dili (MANDATORY):** Ajanların tüm raporları, planları, log analizleri ve kullanıcı ile iletişimi tamamen Türkçe olmak zorundadır.
 - **İngilizce Routing Standartı:** Dosya ve URL rotaları her zaman İngilizce olmalıdır (Örn. `/musteriler` yerine `/customers`).
 - Phone number = username (tüm roller için veritabanında `05XXXXXXXXX` düz format)
 - Giriş yaparken Clerk'e gönderilen identifier = `+905XXXXXXXXX` uluslararası format

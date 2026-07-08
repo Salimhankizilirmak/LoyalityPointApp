@@ -97,6 +97,17 @@ export async function addCustomerAction(firstName: string, lastName: string, pho
       invitedById: dbUserLocal.id,
     });
 
+    if (res.success) {
+      await db.insert(activityLogs).values({
+        orgId,
+        type: "system",
+        actorName: dbUserLocal.name || dbUserLocal.email || "Yönetici",
+        actorRole: dbUserLocal.role,
+        targetName: `${firstName.trim()} ${lastName.trim()}`,
+        description: `Yeni müşteri sisteme davet edildi. (Tel: ${phone.trim()})`
+      });
+    }
+
     return res;
   } catch (error: any) {
     const message = error?.message || "Kayıt hatası";
@@ -149,9 +160,107 @@ export async function toggleStaffStatus(memberId: string, currentActive: boolean
       .set({ isActive: !currentActive })
       .where(eq(staffProfiles.userId, memberId));
 
+    const profile = await getManagerProfile();
+    if (profile?.orgId) {
+      await db.insert(activityLogs).values({
+        orgId: profile.orgId,
+        type: "system",
+        actorName: dbUserLocal.name || dbUserLocal.email || "Yönetici",
+        actorRole: dbUserLocal.role,
+        targetName: `Personel ID: ${memberId.slice(-6)}`,
+        description: `Personel durumu ${!currentActive ? 'Aktif' : 'Pasif'} olarak güncellendi.`
+      });
+    }
+
     return { success: true };
   } catch (error: unknown) {
     return { error: (error instanceof Error ? error.message : "Durum güncelleme hatası") };
   }
 }
 
+export async function getStoreSettingsAction() {
+  try {
+    const { managerService } = await import("@/lib/services/manager-service");
+    return await managerService.getStoreSettings();
+  } catch (error) {
+    return { pointsEquivalent: 1, tlEquivalent: 1, earnRatio: 10 };
+  }
+}
+
+export async function updateStoreSettingsAction(pointsEquivalent: number, tlEquivalent: number) {
+  try {
+    const { managerService } = await import("@/lib/services/manager-service");
+    const res = await managerService.updateStoreSettings(pointsEquivalent, tlEquivalent);
+    
+    const profile = await getManagerProfile();
+    const clerkUser = await auth();
+    if (profile?.orgId && clerkUser.userId) {
+      const userLocal = await db.select().from(users).where(eq(users.clerkId, clerkUser.userId)).get();
+      if (userLocal) {
+        await db.insert(activityLogs).values({
+          orgId: profile.orgId,
+          type: "system",
+          actorName: userLocal.name || userLocal.email || "Yönetici",
+          actorRole: userLocal.role,
+          targetName: "Mağaza Ayarları",
+          description: `Puan/TL Dönüşüm ayarları güncellendi. Yeni Değer: ${pointsEquivalent} Puan = ${tlEquivalent} TL`
+        });
+      }
+    }
+    
+    return res;
+  } catch (error: unknown) {
+    return { error: (error instanceof Error ? error.message : "Ayarlar güncellenirken bir hata oluştu.") };
+  }
+}
+
+import { activityLogs } from "@/db/schema";
+import { desc } from "drizzle-orm";
+
+export async function getRecentActivities() {
+  try {
+    const profile = await getManagerProfile();
+    if (!profile || !profile.orgId) return [];
+    
+    const logs = await db.select()
+      .from(activityLogs)
+      .where(eq(activityLogs.orgId, profile.orgId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(15);
+      
+    return logs;
+  } catch (error) {
+    console.error("Activity fetch error:", error);
+    return [];
+  }
+}
+
+
+export async function logExportAction(format: "PDF" | "CSV") {
+  try {
+    const profile = await getManagerProfile();
+    if (!profile || !profile.orgId) return { success: false, error: "Organizasyon bulunamadı." };
+
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Oturum bulunamadı." };
+    
+    const userLocal = await db.select().from(users).where(eq(users.clerkId, userId)).get();
+    const actorName = userLocal ? (userLocal.name || userLocal.email) : "Yönetici";
+    const actorRole = userLocal ? userLocal.role : "MANAGER";
+
+    await db.insert(activityLogs).values({
+      orgId: profile.orgId,
+      type: "system",
+      actorName: actorName,
+      actorRole: actorRole,
+      targetName: "Sistem Logları",
+      description: `İşlem Raporu Dışa Aktarıldı (${format})`,
+      metadata: JSON.stringify({ format, time: new Date().toISOString() })
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Export log error:", error);
+    return { success: false, error: "Log kaydedilemedi" };
+  }
+}

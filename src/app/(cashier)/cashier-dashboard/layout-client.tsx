@@ -4,7 +4,7 @@ import { useState, ReactNode } from "react";
 import { BranchSelector, type BranchOption } from "@/components/ui/BranchSelector";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, Receipt, Users, UserPlus, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, LayoutDashboard, Receipt, Users, UserPlus, LogOut, ChevronDown, QrCode } from "lucide-react";
 import Image from "next/image";
 import { useUser, useClerk } from "@clerk/nextjs";
 
@@ -13,6 +13,7 @@ interface CashierLayoutClientProps {
   isMultiBranch?: boolean;
   activeBranchId?: string | null;
   allBranches?: BranchOption[];
+  pendingCount?: number;
 }
 
 export function CashierLayoutClient({
@@ -20,6 +21,7 @@ export function CashierLayoutClient({
   isMultiBranch,
   activeBranchId,
   allBranches,
+  pendingCount = 0,
 }: CashierLayoutClientProps) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -32,6 +34,8 @@ export function CashierLayoutClient({
     { name: "İşlemler", href: "/cashier-dashboard/transactions", icon: Receipt },
     { name: "Müşteriler", href: "/cashier-dashboard/customers", icon: Users },
     { name: "Yeni Müşteri Ekle", href: "/cashier-dashboard/add-customer", icon: UserPlus },
+    { name: "QR Davet", href: "/cashier-dashboard/qr-invite", icon: QrCode },
+    { name: "Onay Bekleyenler", href: "/cashier-dashboard/approvals", icon: Users, badge: pendingCount },
   ];
 
   return (
@@ -53,41 +57,7 @@ export function CashierLayoutClient({
         </div>
 
         <div className="flex items-center gap-4">
-          {isMultiBranch && activeBranchId && allBranches && (
-            <BranchSelector activeBranchId={activeBranchId} branches={allBranches} />
-          )}
-          {user && (
-            <div className="relative border-l border-white/10 pl-4 ml-2">
-              <button 
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-white/5 transition-colors text-left cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-full border border-white/10 overflow-hidden relative bg-slate-800">
-                  <Image src={user.imageUrl} alt={user.fullName || "User"} fill className="object-cover" />
-                </div>
-                <div className="hidden sm:flex flex-col items-start justify-center pr-2">
-                  <span className="text-sm font-bold text-white leading-none">{user.fullName || "Kullanıcı"}</span>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black mt-1">Kasiyer</span>
-                </div>
-                <ChevronDown size={16} className={`text-slate-400 hidden sm:block transition-transform duration-200 ${isProfileDropdownOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {isProfileDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileDropdownOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden z-50 py-2">
-                    <button
-                      onClick={() => { setIsProfileDropdownOpen(false); signOut(); }}
-                      className="w-full px-4 py-3 text-left flex items-center gap-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors cursor-pointer"
-                    >
-                      <LogOut size={16} />
-                      <span className="text-sm font-bold">Çıkış Yap</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+          {/* Sadece mobil menü toggle ve logo kaldı, geri kalanı sidebar içine alındı */}
         </div>
       </header>
 
@@ -107,14 +77,34 @@ export function CashierLayoutClient({
             isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}
         >
-          <div className="flex items-center justify-between p-4 md:hidden border-b border-white/5">
+          <div className="flex items-center justify-between p-4 md:hidden border-b border-white/5 mb-2">
             <span className="font-bold text-sm text-slate-400 uppercase tracking-widest">Menü</span>
             <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-slate-400 hover:text-white">
               <X size={20} />
             </button>
           </div>
+
+          {/* Profil ve Şube Seçimi (Sidebar Üstü) */}
+          {user && (
+            <div className="px-4 py-4 mb-2 border-b border-white/5 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden relative bg-slate-800">
+                  <Image src={user.imageUrl} alt={user.fullName || "User"} fill className="object-cover" />
+                </div>
+                <div className="flex flex-col justify-center overflow-hidden">
+                  <span className="font-label-md text-sm text-white font-bold truncate">{user.fullName || "Kullanıcı"}</span>
+                  <span className="font-label-md text-[10px] text-slate-400 uppercase tracking-widest font-black mt-0.5">Kasiyer</span>
+                </div>
+              </div>
+              <div>
+                {isMultiBranch && activeBranchId && allBranches && (
+                  <BranchSelector activeBranchId={activeBranchId} branches={allBranches} />
+                )}
+              </div>
+            </div>
+          )}
           
-          <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+          <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
             {navItems.map((item) => {
               const active = pathname === item.href;
               return (
@@ -122,18 +112,38 @@ export function CashierLayoutClient({
                   key={item.href}
                   href={item.href}
                   onClick={() => setIsSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+                  className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
                     active
                       ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
                       : "text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent"
                   }`}
                 >
-                  <item.icon size={20} />
-                  {item.name}
+                  <div className="flex items-center gap-3">
+                    <item.icon size={20} />
+                    {item.name}
+                  </div>
+                  {item.badge && item.badge > 0 && (
+                    <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
           </nav>
+
+          {/* Çıkış Yap (Sadece Buton) */}
+          {user && (
+            <div className="p-4 border-t border-white/5 bg-slate-950/50">
+              <button
+                onClick={() => { setIsSidebarOpen(false); signOut(); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors font-bold text-sm cursor-pointer"
+              >
+                <LogOut size={16} />
+                Çıkış Yap
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* İçerik */}

@@ -44,7 +44,7 @@ export function OverviewClient({
         handleEditPointsSave={dashboard.handleEditPointsSave} isDarkMode={dashboard.isDarkMode}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <main className="w-full px-4 sm:px-6 py-8">
         <AnimatePresence mode="wait">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -57,6 +57,7 @@ export function OverviewClient({
               activityFeed={dashboard.activityFeed}
               isDarkMode={dashboard.isDarkMode}
               onEditTransaction={setEditingTransaction}
+              storeSettings={dashboard.storeSettings}
             />
           </motion.div>
         </AnimatePresence>

@@ -189,6 +189,7 @@ export default function BossAnalyticsPage() {
           totalTransactions={analytics.totalTransactions}
           chartData={analytics.chartData}
           isLoading={isPending}
+          selectedRange={selectedRange}
         />
       )}
     </div>

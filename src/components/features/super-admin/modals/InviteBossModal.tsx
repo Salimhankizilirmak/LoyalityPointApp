@@ -15,6 +15,7 @@ interface InviteBossModalProps {
 export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossModalProps) {
   const router = useRouter();
   const [companyName, setCompanyName] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
@@ -23,14 +24,22 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
 
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const valid = companyName.trim() !== "" && name.trim() !== "" && emailRegex.test(email) && phone.trim().length === 10 && phone.trim().startsWith("5");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyName.trim()) {
       setError("Lütfen şirket adını girin.");
       return;
     }
-    if (!email || !email.includes("@")) {
-      setError("Lütfen geçerli bir e-posta adresi girin.");
+    if (!name.trim()) {
+      setError("Lütfen patronun adını ve soyadını girin.");
+      return;
+    }
+    
+    if (!email || !emailRegex.test(email)) {
+      setError("Geçerli bir email giriniz, Türkçe karakter kullanılamaz.");
       return;
     }
     if (!phone.trim() || phone.trim().length !== 10 || !phone.trim().startsWith("5")) {
@@ -41,9 +50,9 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
     setSending(true);
     setError("");
 
-    console.log("📨 [InviteBossForm] E-posta davet isteği başlatılıyor...", { companyName, email, phone });
+    console.log("📨 [InviteBossForm] E-posta davet isteği başlatılıyor...", { companyName, name, email, phone });
     try {
-      const result = await inviteBossAction(companyName, email, phone);
+      const result = await inviteBossAction(companyName, name, email, phone);
       console.log("📨 [InviteBossForm] E-posta davet isteği tamamlandı. Sonuç:", result);
 
       if (result && result.success) {
@@ -139,17 +148,19 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
               </div>
 
               <div>
-                <label htmlFor="bossEmail" className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                  Patron E-posta Adresi *
+                <label htmlFor="bossName" className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Patron Ad Soyad *
                 </label>
                 <div className="relative">
-                  <Mail size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  </div>
                   <input
-                    id="bossEmail"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="novexitech@gmail.com"
+                    id="bossName"
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Ör. Ahmet Yılmaz"
                     required
                     className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode
                       ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
@@ -157,6 +168,36 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
                       }`}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="bossEmail" className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Patron E-posta Adresi *
+                </label>
+                <div className="relative">
+                  <Mail size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
+                  <input
+                    id="bossEmail"
+                    type="text"
+                    inputMode="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="novexitech@gmail.com"
+                    required
+                    className={`w-full px-4 py-3 pl-10 rounded-2xl text-sm border outline-none transition-all min-h-[44px] ${
+                      email.length > 0 && !emailRegex.test(email)
+                        ? "border-rose-500 bg-rose-500/5 focus:border-rose-500"
+                        : isDarkMode
+                          ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:bg-slate-900"
+                          : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-400 focus:bg-white"
+                      }`}
+                  />
+                </div>
+                {email.length > 0 && !emailRegex.test(email) && (
+                  <p className="text-[10px] text-rose-500 mt-1.5 font-medium ml-1">
+                    Geçerli bir email giriniz (Türkçe karakter kullanılamaz).
+                  </p>
+                )}
               </div>
 
               <div>
@@ -215,8 +256,8 @@ export function InviteBossModal({ onClose, onSuccess, isDarkMode }: InviteBossMo
 
               <button
                 type="submit"
-                disabled={sending}
-                className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all min-h-[44px] ${!sending
+                disabled={sending || !valid}
+                className={`w-full py-4 rounded-2xl text-sm font-bold text-white shadow-lg transition-all min-h-[44px] ${!sending && valid
                   ? "bg-cyan-600 shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98] hover:bg-cyan-500"
                   : "bg-slate-300 cursor-not-allowed opacity-50"
                   }`}

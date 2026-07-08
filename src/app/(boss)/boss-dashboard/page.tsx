@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   await checkLayoutGuard();
-  redirect("/boss-dashboard/branches");
+  redirect("/boss-dashboard/analytics");
 }

@@ -1,7 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { OverviewClient } from "./client-page";
-import { getManagerProfile, getBranchTransactions, getOrgMembers } from "./actions";
+import { getManagerProfile, getBranchTransactions, getOrgMembers, getRecentActivities } from "./actions";
 import { getInvitationsAction } from "@/app/actions/invitation-actions";
+import { getCampaignsAction } from "./campaign-actions";
 import { checkLayoutGuard } from "@/lib/layout-guard";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +38,13 @@ export default async function ManagerDashboardPage() {
     ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.emailAddresses[0].emailAddress.split("@")[0]) 
     : (claims?.fullName || "Yönetici");
 
-  const [profile, txs, emps, invitesList] = await Promise.all([
+  const [profile, txs, emps, invitesList, campaignsRes, activities] = await Promise.all([
     safeFetch(getManagerProfile()),
     safeFetch(getBranchTransactions()),
     safeFetch(getOrgMembers()),
     safeFetch(getInvitationsAction()),
+    safeFetch(getCampaignsAction()),
+    safeFetch(getRecentActivities()),
   ]);
 
   return (
@@ -53,6 +56,8 @@ export default async function ManagerDashboardPage() {
         transactions: txs,
         members: emps,
         invitations: invitesList ?? [],
+        campaigns: campaignsRes && typeof campaignsRes === 'object' && 'campaigns' in campaignsRes ? campaignsRes.campaigns : [],
+        activities: activities ?? [],
       }}
     />
   );

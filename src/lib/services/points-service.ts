@@ -1,5 +1,5 @@
 import { BaseService } from "./base-service";
-import { users, customerProfiles, pointsTransactions, staffProfiles } from "@/db/schema";
+import { users, customerProfiles, pointsTransactions, staffProfiles, activityLogs } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 export class PointsService extends BaseService {
@@ -54,6 +54,17 @@ export class PointsService extends BaseService {
       await tx.update(customerProfiles)
         .set({ currentPoints: sql`${customerProfiles.currentPoints} + ${amountToApply}` })
         .where(eq(customerProfiles.id, profile.id));
+
+      await tx.insert(activityLogs).values({
+        orgId: profile.orgId,
+        type: type === "earn" ? "POINTS_EARNED" : "POINTS_SPENT",
+        actorName: dbUserLocal?.name || "Yetkili",
+        actorRole: dbUserLocal?.role || "CASHIER",
+        targetName: dbUser?.name || "Müşteri",
+        description: type === "earn" 
+          ? `${amountTL} TL alışverişten ${pointsKurus/100} TL değerinde puan kazanıldı.` 
+          : `${pointsKurus/100} TL değerinde puan harcandı.`,
+      });
     });
 
     return { success: true };
@@ -91,6 +102,15 @@ export class PointsService extends BaseService {
       await tx.update(customerProfiles)
         .set({ currentPoints: sql`${customerProfiles.currentPoints} + ${amountKurus}` })
         .where(eq(customerProfiles.id, profile.id));
+
+      await tx.insert(activityLogs).values({
+        orgId: profile.orgId,
+        type: amountKurus >= 0 ? "POINTS_EARNED" : "POINTS_SPENT",
+        actorName: dbUserLocal?.name || "Yönetici",
+        actorRole: dbUserLocal?.role || "MANAGER",
+        targetName: "Müşteri",
+        description: `Manuel işlem: ${Math.abs(amountKurus)/100} TL değerinde puan ${amountKurus >= 0 ? 'eklendi' : 'düşüldü'}.`,
+      });
     });
 
     return { success: true };

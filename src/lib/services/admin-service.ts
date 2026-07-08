@@ -7,7 +7,7 @@ import { normalizePhoneToUsername, sanitizePhoneTo10 } from "@/lib/utils";
 const { organizations, staffProfiles, customerProfiles, pointsTransactions, users, branches, invitations } = schema;
 
 export class AdminService extends BaseService {
-  async inviteBoss(companyName: string, bossEmail: string, appUrl: string, bossPhone: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message: string }> {
+  async inviteBoss(companyName: string, bossName: string, bossEmail: string, appUrl: string, bossPhone: string): Promise<{ success: boolean; scenario: "NEW_BOSS" | "EXISTING_BOSS" | "DUPLICATE_INVITATION"; message: string }> {
     const { dbUser } = await this.requireRole(["SUPER_ADMIN"]);
 
     if (!companyName?.trim()) {
@@ -145,6 +145,7 @@ export class AdminService extends BaseService {
           orgId: clerkOrg.id,
           role: "boss",
           phone: normalizedPhone,
+          name: bossName,
         },
         redirectUrl: `${appUrl}/sign-up`,
         ignoreExisting: true,

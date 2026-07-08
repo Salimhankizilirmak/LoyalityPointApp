@@ -83,9 +83,21 @@ export async function checkLayoutGuard() {
           .where(eq(invitations.email, userEmail.toLowerCase()))
           .get();
 
-        const usernameFromPhone = inviteForUser?.phoneNumber
+        let usernameFromPhone = inviteForUser?.phoneNumber
           ? normalizePhoneToUsername(inviteForUser.phoneNumber)
           : null;
+
+        // EĞER MÜŞTERİ ise ve username boşsa, customer_registration_requests tablosuna bak
+        if (resolvedRole === "CUSTOMER" && !usernameFromPhone) {
+          const { customerRegistrationRequests } = await import("@/db/schema");
+          const regReq = await tx.select()
+            .from(customerRegistrationRequests)
+            .where(eq(customerRegistrationRequests.clerkUserId, userId))
+            .get();
+          if (regReq && regReq.phone) {
+            usernameFromPhone = regReq.phone;
+          }
+        }
 
         await tx.insert(users).values({
           clerkId: userId,
@@ -399,6 +411,27 @@ export async function checkLayoutGuard() {
           console.warn(`[LayoutGuard] 🔄 Self-healing başarısız. BOSS /auth-callback'e yönlendiriliyor.`);
           redirect("/auth-callback");
         }
+      }
+    }
+
+    // 🛍️ CUSTOMER için onaylı müşteri kaydı kontrolü
+    if (dbUser.role === "CUSTOMER") {
+      const { customers } = await import("@/db/schema");
+      
+      let phoneNumber = dbUser.username || "";
+      // Eğer username boşsa ve e-posta varsa, customer_registration_requests tablosundan telefonunu bulabiliriz
+      // ya da customers tablosunda email kolonu yok, phoneNumber üzerinden eşliyoruz.
+      // Olası bir clerk username formatında değilse bile normalizePhoneToUsername ile username'e atanıyor.
+      
+      const activeCustomer = await db
+        .select()
+        .from(customers)
+        .where(eq(customers.phoneNumber, phoneNumber))
+        .get();
+
+      if (!activeCustomer) {
+        console.warn(`[LayoutGuard] ⏳ CUSTOMER ${dbUser.id} onay bekliyor veya kaydı silinmiş. /pending-approval'a yönlendiriliyor.`);
+        redirect("/pending-approval");
       }
     }
 

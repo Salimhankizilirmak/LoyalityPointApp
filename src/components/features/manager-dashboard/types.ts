@@ -31,6 +31,8 @@ export interface ActivityItem {
   rawTime: number;       // Unix ms — sıralama için
   status?: string;
   originalTx?: Transaction; // Düzenleme butonu için
+  description?: string;
+  metadata?: any;
 }
 
 export interface Customer {

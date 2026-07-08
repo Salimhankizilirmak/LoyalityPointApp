@@ -65,9 +65,11 @@ export async function POST(req: Request) {
   if (type === "user.created") {
     const clerkId = data.id || "";
     const email = data.email_addresses?.[0]?.email_address || "";
+    const publicMetadata = data.public_metadata || {};
+    const metadataName = (publicMetadata.name as string) || "";
     const firstName = data.first_name || "";
     const lastName = data.last_name || "";
-    const name = `${firstName} ${lastName}`.trim() || null;
+    let name = `${firstName} ${lastName}`.trim() || metadataName || null;
 
     console.log(`[ClerkWebhook] user.created event triggered. ClerkId: ${clerkId}, Email: ${email}`);
 
@@ -78,6 +80,13 @@ export async function POST(req: Request) {
           .from(invitations)
           .where(eq(invitations.email, email.trim().toLowerCase()))
           .get();
+
+        // [Kritik Değişiklik] Eğer davet edilen kişinin 'customerName' alanı varsa, 
+        // Clerk'ten gelen boş/hatalı ismi geçersiz kılıp davetteki ismi kullanıyoruz.
+        if (inviteRecord && inviteRecord.customerName) {
+           name = inviteRecord.customerName;
+           console.log(`[ClerkWebhook] Override name from invitations: ${name}`);
+        }
 
         const rawPhone = inviteRecord?.phoneNumber || "";
         console.log(`[ClerkWebhook] Found phone number in invitations: ${rawPhone}`);
@@ -128,6 +137,26 @@ export async function POST(req: Request) {
                 console.log(`[ClerkWebhook] Customer name updated to '${name}' for ${result.length} record(s) with phone ${cleanPhone}`);
             }
         }
+        
+        // --- USERS tablosu senkronizasyonu ---
+        // Eğer role belli değilse bile en azından isim ve mail eşleşmesi için (isteğe bağlı)
+        const existingUser = await db.select().from(users).where(eq(users.clerkId, clerkId)).get();
+        if (!existingUser && email) {
+          try {
+             await db.insert(users).values({
+               clerkId: clerkId,
+               email: email.toLowerCase(),
+               role: "CUSTOMER", // Varsayılan müşteri, login olunca auth-utils günceller
+               name: name || "İsimsiz Müşteri",
+             });
+             console.log(`[ClerkWebhook] Inserted new user to users table with name: ${name}`);
+          } catch(e) {
+             console.error("[ClerkWebhook] Error inserting to users table on user.created:", e);
+          }
+        } else if (existingUser && name) {
+           await db.update(users).set({ name }).where(eq(users.clerkId, clerkId));
+        }
+
       } catch (dbErr) {
         console.error("[ClerkWebhook] Error querying invitations database:", dbErr);
       }
@@ -139,15 +168,31 @@ export async function POST(req: Request) {
   if (type === "user.updated") {
     const clerkId = data.id || "";
     const email = data.email_addresses?.[0]?.email_address?.toLowerCase() || "";
+    const publicMetadata = data.public_metadata || {};
+    const metadataName = (publicMetadata.name as string) || "";
     const firstName = data.first_name || ((data as Record<string, unknown>).first_name as string) || "";
     const lastName = data.last_name || ((data as Record<string, unknown>).last_name as string) || "";
-    const name = `${firstName} ${lastName}`.trim() || null;
+    let name = `${firstName} ${lastName}`.trim() || metadataName || null;
     const username = data.username || null;
     const imageUrl = data.image_url || ((data as Record<string, unknown>).image_url as string) || null;
 
     console.log(`[ClerkWebhook] 👤 User updated event: ClerkId=${clerkId}, Email=${email}, Username=${username}, Name=${name}, ImageUrl=${imageUrl}`);
 
     // Sadece kullanıcı yerel veritabanında zaten varsa güncelle (yoksa insert etmek tutarsızlığa yol açabilir)
+    
+    // [Kritik Değişiklik] Davet veritabanından isim güncelleme kontrolü
+    if (email) {
+      try {
+        const inviteRecord = await db.select().from(invitations).where(eq(invitations.email, email.trim().toLowerCase())).get();
+        if (inviteRecord && inviteRecord.customerName) {
+           name = inviteRecord.customerName;
+           console.log(`[ClerkWebhook] Override name from invitations in user.updated: ${name}`);
+        }
+      } catch (err) {
+        console.error("Error fetching inviteRecord for name override:", err);
+      }
+    }
+
     const existingUser = await db.select().from(users).where(eq(users.clerkId, clerkId)).get();
     if (existingUser) {
       const updateFields: Record<string, unknown> = {
@@ -217,7 +262,8 @@ export async function POST(req: Request) {
 
     const firstName = (rawPublicUser.first_name as string) || (rawData.first_name as string) || "";
     const lastName = (rawPublicUser.last_name as string) || (rawData.last_name as string) || "";
-    const name = `${firstName} ${lastName}`.trim();
+    const metadataName = (metadata.name as string) || "";
+    let name = `${firstName} ${lastName}`.trim() || metadataName || null;
     const imageUrl = (rawPublicUser.image_url as string) || (rawData.image_url as string) || null;
 
     const hasNameInPayload =

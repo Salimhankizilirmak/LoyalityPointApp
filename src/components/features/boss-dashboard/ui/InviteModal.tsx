@@ -21,7 +21,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   const { user } = useUser();
   const bossEmail = user?.primaryEmailAddress?.emailAddress;
 
-  const [form, setForm] = useState({ email: "", role: fixedRole || "manager", branch: "", phone: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: fixedRole || "manager", branch: "", phone: "" });
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +42,8 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
   }, [error]);
 
   const targetBranchName = fixedRole === "cashier" && branches.length > 0 ? branches[0].name : form.branch;
-  const valid = form.email.includes("@") && !isForbidden && targetBranchName !== "" && form.phone.trim().length === 10 && form.phone.trim().startsWith("5");
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const valid = form.name.trim() !== "" && form.email.includes("@") && emailRegex.test(form.email) && !isForbidden && targetBranchName !== "" && form.phone.trim().length === 10 && form.phone.trim().startsWith("5");
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +60,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
 
     try {
       const res = await inviteEmployee({
-        name: "",
+        name: form.name,
         email: form.email,
         role: fixedRole || "manager",
         branch: targetBranchName || "Atanmadı",
@@ -91,13 +92,13 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/80 backdrop-blur-sm">
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border transition-colors duration-300 ${isDarkMode ? "bg-slate-900 border-slate-800 shadow-blue-500/5" : "bg-white border-slate-100 shadow-slate-200"
           }`}
       >
-        <div className={`px-6 py-4 flex items-center justify-between border-b ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-50 bg-slate-50/30"
+        <div className={`px-6 md:px-8 py-5 flex items-center justify-between border-b ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-50 bg-slate-50/30"
           }`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-blue-500/20" : "bg-blue-50"}`}>
@@ -113,7 +114,7 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 md:p-8">
           {sent ? (
             <div className="text-center py-6">
               <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
@@ -155,6 +156,21 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
 
               <div className="space-y-4">
                 <div>
+                  <label className={labelClasses}>Ad Soyad *</label>
+                  <div className="relative">
+                    <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                    <input
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Ör. Ayşe Yılmaz"
+                      className={`${inputClasses} pl-10`}
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <label className={labelClasses}>E-posta Adresi *</label>
                   <div className="relative">
                     <Mail size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`} />
@@ -175,9 +191,14 @@ export function InviteModal({ onClose, branches, isDarkMode, fixedRole }: Invite
                         }
                       }}
                       placeholder="eposta@adres.com"
-                      className={`${inputClasses} pl-10 ${isForbidden ? "border-rose-500 bg-rose-500/5 focus:border-rose-500" : ""}`}
+                      className={`${inputClasses} pl-10 ${(isForbidden || (form.email.length > 0 && !emailRegex.test(form.email))) ? "border-rose-500 bg-rose-500/5 focus:border-rose-500" : ""}`}
                     />
                   </div>
+                  {form.email.length > 0 && !emailRegex.test(form.email) && (
+                    <p className="text-[10px] text-rose-500 mt-1.5 font-medium ml-1">
+                      Geçerli bir email giriniz (Türkçe karakter kullanılamaz).
+                    </p>
+                  )}
                 </div>
 
                 <div>

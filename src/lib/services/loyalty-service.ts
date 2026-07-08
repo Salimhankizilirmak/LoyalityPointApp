@@ -16,7 +16,8 @@ export class LoyaltyService extends BaseService {
     branchId: string,
     cashierId: string,
     customerId: string,
-    amountSpentInKurus: number
+    amountSpentInKurus: number,
+    campaignId?: string
   ): Promise<{ pointsEarned: number; newTotal: number }> {
     if (amountSpentInKurus <= 0) {
       throw new Error("Harcama tutarı 0'dan büyük olmalıdır.");
@@ -38,38 +39,80 @@ export class LoyaltyService extends BaseService {
       //    c) loyaltyRules tablosu (geriye dönük uyumluluk)
       const now = new Date();
 
-      const activeCampaign = await tx
-        .select({ earnRatio: campaigns.earnRatio })
-        .from(campaigns)
-        .where(
-          and(
-            eq(campaigns.branchId, branchId),
-            eq(campaigns.isActive, true),
-            lte(campaigns.startDate, now),
-            gte(campaigns.endDate, now)
-          )
-        )
-        .get();
-
-      let earnRatio: number;
-
-      if (activeCampaign) {
-        // Kampanya aktif: kampanya oranı önceliklidir
-        earnRatio = activeCampaign.earnRatio;
-      } else if (branch.defaultEarnRatio) {
-        // Şubenin varsayılan oranı
-        earnRatio = branch.defaultEarnRatio;
-      } else {
-        // Geriye dönük uyumluluk: loyaltyRules tablosu
-        const rule = await tx.select({ earnRatio: loyaltyRules.earnRatio })
-          .from(loyaltyRules)
-          .where(eq(loyaltyRules.organizationId, orgId))
+      let activeCampaign = null;
+      if (campaignId) {
+        activeCampaign = await tx
+          .select({ 
+            id: campaigns.id,
+            earnRatio: campaigns.earnRatio,
+            campaignType: campaigns.campaignType,
+            tiers: campaigns.tiers 
+          })
+          .from(campaigns)
+          .where(eq(campaigns.id, campaignId))
           .get();
-        earnRatio = rule?.earnRatio ?? 10;
+      } else {
+        activeCampaign = await tx
+          .select({ 
+            id: campaigns.id,
+            earnRatio: campaigns.earnRatio,
+            campaignType: campaigns.campaignType,
+            tiers: campaigns.tiers 
+          })
+          .from(campaigns)
+          .where(
+            and(
+              eq(campaigns.branchId, branchId),
+              eq(campaigns.isActive, true),
+              lte(campaigns.startDate, now),
+              gte(campaigns.endDate, now)
+            )
+          )
+          .get();
       }
 
-      // 3. Finansal Formül Düzeltmesi (kuruş bazında saf tam sayı): Math.floor((amountSpentInKurus * earnRatio) / 10000)
-      const pointsEarned = Math.floor((amountSpentInKurus * earnRatio) / 10000);
+      // Fetch org rule explicitly to get points equivalents
+      const orgRule = await tx.select({ 
+          earnRatio: loyaltyRules.earnRatio,
+          pointsEquivalent: loyaltyRules.pointsEquivalent,
+          tlEquivalent: loyaltyRules.tlEquivalent
+        })
+        .from(loyaltyRules)
+        .where(eq(loyaltyRules.organizationId, orgId))
+        .get();
+
+      const pointsEq = orgRule?.pointsEquivalent ?? 1;
+      const tlEq = orgRule?.tlEquivalent ?? 1;
+
+      let pointsEarned = 0;
+
+      if (activeCampaign && activeCampaign.campaignType === "tiered") {
+        const tiersStr = activeCampaign.tiers;
+        const tiers = typeof tiersStr === 'string' ? JSON.parse(tiersStr) : tiersStr;
+        const spendTl = amountSpentInKurus / 100;
+        
+        let matchedPoints = 0;
+        if (Array.isArray(tiers)) {
+          const validTiers = tiers.filter((t: any) => spendTl >= t.limit).sort((a: any, b: any) => b.limit - a.limit);
+          if (validTiers.length > 0) {
+            matchedPoints = validTiers[0].points;
+          }
+        }
+        pointsEarned = matchedPoints;
+      } else {
+        let earnRatio: number;
+
+        if (activeCampaign) {
+          earnRatio = activeCampaign.earnRatio;
+        } else {
+          earnRatio = branch.defaultEarnRatio ?? orgRule?.earnRatio ?? 10;
+        }
+
+        // Kazanım oranı (earnRatio) direkt bir Yüzde (Örn: 10 = %10) değeridir.
+        // amountSpentInKurus (Örn: 50.000 kuruş = 500 TL)
+        const tlDegeri = Math.floor((amountSpentInKurus * earnRatio) / 100); // 50000 * 10 / 100 = 5000 Kuruş (Parasal Kazanç = 50 TL)
+        pointsEarned = Math.floor((tlDegeri / 100) * (pointsEq / tlEq)); // 50 TL * (100 / 1) = 5000 Puan
+      }
 
       if (pointsEarned <= 0) {
         throw new Error("Bu harcama tutarı yeterli puan kazanımı sağlamamaktadır.");
@@ -100,6 +143,55 @@ export class LoyaltyService extends BaseService {
       console.log(`[LoyaltyService] ✅ EARN: customerId=${customerId}, earned=${pointsEarned}, newTotal=${updated[0].newTotal}`);
 
       return { pointsEarned, newTotal: updated[0].newTotal };
+    });
+  }
+
+  /**
+   * ADD DIRECT POINTS (Doğrudan Puan Ekleme)
+   * Kasiyerin (veya adminin) alışverişten bağımsız (amountSpent = 0) doğrudan müşteriye puan eklediği metot.
+   */
+  async addDirectPoints(
+    branchId: string,
+    cashierId: string,
+    customerId: string,
+    pointsToAdd: number
+  ): Promise<{ pointsEarned: number; newTotal: number }> {
+    if (pointsToAdd <= 0) {
+      throw new Error("Eklenecek puan 0'dan büyük olmalıdır.");
+    }
+
+    return await this.db.transaction(async (tx) => {
+      const branch = await tx.select({ orgId: branches.orgId })
+        .from(branches)
+        .where(eq(branches.id, branchId))
+        .get();
+
+      if (!branch) throw new Error("Şube bulunamadı.");
+      const { orgId } = branch;
+
+      const updated = await tx
+        .update(customers)
+        .set({ totalPoints: sql`${customers.totalPoints} + ${pointsToAdd}` })
+        .where(eq(customers.id, customerId))
+        .returning({ newTotal: customers.totalPoints });
+
+      if (!updated[0]) throw new Error("Müşteri bulunamadı veya güncelleme başarısız.");
+
+      await tx.insert(loyaltyTransactions).values({
+        organizationId: orgId,
+        branchId,
+        customerId,
+        cashierId,
+        type: "EARN",
+        amountSpent: 0,
+        pointsAmount: pointsToAdd,
+      });
+
+      await tx.update(customers).set({ lastActiveAt: new Date() }).where(eq(customers.id, customerId));
+
+      console.log(`[LoyaltyService] ✅ DIRECT_POINTS: customerId=${customerId}, added=${pointsToAdd}, newTotal=${updated[0].newTotal}`);
+
+      return { pointsEarned: pointsToAdd, newTotal: updated[0].newTotal };
     });
   }
 
@@ -371,17 +463,25 @@ export class LoyaltyService extends BaseService {
   /**
    * Organizasyonun kazanım kuralı setini güncelle veya oluştur (upsert).
    */
-  async upsertLoyaltyRule(organizationId: string, earnRatio: number) {
+  async upsertLoyaltyRule(
+    organizationId: string, 
+    earnRatio: number,
+    pointsEquivalent: number = 1,
+    tlEquivalent: number = 1
+  ) {
     if (earnRatio <= 0) {
       throw new Error("Kazanım oranı 0'dan büyük olmalıdır.");
+    }
+    if (pointsEquivalent <= 0 || tlEquivalent <= 0) {
+      throw new Error("Parite değerleri 0'dan büyük olmalıdır.");
     }
 
     return await this.db
       .insert(loyaltyRules)
-      .values({ organizationId, earnRatio })
+      .values({ organizationId, earnRatio, pointsEquivalent, tlEquivalent })
       .onConflictDoUpdate({
         target: loyaltyRules.organizationId,
-        set: { earnRatio },
+        set: { earnRatio, pointsEquivalent, tlEquivalent },
       })
       .returning();
   }

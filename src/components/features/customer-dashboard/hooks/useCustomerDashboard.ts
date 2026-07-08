@@ -42,7 +42,7 @@ export function useCustomerDashboard(
   initialCustomerData: CustomerData | null,
   initialLedgerTransactions?: LedgerTransaction[]
 ) {
-  const [activeTab, setActiveTab] = useState<"cuzdan" | "islemler" | "profil">("cuzdan");
+  const [activeTab, setActiveTab] = useState<"cuzdan" | "islemler" | "profil" | "kampanyalar">("cuzdan");
   const [customerData, setCustomerData] = useState<CustomerData | null>(initialCustomerData);
   const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>(initialLedgerTransactions || []);
   const [loading, setLoading] = useState(!(initialCustomerData && initialLedgerTransactions));
@@ -210,7 +210,7 @@ export function useCustomerDashboard(
     currentPage * pageSize
   );
 
-  const handleSetActiveTab = (tab: "cuzdan" | "islemler" | "profil") => {
+  const handleSetActiveTab = (tab: "cuzdan" | "islemler" | "profil" | "kampanyalar") => {
     setActiveTab(tab);
     setCurrentPage(1); // Sekme değiştiğinde sayfa 1'e sıfırlanır
   };

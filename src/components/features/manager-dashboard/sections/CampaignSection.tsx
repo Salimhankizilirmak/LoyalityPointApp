@@ -1,21 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   createCampaignAction,
   getCampaignsAction,
   deactivateCampaignAction,
   getBranchEarnRatioAction,
-  updateBranchEarnRatioAction,
-  updateCampaignDatesAction,
+  updateCampaignDetailsAction,
 } from "@/app/(manager)/manager-dashboard/campaign-actions";
-import { Zap, Calendar, PlusCircle, CheckCircle2, XCircle, Clock, Megaphone, Settings2, Loader2, AlertTriangle, ArrowRight, Hourglass, Edit3 } from "lucide-react";
+import { Zap, Calendar, PlusCircle, CheckCircle2, XCircle, Clock, Megaphone, Settings2, Loader2, AlertTriangle, ArrowRight, Hourglass, Edit3, Trash2 } from "lucide-react";
 
 interface Campaign {
   id: string;
   branchId: string;
   name: string;
+  campaignType: "multiplier" | "tiered";
   earnRatio: number;
+  tiers: any;
   startDate: Date | null;
   endDate: Date | null;
   isActive: boolean;
@@ -58,25 +59,41 @@ function getCampaignStatus(campaign: Campaign): CampaignStatus {
 
 export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [defaultRate, setDefaultRate] = useState(10);
+  const [baseRate, setBaseRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [savingRate, setSavingRate] = useState(false);
-  const [rateSaved, setRateSaved] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [deactivating, setDeactivating] = useState<string | null>(null);
-  const [localRate, setLocalRate] = useState(10);
 
   // Edit State
-  const [editingCampaign, setEditingCampaign] = useState<{ id: string; name: string; startDate: string; endDate: string; } | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<{
+    id: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+    campaignType: "multiplier" | "tiered";
+    earnRatio: number;
+    tiers: { limit: number; points: number }[];
+    description: string;
+  } | null>(null);
   const [editFormSubmitting, setEditFormSubmitting] = useState(false);
   const [editFormError, setEditFormError] = useState("");
 
   // Form state
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string;
+    campaignType: "multiplier" | "tiered";
+    earnRatio: number;
+    tiers: { limit: number; points: number }[];
+    startDate: string;
+    endDate: string;
+    description: string;
+  }>({
     name: "",
+    campaignType: "multiplier",
     earnRatio: 15,
+    tiers: [{ limit: 1000, points: 10 }],
     startDate: "",
     endDate: "",
     description: "",
@@ -89,27 +106,19 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
       getBranchEarnRatioAction(),
     ]);
     if (campaignRes.success) setCampaigns(campaignRes.campaigns as Campaign[]);
-    if (rateRes.success) {
-      setDefaultRate(rateRes.earnRatio);
-      setLocalRate(rateRes.earnRatio);
-    }
+    if (rateRes.success) setBaseRate(rateRes.earnRatio);
     setLoading(false);
   }, []);
 
+  const fetchedRef = React.useRef(false);
+
   useEffect(() => {
-    loadData();
+    if (!fetchedRef.current) {
+      fetchedRef.current = true;
+      loadData();
+    }
   }, [loadData]);
 
-  const handleSaveRate = async () => {
-    setSavingRate(true);
-    const res = await updateBranchEarnRatioAction(localRate);
-    setSavingRate(false);
-    if (res.success) {
-      setDefaultRate(localRate);
-      setRateSaved(true);
-      setTimeout(() => setRateSaved(false), 2500);
-    }
-  };
 
   const handleCreateCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +127,9 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
 
     const res = await createCampaignAction({
       name: form.name,
+      campaignType: form.campaignType,
       earnRatio: form.earnRatio,
+      tiers: form.campaignType === "tiered" ? form.tiers : null,
       startDate: form.startDate,
       endDate: form.endDate,
       description: form.description,
@@ -128,7 +139,7 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
 
     if (res.success) {
       setShowForm(false);
-      setForm({ name: "", earnRatio: 15, startDate: "", endDate: "", description: "" });
+      setForm({ name: "", campaignType: "multiplier", earnRatio: 15, tiers: [{ limit: 1000, points: 10 }], startDate: "", endDate: "", description: "" });
       await loadData();
     } else {
       setFormError(res.error || "Kampanya oluşturulamadı.");
@@ -148,11 +159,15 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
     setEditFormError("");
     setEditFormSubmitting(true);
 
-    const res = await updateCampaignDatesAction(
-      editingCampaign.id,
-      editingCampaign.startDate,
-      editingCampaign.endDate
-    );
+    const res = await updateCampaignDetailsAction(editingCampaign.id, {
+      name: editingCampaign.name,
+      campaignType: editingCampaign.campaignType,
+      earnRatio: editingCampaign.earnRatio,
+      tiers: editingCampaign.campaignType === "tiered" ? editingCampaign.tiers : null,
+      startDate: editingCampaign.startDate,
+      endDate: editingCampaign.endDate,
+      description: editingCampaign.description,
+    });
 
     setEditFormSubmitting(false);
 
@@ -160,7 +175,7 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
       setEditingCampaign(null);
       await loadData();
     } else {
-      setEditFormError(res.error || "Kampanya tarihleri güncellenemedi.");
+      setEditFormError(res.error || "Kampanya güncellenemedi.");
     }
   };
 
@@ -191,17 +206,6 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
 
       {/* ─── KPI Ribbon ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI: Mevcut Oran */}
-        <div className="bg-[#0a0a0f]/60 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600/10 to-cyan-600/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-            <Settings2 size={18} className="text-cyan-400" />
-          </div>
-          <div className="min-w-0">
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500 block">Mevcut Oran</span>
-            <span className="text-2xl font-black text-white">%{defaultRate}</span>
-          </div>
-        </div>
-
         {/* KPI: Aktif Kampanya */}
         <div className="bg-[#0a0a0f]/60 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600/10 to-cyan-600/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
@@ -228,95 +232,42 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
           </div>
         </div>
 
-        {/* KPI: Geçmiş */}
+        {/* KPI: Standart Kazanım Oranı */}
+        <div className="bg-[#0a0a0f]/60 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600/10 to-cyan-600/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+            <Zap size={18} className="text-cyan-400" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500 block">Standart Oran</span>
+            <span className="text-2xl font-black text-white">
+              {baseRate !== null ? `%${baseRate}` : "—"}
+            </span>
+          </div>
+        </div>
+
+        {/* KPI: Geçmiş Kampanyalar */}
         <div className="bg-[#0a0a0f]/60 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600/10 to-cyan-600/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
             <Calendar size={18} className="text-cyan-400" />
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500 block">Geçmiş</span>
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500 block">Geçmiş Kampanyalar</span>
             <span className="text-2xl font-black text-white">{pastCampaigns.length}</span>
           </div>
         </div>
       </div>
 
       {/* ─── Two Column Grid ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
         {/* ─── Sol Sütun ─── */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 min-w-0">
 
-          {/* Şube Kazanım Oranı */}
-          <div className={`${cardBase} ${glowHover} overflow-hidden`}>
-            {/* Glow Effects */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-[50px] -z-10" />
-
-            <div className="flex items-center gap-4 mb-6">
-              <div className="bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 border border-indigo-500/20 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner">
-                <Settings2 size={20} className="text-cyan-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg tracking-tight">Şube Kazanım Oranı</h3>
-                <p className="text-sm text-neutral-400">Kampanya yokken uygulanacak standart oran</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="flex-1 w-full">
-                <input
-                  type="range"
-                  min={1}
-                  max={50}
-                  value={localRate}
-                  onChange={(e) => setLocalRate(Number(e.target.value))}
-                  className="w-full h-2 bg-neutral-900/80 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                />
-                <div className="flex justify-between text-xs text-neutral-500 mt-2 font-medium">
-                  <span>%1</span>
-                  <span>%50</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center justify-center shrink-0 w-24 h-24 rounded-full border-4 border-indigo-500/20 bg-neutral-900/50 shadow-[0_0_15px_rgba(99,102,241,0.2)] relative">
-                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="8" className="text-neutral-800" />
-                  <circle
-                    cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="8"
-                    strokeDasharray={`${(localRate / 50) * 289} 289`}
-                    className="text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] transition-all duration-300 ease-out"
-                  />
-                </svg>
-                <span className="text-xl font-black text-white relative z-10">%{localRate}</span>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between">
-              <p className="text-sm text-neutral-400 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
-                100₺ alışverişte <span className="font-bold text-cyan-400">{Math.floor((10000 * localRate) / 10000)} puan</span> kazandırır
-              </p>
-
-              <button
-                onClick={handleSaveRate}
-                disabled={savingRate || localRate === defaultRate}
-                className="px-6 py-2.5 rounded-full text-sm font-bold tracking-wide transition-all flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed bg-indigo-600 text-white hover:bg-indigo-700 shadow-[0_0_15px_rgba(79,70,229,0.3)]"
-              >
-                {savingRate ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : rateSaved ? (
-                  <><CheckCircle2 size={16} /> Kaydedildi</>
-                ) : (
-                  "Oranı Kaydet"
-                )}
-              </button>
-            </div>
-          </div>
 
           {/* Yeni Kampanya Oluştur Butonu / Formu */}
           {!showForm ? (
             <button
               onClick={() => setShowForm(true)}
-              disabled={!!activeCampaign}
-              title={activeCampaign ? "Önce aktif kampanyayı sonlandırın" : undefined}
               className={`w-full py-5 rounded-3xl font-bold text-lg flex items-center justify-center gap-3 border border-indigo-500/30 transition-all cursor-pointer shadow-[0_0_20px_rgba(79,70,229,0.15)] disabled:opacity-30 disabled:cursor-not-allowed bg-gradient-to-r from-indigo-600/20 to-cyan-600/20 text-white hover:from-indigo-600/40 hover:to-cyan-600/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.3)]`}
             >
               <PlusCircle size={22} className="text-cyan-400" />
@@ -347,25 +298,108 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
                     className={inputClass}
                   />
                 </div>
-
-                <div className="bg-neutral-900/40 p-5 rounded-2xl border border-white/5">
-                  <div className="flex justify-between items-center mb-4">
-                     <label className="text-xs font-bold uppercase tracking-widest text-indigo-300">Kazanım Oranı</label>
-                     <span className="text-2xl font-black text-cyan-400">%{form.earnRatio}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={100}
-                    value={form.earnRatio}
-                    onChange={(e) => setForm((f) => ({ ...f, earnRatio: Number(e.target.value) }))}
-                    className="w-full h-2 bg-neutral-900/80 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                  />
-                  <div className="flex justify-between items-center mt-3 text-sm text-neutral-400">
-                    <p>100₺ alışverişte <span className="font-bold text-white">{form.earnRatio} puan</span></p>
-                    <p>Normal Oran: <span className="text-white">%{defaultRate}</span></p>
+                {/* Kampanya Modeli Seçimi */}
+                <div>
+                  <label className={labelClass}>Kampanya Modeli</label>
+                  <div className="grid grid-cols-2 gap-3 p-1 bg-neutral-900/60 border border-neutral-800 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, campaignType: "multiplier" }))}
+                      className={`py-2 text-sm font-bold rounded-lg transition-all ${form.campaignType === "multiplier" ? "bg-cyan-500 text-white shadow-md" : "text-neutral-400 hover:text-white"}`}
+                    >
+                      Puan Oranını Değiştir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, campaignType: "tiered" }))}
+                      className={`py-2 text-sm font-bold rounded-lg transition-all ${form.campaignType === "tiered" ? "bg-cyan-500 text-white shadow-md" : "text-neutral-400 hover:text-white"}`}
+                    >
+                      Harcama Limiti Belirle
+                    </button>
                   </div>
                 </div>
+
+                {form.campaignType === "multiplier" ? (
+                  <div className="bg-neutral-900/40 p-5 rounded-2xl border border-white/5 min-h-[170px]">
+                    <div className="flex justify-between items-center mb-4">
+                       <label className="text-xs font-bold uppercase tracking-widest text-indigo-300">Kazanım Oranı</label>
+                       <span className="text-2xl font-black text-cyan-400">%{form.earnRatio}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      value={form.earnRatio}
+                      onChange={(e) => setForm((f) => ({ ...f, earnRatio: Number(e.target.value) }))}
+                      className="w-full accent-cyan-400"
+                    />
+                    <div className="flex justify-between text-xs text-neutral-500 mt-2 font-medium">
+                      <span>%1</span>
+                      <span>%100</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-neutral-900/40 p-5 rounded-2xl border border-white/5 space-y-4 min-h-[170px]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-widest text-indigo-300">Kademeler & Limitler</label>
+                      <button 
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, tiers: [...f.tiers, { limit: 0, points: 0 }] }))}
+                        className="text-xs text-cyan-400 font-bold bg-cyan-500/10 px-2 py-1 rounded hover:bg-cyan-500/20 transition-colors"
+                      >
+                        + Kademe Ekle
+                      </button>
+                    </div>
+                    {form.tiers.map((tier, idx) => (
+                      <div key={idx} className="flex gap-3 items-end">
+                        <div className="flex-1 min-w-0">
+                          <label className="text-[10px] text-neutral-500 uppercase font-bold mb-1 block">Alışveriş Limiti (TL)</label>
+                          <input 
+                            type="number" 
+                            required 
+                            min="1"
+                            value={tier.limit} 
+                            onChange={e => {
+                              const newTiers = [...form.tiers];
+                              newTiers[idx].limit = Number(e.target.value);
+                              setForm(f => ({ ...f, tiers: newTiers }));
+                            }}
+                            className={inputClass}
+                            placeholder="Örn: 1000"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <label className="text-[10px] text-neutral-500 uppercase font-bold mb-1 block">Kazanılacak Puan</label>
+                          <input 
+                            type="number" 
+                            required 
+                            min="1"
+                            value={tier.points} 
+                            onChange={e => {
+                              const newTiers = [...form.tiers];
+                              newTiers[idx].points = Number(e.target.value);
+                              setForm(f => ({ ...f, tiers: newTiers }));
+                            }}
+                            className={inputClass}
+                            placeholder="Örn: 10"
+                          />
+                        </div>
+                        {form.tiers.length > 1 && (
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const newTiers = form.tiers.filter((_, i) => i !== idx);
+                              setForm(f => ({ ...f, tiers: newTiers }));
+                            }}
+                            className="p-3 mb-1 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -426,12 +460,21 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
         </div>
 
         {/* ─── Sağ Sütun ─── */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 min-w-0">
 
           {/* Aktif Kampanya */}
           {activeCampaign ? (
-            <div className={`${cardBase} ${glowHover} border-emerald-500/30 bg-emerald-950/20 overflow-hidden`}>
+            <div className={`${cardBase} ${glowHover} border-emerald-500/30 bg-emerald-950/20 overflow-hidden relative`}>
               <div className="absolute inset-0 bg-emerald-500/5 blur-[60px] -z-10" />
+              
+              {/* Ana Düzenle Butonu (Sağ Üst Köşe) */}
+              <button
+                onClick={() => setEditingCampaign({ id: activeCampaign.id, name: activeCampaign.name, startDate: activeCampaign.startDate ? new Date(activeCampaign.startDate).toISOString().split('T')[0] : '', endDate: activeCampaign.endDate ? new Date(activeCampaign.endDate).toISOString().split('T')[0] : '', campaignType: activeCampaign.campaignType, earnRatio: activeCampaign.earnRatio, tiers: Array.isArray(activeCampaign.tiers) ? activeCampaign.tiers : (typeof activeCampaign.tiers === 'string' ? JSON.parse(activeCampaign.tiers) : [{limit: 1000, points: 10}]), description: activeCampaign.description || '' })}
+                className="absolute top-4 right-4 z-10 px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-white transition-all border border-emerald-500/20 flex items-center gap-2 text-xs font-bold shadow-sm"
+                title="Kampanyayı Düzenle"
+              >
+                <Edit3 size={14} /> Düzenle
+              </button>
 
               <div className="flex flex-col gap-6">
                 <div className="flex items-start gap-4">
@@ -453,13 +496,6 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
                       <div className="flex items-center gap-2 bg-neutral-900/60 px-3 py-1.5 rounded-lg border border-neutral-700">
                         <Calendar size={14} className="text-indigo-400" />
                         <span className="text-neutral-300">{formatDate(activeCampaign.startDate)} – {formatDate(activeCampaign.endDate)}</span>
-                        <button
-                          onClick={() => setEditingCampaign({ id: activeCampaign.id, name: activeCampaign.name, startDate: activeCampaign.startDate ? new Date(activeCampaign.startDate).toISOString().split('T')[0] : '', endDate: activeCampaign.endDate ? new Date(activeCampaign.endDate).toISOString().split('T')[0] : '' })}
-                          className="ml-2 p-1 rounded-md text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                          title="Tarihleri Düzenle"
-                        >
-                          <Edit3 size={14} />
-                        </button>
                       </div>
                       {getRemainingDays(activeCampaign.endDate) !== null && (
                         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
@@ -475,10 +511,26 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-center bg-neutral-900/60 px-6 py-4 rounded-2xl border border-emerald-500/20 shadow-inner">
-                    <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 tabular-nums">%{activeCampaign.earnRatio}</span>
-                    <p className="text-xs text-emerald-300 font-bold uppercase mt-1">Kazanım</p>
+                <div className="flex flex-col sm:flex-row items-stretch justify-between mt-4 gap-4">
+                  <div className="bg-emerald-950/30 px-6 py-5 rounded-2xl border border-emerald-500/10 shadow-inner flex-1 w-full">
+                    {activeCampaign.campaignType === "tiered" ? (
+                      <div className="flex flex-col gap-3 w-full">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/80 mb-1">Harcama Limitleri ve Kazançlar</span>
+                        <div className="flex flex-col gap-1.5 w-full">
+                          {(Array.isArray(activeCampaign.tiers) ? activeCampaign.tiers : (typeof activeCampaign.tiers === 'string' ? JSON.parse(activeCampaign.tiers) : [])).map((t: any, i: number) => (
+                            <div key={i} className="flex justify-between items-center px-2 py-1.5">
+                              <span className="text-sm text-emerald-100/70"><span className="font-bold text-emerald-100">{t.limit} ₺</span> ve üzeri</span>
+                              <span className="text-sm font-black text-emerald-400">+{t.points} Puan</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full min-h-[100px]">
+                        <span className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-teal-400 tabular-nums">%{activeCampaign.earnRatio}</span>
+                        <p className="text-[10px] text-emerald-400/80 font-bold uppercase mt-2 tracking-widest">Kazanım Oranı</p>
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -517,26 +569,26 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
                       key={c.id}
                       className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 backdrop-blur-md flex items-center justify-between hover:border-amber-500/30 hover:bg-amber-500/10 transition-colors"
                     >
-                      <div>
-                        <p className="text-base font-bold text-white">{c.name}</p>
+                      <div className="min-w-0 flex-1 pr-4">
+                        <p className="text-base font-bold text-white truncate">{c.name}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <p className="text-xs text-neutral-400">{formatDate(c.startDate)} – {formatDate(c.endDate)}</p>
-                          <button
-                            onClick={() => setEditingCampaign({ id: c.id, name: c.name, startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '', endDate: c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : '' })}
-                            className="p-1 rounded-md text-amber-500 hover:bg-amber-500/20 transition-colors"
-                            title="Tarihi Düzenle"
-                          >
-                            <Edit3 size={12} />
-                          </button>
+                          <p className="text-xs text-neutral-400 truncate">{formatDate(c.startDate)} – {formatDate(c.endDate)}</p>
                         </div>
                         {daysUntil !== null && daysUntil > 0 && (
                           <p className="text-xs text-amber-400 mt-1 font-medium">{daysUntil} gün sonra başlayacak</p>
                         )}
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-lg font-black text-amber-300">%{c.earnRatio}</span>
-                        <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-center">
-                          Yakında<br className="sm:hidden" /> Başlayacak
+                      <div className="flex flex-col items-end justify-between h-full shrink-0">
+                        <button
+                          onClick={() => setEditingCampaign({ id: c.id, name: c.name, startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '', endDate: c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : '', campaignType: c.campaignType, earnRatio: c.earnRatio, tiers: Array.isArray(c.tiers) ? c.tiers : (typeof c.tiers === 'string' ? JSON.parse(c.tiers) : [{limit: 1000, points: 10}]), description: c.description || '' })}
+                          className="mb-2 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:text-white transition-all border border-amber-500/20 flex items-center gap-1.5 text-[10px] font-bold"
+                        >
+                          <Edit3 size={12} /> Düzenle
+                        </button>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`font-black text-amber-300 ${c.campaignType === "tiered" ? "text-sm" : "text-lg"}`}>
+                            {c.campaignType === "tiered" ? "Kademeli" : `%${c.earnRatio}`}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -549,19 +601,24 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
           {/* Geçmiş Kampanyalar */}
           {pastCampaigns.length > 0 && (
             <div>
-              <h3 className="font-bold text-lg text-white mb-4 tracking-tight">Geçmiş Kampanyalar</h3>
+              <h3 className="font-bold text-lg text-white mb-4 tracking-tight flex items-center gap-2">
+                <Calendar size={18} className="text-neutral-400" />
+                Geçmiş Kampanyalar
+              </h3>
               <div className="flex flex-col gap-3">
                 {pastCampaigns.map((c) => (
                   <div
                     key={c.id}
                     className="p-4 rounded-2xl border border-white/5 bg-[#0a0a0f]/50 backdrop-blur-md flex items-center justify-between hover:bg-white/5 transition-colors"
                   >
-                    <div>
-                      <p className="text-base font-bold text-neutral-200">{c.name}</p>
-                      <p className="text-xs text-neutral-400 mt-1">{formatDate(c.startDate)} – {formatDate(c.endDate)}</p>
+                    <div className="min-w-0 flex-1 pr-4">
+                      <p className="text-base font-bold text-neutral-200 truncate">{c.name}</p>
+                      <p className="text-xs text-neutral-400 mt-1 truncate">{formatDate(c.startDate)} – {formatDate(c.endDate)}</p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-lg font-black text-neutral-400">%{c.earnRatio}</span>
+                    <div className="text-right shrink-0">
+                      <span className={`font-black text-neutral-400 ${c.campaignType === "tiered" ? "text-sm" : "text-lg"}`}>
+                        {c.campaignType === "tiered" ? "Kademeli" : `%${c.earnRatio}`}
+                      </span>
                       <div className="text-[10px] mt-1 font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-neutral-500/10 text-neutral-500 border border-neutral-500/20 inline-block">
                         Sona Erdi
                       </div>
@@ -582,35 +639,157 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
             
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-xl text-white">
-                 Tarih Düzenle: <span className="text-cyan-400">{editingCampaign.name}</span>
+                 Kampanya Düzenle: <span className="text-cyan-400">{editingCampaign.name}</span>
               </h3>
               <button onClick={() => { setEditingCampaign(null); setEditFormError(""); }} className="text-neutral-500 hover:text-white transition-colors cursor-pointer bg-white/5 p-2 rounded-full">
                 <XCircle size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleEditCampaignSubmit} className="flex flex-col gap-4">
+            <form onSubmit={handleEditCampaignSubmit} className="flex flex-col gap-4 overflow-y-auto max-h-[70vh] pr-2">
               <div>
-                <label className={labelClass}>Başlangıç Tarihi</label>
+                <label className={labelClass}>Kampanya Adı</label>
                 <input
                   required
-                  type="date"
-                  value={editingCampaign.startDate}
-                  onChange={(e) => setEditingCampaign((f) => f ? ({ ...f, startDate: e.target.value }) : null)}
+                  type="text"
+                  value={editingCampaign.name}
+                  onChange={(e) => setEditingCampaign((f) => f ? ({ ...f, name: e.target.value }) : null)}
                   className={inputClass}
-                  style={{ colorScheme: 'dark' }}
                 />
               </div>
+              
               <div>
-                <label className={labelClass}>Bitiş Tarihi</label>
+                  <label className={labelClass}>Kampanya Modeli</label>
+                  <div className="grid grid-cols-2 gap-3 p-1 bg-neutral-900/60 border border-neutral-800 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setEditingCampaign(f => f ? ({ ...f, campaignType: "multiplier" }) : null)}
+                      className={`py-2 text-sm font-bold rounded-lg transition-all ${editingCampaign.campaignType === "multiplier" ? "bg-cyan-500 text-white shadow-md" : "text-neutral-400 hover:text-white"}`}
+                    >
+                      Puan Oranını Değiştir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCampaign(f => f ? ({ ...f, campaignType: "tiered" }) : null)}
+                      className={`py-2 text-sm font-bold rounded-lg transition-all ${editingCampaign.campaignType === "tiered" ? "bg-cyan-500 text-white shadow-md" : "text-neutral-400 hover:text-white"}`}
+                    >
+                      Harcama Limiti Belirle
+                    </button>
+                  </div>
+                </div>
+
+                {editingCampaign.campaignType === "multiplier" ? (
+                  <div className="bg-neutral-900/40 p-5 rounded-2xl border border-white/5 min-h-[170px]">
+                    <div className="flex justify-between items-center mb-4">
+                       <label className="text-xs font-bold uppercase tracking-widest text-indigo-300">Kazanım Oranı</label>
+                       <span className="text-2xl font-black text-cyan-400">%{editingCampaign.earnRatio}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      value={editingCampaign.earnRatio}
+                      onChange={(e) => setEditingCampaign((f) => f ? ({ ...f, earnRatio: Number(e.target.value) }) : null)}
+                      className="w-full accent-cyan-400"
+                    />
+                  </div>
+                ) : (
+                  <div className="bg-neutral-900/40 p-5 rounded-2xl border border-white/5 space-y-4 min-h-[170px]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-widest text-indigo-300">Kademeler & Limitler</label>
+                      <button 
+                        type="button"
+                        onClick={() => setEditingCampaign(f => f ? ({ ...f, tiers: [...f.tiers, { limit: 0, points: 0 }] }) : null)}
+                        className="text-xs text-cyan-400 font-bold bg-cyan-500/10 px-2 py-1 rounded hover:bg-cyan-500/20 transition-colors"
+                      >
+                        + Kademe Ekle
+                      </button>
+                    </div>
+                    {editingCampaign.tiers.map((tier, idx) => (
+                      <div key={idx} className="flex gap-3 items-end">
+                        <div className="flex-1 min-w-0">
+                          <label className="text-[10px] text-neutral-500 uppercase font-bold mb-1 block">Limit (TL)</label>
+                          <input 
+                            type="number" 
+                            required 
+                            min="1"
+                            value={tier.limit} 
+                            onChange={e => {
+                              if (!editingCampaign) return;
+                              const newTiers = [...editingCampaign.tiers];
+                              newTiers[idx].limit = Number(e.target.value);
+                              setEditingCampaign({ ...editingCampaign, tiers: newTiers });
+                            }}
+                            className={inputClass}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <label className="text-[10px] text-neutral-500 uppercase font-bold mb-1 block">Puan</label>
+                          <input 
+                            type="number" 
+                            required 
+                            min="1"
+                            value={tier.points} 
+                            onChange={e => {
+                              if (!editingCampaign) return;
+                              const newTiers = [...editingCampaign.tiers];
+                              newTiers[idx].points = Number(e.target.value);
+                              setEditingCampaign({ ...editingCampaign, tiers: newTiers });
+                            }}
+                            className={inputClass}
+                          />
+                        </div>
+                        {editingCampaign.tiers.length > 1 && (
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (!editingCampaign) return;
+                              const newTiers = editingCampaign.tiers.filter((_, i) => i !== idx);
+                              setEditingCampaign({ ...editingCampaign, tiers: newTiers });
+                            }}
+                            className="p-3 mb-1 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Başlangıç Tarihi</label>
+                    <input
+                      required
+                      type="date"
+                      value={editingCampaign.startDate}
+                      onChange={(e) => setEditingCampaign((f) => f ? ({ ...f, startDate: e.target.value }) : null)}
+                      className={inputClass}
+                      style={{ colorScheme: 'dark' }}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Bitiş Tarihi</label>
+                    <input
+                      required
+                      type="date"
+                      value={editingCampaign.endDate}
+                      min={editingCampaign.startDate}
+                      onChange={(e) => setEditingCampaign((f) => f ? ({ ...f, endDate: e.target.value }) : null)}
+                      className={inputClass}
+                      style={{ colorScheme: 'dark' }}
+                    />
+                  </div>
+              </div>
+              
+              <div>
+                <label className={labelClass}>Açıklama</label>
                 <input
-                  required
-                  type="date"
-                  value={editingCampaign.endDate}
-                  min={editingCampaign.startDate}
-                  onChange={(e) => setEditingCampaign((f) => f ? ({ ...f, endDate: e.target.value }) : null)}
+                  type="text"
+                  value={editingCampaign.description}
+                  onChange={(e) => setEditingCampaign((f) => f ? ({ ...f, description: e.target.value }) : null)}
                   className={inputClass}
-                  style={{ colorScheme: 'dark' }}
                 />
               </div>
 
@@ -627,7 +806,7 @@ export function CampaignSection({ isDarkMode }: CampaignSectionProps) {
                 className="mt-2 w-full py-3 rounded-xl text-sm font-bold tracking-wide bg-gradient-to-r from-indigo-600 to-cyan-500 text-white hover:from-indigo-500 hover:to-cyan-400 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {editFormSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                {editFormSubmitting ? "Güncelleniyor..." : "Tarihleri Kaydet"}
+                {editFormSubmitting ? "Güncelleniyor..." : "Kaydet"}
               </button>
             </form>
           </div>

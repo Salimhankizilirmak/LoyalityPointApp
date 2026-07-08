@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { X, UserPlus, Phone, User, CheckCircle, AlertCircle, Mail } from "lucide-react";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 interface AddCustomerModalProps {
   onClose: () => void;
@@ -14,11 +15,18 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
   const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "" });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  // Phone validation: must start with 5 and be exactly 10 digits long
   const isPhoneValid = form.phone.startsWith("5") && form.phone.length === 10 && /^\d+$/.test(form.phone);
-  const isEmailValid = form.email.includes("@") && form.email.trim().length > 3;
+  const isEmailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(form.email.trim());
   const valid = form.firstName && form.lastName && isPhoneValid && isEmailValid;
+
+  useKeyboardShortcut('Escape', onClose);
+  useKeyboardShortcut('Enter', () => {
+    if (formRef.current && !loading && valid && !done) {
+      formRef.current.requestSubmit();
+    }
+  });
 
   const handlePhoneChange = (val: string) => {
     let cleaned = val.replace(/\D/g, "");
@@ -59,13 +67,13 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm">
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className={`w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border ${isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"
+        className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border ${isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"
           }`}
       >
-        <div className={`px-6 py-4 flex items-center justify-between border-b ${isDarkMode ? "border-slate-700" : "border-slate-50"
+        <div className={`px-6 md:px-8 py-5 flex items-center justify-between border-b ${isDarkMode ? "border-slate-700" : "border-slate-50"
           }`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
@@ -78,7 +86,7 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 md:p-8">
           {done ? (
             <div className="text-center py-6">
               <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
@@ -88,7 +96,7 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
               <p className="text-slate-500 text-xs">Puan sistemi aktif hale getirildi.</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="firstName" className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 block">Ad</label>
@@ -154,13 +162,23 @@ export function AddCustomerModal({ onClose, onAdd, isDarkMode }: AddCustomerModa
                   <input
                     id="email"
                     required
-                    type="email"
+                    type="text"
+                    inputMode="email"
                     value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="novexitech@gmail.com"
-                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
-                      }`}
+                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border outline-none transition-all min-h-[44px] ${
+                      form.email.length > 0 && !isEmailValid
+                        ? "border-rose-500 bg-rose-500/5 focus:border-rose-500"
+                        : isDarkMode ? "bg-[#0a0f1e] border-slate-700 text-white focus:border-cyan-500" : "bg-slate-50 border-slate-200 focus:border-cyan-400 text-black"
+                    }`}
                   />
                 </div>
+                {form.email.length > 0 && !isEmailValid && (
+                  <div className="flex items-center gap-1.5 mt-1.5 ml-1 text-rose-500">
+                    <AlertCircle size={12} />
+                    <span className="text-[10px] font-bold">Geçerli bir email giriniz (Türkçe karakter kullanılamaz).</span>
+                  </div>
+                )}
               </div>
 
               <button

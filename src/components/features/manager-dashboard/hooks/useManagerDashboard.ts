@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import { deleteStaffMemberAction } from "@/app/actions/staff-management";
 import { 
   getManagerProfile, 
   getBranchTransactions, 
@@ -13,7 +14,9 @@ import {
   addCustomerAction,
   updateCustomer,
   deleteCustomer,
-  toggleStaffStatus
+  toggleStaffStatus,
+  getRecentActivities,
+  getStoreSettingsAction
 } from "@/app/(manager)/manager-dashboard/actions";
 import { getCampaignsAction } from "@/app/(manager)/manager-dashboard/campaign-actions";
 import { Transaction, Customer, Employee, ActivityItem, ActivityType } from "../types";
@@ -111,6 +114,8 @@ export function useManagerDashboard(initialData?: any) {
   });
   const [invitations, setInvitations] = useState<InvitationItem[]>(() => initialData?.invitations || []);
   const [campaigns, setCampaigns] = useState<any[]>(() => initialData?.campaigns || []);
+  const [activityLogsDb, setActivityLogsDb] = useState<any[]>(() => initialData?.activities || []);
+  const [storeSettings, setStoreSettings] = useState({ pointsEquivalent: 1, tlEquivalent: 1, earnRatio: 10 });
   
   // Loading and Error States
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -127,16 +132,20 @@ export function useManagerDashboard(initialData?: any) {
 
   const refreshData = useCallback(async () => {
     try {
-      const [profile, txs, custs, emps, invitesList, campaignsRes] = await Promise.all([
+      const [profile, txs, custs, emps, invitesList, campaignsRes, activities, settings] = await Promise.all([
         getManagerProfile(),
         getBranchTransactions(),
         getCustomers(debouncedCustomerSearch),
         getOrgMembers(),
         getInvitationsAction(),
-        getCampaignsAction()
+        getCampaignsAction(),
+        getRecentActivities(),
+        getStoreSettingsAction()
       ]);
       
       setInvitations(invitesList);
+      setActivityLogsDb(activities);
+      if (settings && !('error' in settings)) setStoreSettings(settings as any);
       if (campaignsRes?.success && campaignsRes.campaigns) {
         setCampaigns(campaignsRes.campaigns);
       }
@@ -194,19 +203,12 @@ export function useManagerDashboard(initialData?: any) {
     }
   }, [debouncedCustomerSearch]);
 
-  const hasInitialData = !!(initialData?.profile && initialData?.transactions);
-  const isFirstMount = useRef(true);
-  const isFirstSearch = useRef(true);
-
-  // Fetch data only once user context is loaded
+  const hasInitialData = !!(initialData && initialData.profile);
+  // Fetch data only once user context is loaded if initialData is NOT provided
   useEffect(() => {
     let active = true;
     const load = async () => {
-      if (user && active) {
-        if (hasInitialData && isFirstMount.current) {
-          isFirstMount.current = false;
-          return;
-        }
+      if (user && active && !hasInitialData) {
         await refreshData();
       }
     };
@@ -221,8 +223,8 @@ export function useManagerDashboard(initialData?: any) {
     let active = true;
     const loadCustomers = async () => {
       if (user) {
-        if (hasInitialData && isFirstSearch.current && debouncedCustomerSearch === "") {
-          isFirstSearch.current = false;
+        // Arama sorgusu boşsa veritabanından çekme (zaten initialData'da var)
+        if (debouncedCustomerSearch === "") {
           return;
         }
         try {
@@ -239,14 +241,21 @@ export function useManagerDashboard(initialData?: any) {
     return () => {
       active = false;
     };
-  }, [debouncedCustomerSearch, user, hasInitialData]);
+  }, [debouncedCustomerSearch, user]);
 
   // Actions
   const handleRemoveCashier = async (id: string) => {
-    if (!confirm("Bu kasiyeri silmek istediğinize emin misiniz?")) return;
+    if (!confirm("Bu kasiyeri sistemden ve organizasyondan kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
     setLoadingId(id);
     try {
-      await removeMember(id);
+      if (id.startsWith("inv-")) {
+        await removeMember(id);
+      } else {
+        const res = await deleteStaffMemberAction(id, "CASHIER");
+        if (res && !res.success) {
+          setError(res.error || "Silinemedi.");
+        }
+      }
       await refreshData();
     } catch (err) {
       console.error(err);
@@ -392,16 +401,25 @@ export function useManagerDashboard(initialData?: any) {
         rawTime: rawMs,
       };
     }),
-    // Map campaign updates
-    ...campaigns.filter(c => c.updatedAt).map((c): ActivityItem => {
-      const updatedTime = new Date(c.updatedAt);
+    /* Mock campaign updates removed, backend activityLogs now holds true records */
+    // Map db activityLogs (Registration, Adjustments vs)
+    ...activityLogsDb.map((al): ActivityItem => {
+      const isReject = String(al.type).includes("REJECTED");
+      const isApprove = String(al.type).includes("APPROVED");
+      let actType: ActivityType = "system";
+      if (isReject) actType = "void";
+      if (isApprove) actType = "earned";
+      
+      const logTime = new Date(al.createdAt * 1000); // unix timestamp assumed from activityLogs default
       return {
-        id: `camp-upd-${c.id}`,
-        type: "system",
-        actorName: "Sistem",
-        targetName: `"${c.name}" süresi güncellendi`,
-        time: updatedTime.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-        rawTime: updatedTime.getTime(),
+        id: `db-log-${al.id}`,
+        type: actType,
+        actorName: al.actorName || "Yetkili",
+        targetName: al.targetName || "",
+        time: logTime.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short", year: "numeric" }),
+        rawTime: logTime.getTime(),
+        description: al.description,
+        metadata: al.metadata
       };
     }),
   ].sort((a, b) => b.rawTime - a.rawTime);
@@ -432,5 +450,6 @@ export function useManagerDashboard(initialData?: any) {
     handleEditPointsSave,
     invitations,
     activityFeed,
+    storeSettings,
   };
 }

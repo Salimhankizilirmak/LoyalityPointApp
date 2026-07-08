@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle, Loader2, AlertCircle, Building2 } from "lucide-react";
 import { updateBranchLimitAction } from "@/app/admin/actions";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 interface UpdateQuotaModalProps {
   orgId: string;
@@ -25,6 +26,14 @@ export function UpdateQuotaModal({
   const [limit, setLimit] = useState<number | "">(currentLimit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useKeyboardShortcut('Escape', onClose);
+  useKeyboardShortcut('Enter', () => {
+    if (formRef.current && !saving) {
+      formRef.current.requestSubmit();
+    }
+  });
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +96,7 @@ export function UpdateQuotaModal({
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="p-6">
+        <form ref={formRef} onSubmit={handleSave} className="p-6">
           <div className="mb-6">
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
               Yeni Şube Kotası

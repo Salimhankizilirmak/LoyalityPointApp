@@ -10,7 +10,8 @@ import {
   registerCustomerAction, 
   getBranchStatus,
   getCustomerRecentTransactionsAction,
-  getCashierStatsAction
+  getCashierStatsAction,
+  getActiveCampaignForCashierAction
 } from "@/app/(cashier)/cashier-dashboard/actions";
 
 
@@ -68,7 +69,11 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
   const [stats, setStats] = useState({
     totalTxToday: 0,
     ptsGivenToday: 0,
-    newMembersToday: 0
+    ptsBurnedToday: 0,
+    newMembersToday: 0,
+    earnRatio: 0,
+    tlEquivalent: 1,
+    pointsEquivalent: 1
   });
 
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -80,6 +85,9 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditTransactions, setAuditTransactions] = useState<TransactionData[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+
+  // Active Campaign
+  const [activeCampaign, setActiveCampaign] = useState<any>(null);
 
   // Invite Form States (Single Source of Truth)
   const [inviteForm, setInviteForm] = useState({
@@ -124,24 +132,39 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
     };
   }, [initialBranchStatus]);
 
+  const refreshStats = async () => {
+    try {
+      const res = await getCashierStatsAction();
+      if (res.success && res.stats) {
+        setStats(s => ({
+          ...s,
+          totalTxToday: res.stats.todayTxCount,
+          newMembersToday: res.stats.todayNewCustomers,
+          ptsGivenToday: res.stats.totalRevenue,
+          ptsBurnedToday: res.stats.totalBurned || 0,
+          earnRatio: res.stats.earnRatio || 10,
+          tlEquivalent: res.stats.tlEquivalent || 1,
+          pointsEquivalent: res.stats.pointsEquivalent || 1
+        }));
+      }
+    } catch (e) {
+      console.error("Stats fetch error:", e);
+    }
+  };
+
   // Fetch Stats on mount
   useEffect(() => {
-    const fetchStats = async () => {
+    refreshStats();
+
+    const fetchCampaign = async () => {
       try {
-        const res = await getCashierStatsAction();
-        if (res.success && res.stats) {
-          setStats(s => ({
-            ...s,
-            totalTxToday: res.stats.todayTxCount,
-            newMembersToday: res.stats.todayNewCustomers,
-            ptsGivenToday: res.stats.totalRevenue
-          }));
+        const res = await getActiveCampaignForCashierAction();
+        if (res.success && res.campaign) {
+          setActiveCampaign(res.campaign);
         }
-      } catch (e) {
-        console.error("Stats fetch error:", e);
-      }
+      } catch (e) {}
     };
-    fetchStats();
+    fetchCampaign();
   }, []);
 
   // Global Toast auto-dismiss (3 seconds)
@@ -155,11 +178,26 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
   }, [toastMessage]);
 
   const baseAmount = Number(amount) || 0;
-  const ptsPreview = (!amount || !txType) ? 0 : (
-    txType === "EARN"
-      ? Math.floor((baseAmount * 10) / 100)  // varsayılan %10 oran
-      : Math.min(Number(amount) || 0, customer?.pts ?? 0, Number(totalCartAmount) || Infinity)
-  );
+  
+  let preview = 0;
+  if (txType === "EARN" && amount) {
+    if (activeCampaign && activeCampaign.campaignType === "tiered") {
+       const tiersStr = activeCampaign.tiers;
+       const tiers = typeof tiersStr === 'string' ? JSON.parse(tiersStr) : tiersStr;
+       const spendTl = baseAmount;
+       if (Array.isArray(tiers)) {
+         const validTiers = tiers.filter((t: any) => spendTl >= t.limit).sort((a: any, b: any) => b.limit - a.limit);
+         if (validTiers.length > 0) preview = validTiers[0].points;
+       }
+    } else {
+       const ratio = activeCampaign?.earnRatio ?? 10;
+       preview = Math.floor((baseAmount * ratio) / 100);
+    }
+  } else if (txType === "BURN" && amount) {
+    preview = Math.min(Number(amount) || 0, customer?.pts ?? 0, Number(totalCartAmount) || Infinity);
+  }
+  
+  const ptsPreview = preview;
 
   const fetchAuditTransactions = useCallback(async (customerId: string, limit: number = 10) => {
     setAuditLoading(true);
@@ -286,7 +324,7 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
     setInviteForm({ firstName: "", lastName: "", phone: "", email: "" });
   }, []);
 
-  const isInviteEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim());
+  const isInviteEmailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(inviteForm.email.trim());
   const isInviteFormValid =
     inviteForm.firstName.trim().length > 0 &&
     inviteForm.lastName.trim().length > 0 &&
@@ -390,9 +428,12 @@ export function useCashierDashboard(initialBranchStatus?: { isActive: boolean; i
       isInviteEmailValid,
       isInviteFormValid,
       toastMessage,
-      lastTxReceipt
+      lastTxReceipt,
+      activeCampaign
     },
     actions: {
+      refreshStats,
+      setCustomer,
       setScanInput,
       setTxType,
       setAmount,

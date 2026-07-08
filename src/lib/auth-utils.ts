@@ -11,6 +11,10 @@ export async function getDashboardRedirectPath(
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
   const email = user.primaryEmailAddress?.emailAddress?.toLowerCase() || "";
+  const firstName = user.firstName || "";
+  const lastName = user.lastName || "";
+  const metaName = (user.publicMetadata?.name as string) || "";
+  const computedName = `${firstName} ${lastName}`.trim() || metaName || null;
   
   console.log(`[AuthUtils] Determining route for userId: ${userId}, orgId: ${orgId}, orgRole: ${orgRole}`);
   console.log(`[AuthUtils] User email: ${email}`);
@@ -38,16 +42,22 @@ export async function getDashboardRedirectPath(
   }
 
   // 🔄 Eşzamanlı Yerel Veritabanı Senkronizasyonu (Kvkk ve SaaS geçişi için)
+  // Clerk üzerinde bir isim varsa ve db'de yoksa veya clerkten isim gelmişse name alanını da doldur.
+  const existingUser = await db.select().from(users).where(eq(users.clerkId, userId)).get();
+  const finalName = computedName || existingUser?.name || null;
+
   await db.insert(users).values({
     clerkId: userId,
     email,
     role: dbRole,
+    name: finalName,
   })
   .onConflictDoUpdate({
     target: users.clerkId,
     set: {
       email,
       role: dbRole,
+      ...(computedName ? { name: computedName } : {})
     }
   });
 

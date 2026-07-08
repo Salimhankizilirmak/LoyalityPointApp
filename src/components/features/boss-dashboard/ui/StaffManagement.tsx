@@ -1,14 +1,15 @@
 "use client";
  
  
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, UserPlus, Mail, Briefcase } from "lucide-react";
+import { Trash2, UserPlus, Mail, Briefcase, Edit3, Check, X } from "lucide-react";
 import { Employee } from "../types";
  
 interface StaffManagementProps {
   employees: Employee[];
   isDarkMode: boolean;
-  onUpdate: (id: string, firstName: string, lastName: string) => Promise<void>;
+  onUpdate?: (id: string, firstName: string, lastName: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   onReassign: (emp: Employee) => void;
   onInvite: () => void;
@@ -19,12 +20,32 @@ interface StaffManagementProps {
 export function StaffManagement({
   employees,
   isDarkMode,
+  onUpdate,
   onRemove,
   onReassign,
   onInvite,
   loadingId,
   hasNoUsername
 }: StaffManagementProps) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+
+  const startEdit = (emp: Employee) => {
+    const isNameless = emp.name === emp.email || !emp.name;
+    const parts = isNameless ? [] : emp.name.split(" ");
+    setFirstName(parts[0] || "");
+    setLastName(parts.slice(1).join(" ") || "");
+    setEditingId(emp.id);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (onUpdate) {
+      await onUpdate(id, firstName, lastName);
+    }
+    setEditingId(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -76,17 +97,55 @@ export function StaffManagement({
                       {emp.avatar || emp.name[0]}
                     </div>
                     <div>
-                      <div className="flex flex-col">
-                        <p className={`text-sm font-bold truncate ${isDarkMode ? "text-white" : "text-slate-800"}`}>{emp.name}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${emp.role === "manager" ? "bg-blue-500/10 text-blue-500" : "bg-slate-500/10 text-slate-500"
-                            }`}>
-                            {emp.role === "manager" ? "Yönetici" : "Kasiyer"}
-                          </span>
-                          {emp.status === "pending" && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-black uppercase tracking-wider">Bekliyor</span>
-                          )}
-                        </div>
+                      <div className="flex flex-col w-full">
+                        {editingId === emp.id ? (
+                          <div className="space-y-2 w-full mt-1">
+                            <div className="flex gap-2">
+                              <input
+                                value={firstName}
+                                onChange={e => setFirstName(e.target.value)}
+                                placeholder="Ad"
+                                className={`w-full px-2 py-1.5 rounded-lg text-sm border outline-none ${isDarkMode ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"}`}
+                              />
+                              <input
+                                value={lastName}
+                                onChange={e => setLastName(e.target.value)}
+                                placeholder="Soyad"
+                                className={`w-full px-2 py-1.5 rounded-lg text-sm border outline-none ${isDarkMode ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"}`}
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <button onClick={() => saveEdit(emp.id)} className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20">
+                                <Check size={14} />
+                              </button>
+                              <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg bg-slate-500/10 text-slate-500 hover:bg-slate-500/20">
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <p className={`text-sm font-bold truncate ${emp.name === emp.email || !emp.name ? "text-amber-500 italic" : (isDarkMode ? "text-white" : "text-slate-800")}`}>
+                                {emp.name === emp.email || !emp.name ? "İsimsiz Personel" : emp.name}
+                              </p>
+                              {onUpdate && (
+                                <button onClick={() => startEdit(emp)} className={`p-1 rounded-md transition-colors ${isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-400 hover:text-slate-800"}`}>
+                                  <Edit3 size={12} />
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${emp.role === "manager" ? "bg-blue-500/10 text-blue-500" : "bg-slate-500/10 text-slate-500"
+                                }`}>
+                                {emp.role === "manager" ? "Yönetici" : "Kasiyer"}
+                              </span>
+                              {emp.status === "pending" && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-black uppercase tracking-wider">Bekliyor</span>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -47,6 +47,8 @@ export class StaffService extends BaseService {
       branchName: sql<string>`COALESCE(${branches.name}, 'Belirsiz Şube')`,
       branchId: sql<string>`COALESCE(${branches.id}, ${invitations.branchId})`,
       isActive: sql<boolean>`COALESCE(${staffProfiles.isActive}, true)`,
+      phone: sql<string>`COALESCE(${users.username}, ${invitations.phoneNumber})`,
+      createdAt: users.createdAt,
     })
     .from(users)
     .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId))
@@ -57,7 +59,7 @@ export class StaffService extends BaseService {
         targetBranchIds.length > 0
           ? sql`COALESCE(${branches.id}, ${invitations.branchId}) IN (${sql.join(targetBranchIds.map(id => sql`${id}`), sql`, `)})`
           : sql`COALESCE(${branches.orgId}, ${invitations.organizationId}) IN (${sql.join(targetOrgIds.map(id => sql`${id}`), sql`, `)})`,
-        or(eq(users.role, "MANAGER"), eq(users.role, "CASHIER"), eq(users.role, "BOSS"))
+        or(eq(users.role, "MANAGER"), eq(users.role, "CASHIER"))
       )
     )
     .all();
@@ -170,6 +172,8 @@ export class StaffService extends BaseService {
           dailyAmount: stats.dailyAmount,
           acceptedAt,
           invitedCustomerCount,
+          phone: m.phone,
+          createdAt: m.createdAt,
         };
       } catch {
         return {
@@ -186,6 +190,8 @@ export class StaffService extends BaseService {
           dailyAmount: stats.dailyAmount,
           acceptedAt,
           invitedCustomerCount,
+          phone: m.phone,
+          createdAt: m.createdAt,
         };
       }
     }));
@@ -304,6 +310,7 @@ export class StaffService extends BaseService {
           branchName: data.branch,
           org_id: orgId,
           phone: normalizedPhone,
+          name: data.name,
         },
         redirectUrl: `${appUrl}/dashboard`,
         ignoreExisting: true,
@@ -417,6 +424,11 @@ export class StaffService extends BaseService {
 
     const client = await this.getClerkClient();
     await client.users.updateUser(dbUser.clerkId, { firstName, lastName });
+    
+    // update local db as well for reports and logs consistency
+    const computedName = `${firstName} ${lastName}`.trim() || null;
+    await this.db.update(users).set({ name: computedName }).where(eq(users.id, memberId));
+    
     return { success: true };
   }
 
@@ -450,8 +462,17 @@ export class StaffService extends BaseService {
             eq(userBranches.branchId, branchId)
           )
         ).get();
+        
+      const profile = await this.db.select()
+        .from(staffProfiles)
+        .where(
+          and(
+            eq(staffProfiles.userId, userId),
+            eq(staffProfiles.branchId, branchId)
+          )
+        ).get();
       
-      if (!assignment) {
+      if (!assignment && !profile) {
         throw new Error("UnauthorizedError: Bu şubenin verilerine erişim yetkiniz bulunmamaktadır.");
       }
       return true;

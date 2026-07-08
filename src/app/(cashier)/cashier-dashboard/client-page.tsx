@@ -8,13 +8,16 @@ import { getCashierAcceptedCustomersAction } from "@/app/(cashier)/cashier-dashb
 
 import { RecentSalesSection } from "@/components/features/cashier-dashboard/sections";
 import { CashierDashboardModals } from "@/components/features/cashier-dashboard/modals/CashierDashboardModals";
+import { EarnPointsModal } from "@/components/features/cashier-dashboard/ui/EarnPointsModal";
+import { BurnPointsModal } from "@/components/features/cashier-dashboard/ui/BurnPointsModal";
+import { getEarnConfigAction } from "@/app/(cashier)/cashier-dashboard/actions";
 
 import { TransactionProgressModal } from "@/components/features/cashier-dashboard/modals/TransactionProgressModal";
 import { CashierTransactionModal } from "@/components/features/cashier-dashboard/modals/CashierTransactionModal";
 import { CustomerTransactionsHistoryModal } from "@/components/features/cashier-dashboard/modals/CustomerTransactionsHistoryModal";
 
 import { motion } from "framer-motion";
-import { Coins, CreditCard, Search, X, Clock, ArrowRight, History, Activity, Users as UsersIcon } from "lucide-react";
+import { Coins, CreditCard, Search, X, Clock, ArrowRight, History, Activity, Users as UsersIcon, Percent, TrendingUp } from "lucide-react";
 
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
 
@@ -38,6 +41,19 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
   const router = useRouter();
   const { state, actions } = useCashierDashboard(initialBranchStatus);
   const { user: clerkUser } = useUser();
+
+  const [isEarnModalOpen, setIsEarnModalOpen] = useState(false);
+  const [isBurnModalOpen, setIsBurnModalOpen] = useState(false);
+  const [earnConfig, setEarnConfig] = useState<any>(null);
+
+  useEffect(() => {
+    getEarnConfigAction().then((res) => {
+      if (res && res.success) {
+        setEarnConfig(res.data);
+      }
+    });
+  }, []);
+
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +123,35 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
 
   return (
     <div className={`min-h-screen flex flex-col font-sans select-none antialiased transition-colors duration-300 ${isDarkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-800"}`}>
+      
+      <EarnPointsModal
+        isOpen={isEarnModalOpen}
+        onClose={() => setIsEarnModalOpen(false)}
+        customer={state.customer}
+        config={earnConfig}
+        onSuccess={(msg, newTotal) => {
+          if (newTotal !== undefined && state.customer) {
+            actions.setCustomer({ ...state.customer, pts: newTotal });
+          }
+          actions.refreshStats();
+          router.refresh();
+        }}
+      />
+
+      <BurnPointsModal
+        isOpen={isBurnModalOpen}
+        onClose={() => setIsBurnModalOpen(false)}
+        customer={state.customer}
+        config={earnConfig}
+        onSuccess={(newTotal) => {
+          if (newTotal !== undefined && state.customer) {
+            actions.setCustomer({ ...state.customer, pts: newTotal });
+          }
+          actions.refreshStats();
+          router.refresh();
+        }}
+      />
+
       <CashierDashboardModals
         branchStatus={state.branchStatus}
         showAddCustomer={false}
@@ -118,50 +163,98 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
 
       <main className="flex-1 w-full px-4 py-6 flex flex-col gap-6">
         
-        {/* ── 1. ÜST KISIM: KAMPANYA VE STATS ── */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full mb-2">
-          {/* Mevcut Kampanya Kartı */}
-          <div className={`flex flex-col justify-center px-6 py-3 rounded-2xl border shadow-sm flex-shrink-0 ${
-            isDarkMode ? "bg-indigo-900/20 border-indigo-500/20" : "bg-indigo-50 border-indigo-200"
+        {/* ── 1. ÜST KISIM: KAMPANYA VE STATS (ÖZET PANELİ) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full mb-2">
+          
+          {/* BÜYÜK KAMPANYA KARTI (1-3-3 dizilimindeki "1", 2 satır yüksekliğinde) */}
+          <div className={`md:col-span-1 md:row-span-2 flex flex-col justify-center p-6 rounded-3xl border shadow-sm relative overflow-hidden ${
+            isDarkMode ? "bg-indigo-900/30 border-indigo-500/20" : "bg-indigo-50 border-indigo-200"
           }`}>
-            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-0.5">Mevcut Kampanya</span>
-            <span className={`text-sm font-bold ${isDarkMode ? "text-indigo-300" : "text-indigo-700"}`}>Yok</span>
+             <div className="absolute top-0 right-0 p-4 opacity-10">
+               <Activity size={80} />
+             </div>
+             <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1 z-10">Aktif Kampanya</span>
+             {state.activeCampaign ? (
+                <>
+                  <span className={`text-xl font-black mb-2 z-10 ${isDarkMode ? "text-indigo-100" : "text-indigo-900"}`}>{state.activeCampaign.name}</span>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-md max-w-fit z-10 ${isDarkMode ? "bg-indigo-500/20 text-indigo-300" : "bg-indigo-500/10 text-indigo-600"}`}>
+                    {state.activeCampaign.campaignType === "percentage" ? "Yüzdelik Kazanç" : "Kademeli Sistem"}
+                  </span>
+                </>
+             ) : (
+                <span className={`text-lg font-bold z-10 ${isDarkMode ? "text-indigo-300" : "text-indigo-700"}`}>Şu an aktif kampanya bulunmuyor</span>
+             )}
           </div>
 
-          {/* İstatistikler */}
-          <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-
-          <div className="grid grid-cols-3 gap-4 w-full max-w-2xl mt-2">
-            <div className={`flex flex-col items-center justify-center py-3 rounded-2xl border ${isDarkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-200 shadow-sm"}`}>
-              <div className="flex items-center gap-1.5 text-slate-500 mb-1">
-                <Activity size={14} />
-                <span className="text-[10px] font-black uppercase tracking-widest">İşlem</span>
+          {/* DİĞER 6 KART (Sağ Tarafta 3-3 Dizilim) */}
+          <div className="md:col-span-3 grid grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            {/* 1. İşlem (Mavi/Sky) */}
+            <div className={`flex flex-col justify-between p-4 rounded-2xl border shadow-sm ${isDarkMode ? "bg-sky-900/10 border-sky-500/20" : "bg-sky-50 border-sky-200"}`}>
+              <div className="flex items-center gap-2 text-sky-500 mb-2">
+                <Activity size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">İşlem Sayısı</span>
               </div>
-              <span className={`text-xl font-black font-mono ${isDarkMode ? "text-white" : "text-slate-800"}`}>
+              <span className={`text-2xl font-black font-mono ${isDarkMode ? "text-white" : "text-sky-900"}`}>
                 {state.stats.totalTxToday}
               </span>
             </div>
-            
-            <div className={`flex flex-col items-center justify-center py-3 rounded-2xl border ${isDarkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-200 shadow-sm"}`}>
-              <div className="flex items-center gap-1.5 text-cyan-500 mb-1">
-                <Coins size={14} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Puan (Verilen)</span>
+
+            {/* 2. Verilen Puan (Cyan) */}
+            <div className={`flex flex-col justify-between p-4 rounded-2xl border shadow-sm ${isDarkMode ? "bg-cyan-900/10 border-cyan-500/20" : "bg-cyan-50 border-cyan-200"}`}>
+              <div className="flex items-center gap-2 text-cyan-500 mb-2">
+                <Coins size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Verilen Puan</span>
               </div>
-              <span className="text-xl font-black font-mono text-cyan-500">
+              <span className={`text-2xl font-black font-mono ${isDarkMode ? "text-white" : "text-cyan-900"}`}>
                 {fmt(state.stats.ptsGivenToday)}
               </span>
             </div>
-            
-            <div className={`flex flex-col items-center justify-center py-3 rounded-2xl border ${isDarkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-200 shadow-sm"}`}>
-              <div className="flex items-center gap-1.5 text-emerald-500 mb-1">
-                <UsersIcon size={14} />
+
+            {/* 3. Harcanan Puan (Turuncu) */}
+            <div className={`flex flex-col justify-between p-4 rounded-2xl border shadow-sm ${isDarkMode ? "bg-amber-900/10 border-amber-500/20" : "bg-amber-50 border-amber-200"}`}>
+              <div className="flex items-center gap-2 text-amber-500 mb-2">
+                <CreditCard size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Harcanan Puan</span>
+              </div>
+              <span className={`text-2xl font-black font-mono ${isDarkMode ? "text-white" : "text-amber-900"}`}>
+                {fmt(state.stats.ptsBurnedToday || 0)}
+              </span>
+            </div>
+
+            {/* 4. Yeni Üye (Yeşil) */}
+            <div className={`flex flex-col justify-between p-4 rounded-2xl border shadow-sm ${isDarkMode ? "bg-emerald-900/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-200"}`}>
+              <div className="flex items-center gap-2 text-emerald-500 mb-2">
+                <UsersIcon size={16} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Yeni Üye</span>
               </div>
-              <span className="text-xl font-black font-mono text-emerald-500">
+              <span className={`text-2xl font-black font-mono ${isDarkMode ? "text-white" : "text-emerald-900"}`}>
                 {state.stats.newMembersToday}
               </span>
             </div>
-          </div>
+
+            {/* 5. Kazanç Oranı (Mor) */}
+            <div className={`flex flex-col justify-between p-4 rounded-2xl border shadow-sm ${isDarkMode ? "bg-purple-900/10 border-purple-500/20" : "bg-purple-50 border-purple-200"}`}>
+              <div className="flex items-center gap-2 text-purple-500 mb-2">
+                <Percent size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Kazanç Oranı</span>
+              </div>
+              <span className={`text-2xl font-black font-mono ${isDarkMode ? "text-white" : "text-purple-900"}`}>
+                %{earnConfig?.defaultEarnRatio ?? state.stats.earnRatio}
+              </span>
+            </div>
+
+            {/* 6. Dönüşüm Değeri (Pembe) */}
+            <div className={`flex flex-col justify-between p-4 rounded-2xl border shadow-sm ${isDarkMode ? "bg-fuchsia-900/10 border-fuchsia-500/20" : "bg-fuchsia-50 border-fuchsia-200"}`}>
+              <div className="flex items-center gap-2 text-fuchsia-500 mb-2">
+                <TrendingUp size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Dönüşüm Değeri</span>
+              </div>
+              <span className={`text-xl font-black font-mono ${isDarkMode ? "text-white" : "text-fuchsia-900"}`}>
+                {state.stats.tlEquivalent} TL = {state.stats.pointsEquivalent} Pts
+              </span>
+            </div>
+
           </div>
         </div>
 
@@ -169,7 +262,7 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           
           {/* SOL KOLON: Müşteri Arama */}
-          <div className={`flex flex-col justify-center items-center p-8 rounded-3xl border shadow-sm relative ${
+          <div className={`flex flex-col justify-center items-center p-8 rounded-3xl border shadow-sm relative min-h-[420px] ${
             isDarkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-200"
           }`}>
             <div className="w-full max-w-md flex flex-col gap-4">
@@ -246,7 +339,7 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
                     : (isDarkMode ? "rgba(99, 102, 241, 0.1)" : "#e2e8f0"),
                 }}
                 transition={{ duration: 0.4 }}
-                className={`p-5 rounded-3xl border shadow-lg relative`}
+                className={`p-5 rounded-3xl border shadow-lg relative flex flex-col justify-center min-h-[420px]`}
               >
                 <button
                   onClick={() => { actions.reset(); searchRef.current?.focus(); }}
@@ -288,26 +381,12 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
 
                 {/* Son İşlem Özeti Kaldırıldı, Alt Listeye Taşındı */}
 
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setIsHistoryModalOpen(true)}
-                  className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2 border ${
-                    isDarkMode
-                      ? "bg-indigo-500/10 active:bg-indigo-500/20 border-indigo-500/30 text-indigo-300"
-                      : "bg-slate-100 active:bg-slate-200 border-slate-200 text-slate-700"
-                  }`}
-                >
-                  <History size={16} />
-                  <span>Geçmişi Gör</span>
-                  <ArrowRight size={16} />
-                </motion.button>
-
                 {/* Aksiyon Butonları (Tam Genişlik, Büyük Tasarım) */}
                 <div className="flex flex-col gap-3 mt-4">
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     disabled={!state.customer}
-                    onClick={() => openActionModal("EARN")}
+                    onClick={() => setIsEarnModalOpen(true)}
                     id="btn-earn-points"
                     className={`w-full h-20 rounded-2xl font-black uppercase tracking-widest text-base flex items-center justify-center gap-3 border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 ${
                       state.customer
@@ -324,7 +403,7 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     disabled={!state.customer}
-                    onClick={() => openActionModal("BURN")}
+                    onClick={() => setIsBurnModalOpen(true)}
                     id="btn-spend-points"
                     className={`w-full h-20 rounded-2xl font-black uppercase tracking-widest text-base flex items-center justify-center gap-3 border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 ${
                       state.customer
@@ -340,7 +419,7 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
                 </div>
               </motion.div>
             ) : (
-              <div className={`flex flex-col items-center justify-center h-full p-8 rounded-3xl border shadow-sm ${
+              <div className={`flex flex-col items-center justify-center h-full p-8 rounded-3xl border shadow-sm min-h-[420px] ${
                 isDarkMode ? "bg-slate-900/20 border-white/5" : "bg-slate-50 border-slate-200"
               }`}>
                 <div className="w-16 h-16 rounded-full bg-slate-500/10 flex items-center justify-center mb-4 text-slate-400">
@@ -423,10 +502,10 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
 
 
       <CashierTransactionModal
-        isOpen={isActionModalOpen && !state.lastTxReceipt}
+        isOpen={isActionModalOpen}
         onClose={() => setIsActionModalOpen(false)}
         customer={state.customer}
-        txType={state.txType}
+        txType={state.txType!}
         setTxType={actions.setTxType}
         amount={state.amount}
         setAmount={actions.setAmount}
@@ -435,8 +514,14 @@ export default function CashierDashboardPage({ dbUser, initialBranchStatus }: Ca
         ptsPreview={state.ptsPreview}
         isPending={state.isPending}
         txError={state.txError}
-        handleTx={actions.handleTx}
+        handleTx={async () => {
+          await actions.handleTx();
+          if (state.lastTxReceipt) {
+            setIsActionModalOpen(false);
+          }
+        }}
         isDarkMode={isDarkMode}
+        activeCampaign={state.activeCampaign}
       />
 
       <CustomerTransactionsHistoryModal

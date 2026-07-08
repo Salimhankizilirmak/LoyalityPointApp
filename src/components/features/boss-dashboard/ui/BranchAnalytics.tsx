@@ -2,7 +2,7 @@
 /** UX Auditor Hint: <label placeholder aria-label */
 
 import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp, Award, Gift, Calendar, Loader2 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -35,25 +35,46 @@ interface BranchAnalyticsProps {
   totalTransactions: number;
   chartData: ChartDataItem[];
   isLoading?: boolean;
+  selectedRange?: string;
 }
 
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: { value: number; name: string }[];
+  payload?: any[];
   label?: string;
   currencyFormatter: Intl.NumberFormat;
   numberFormatter: Intl.NumberFormat;
 }
 
 // 👑 Declared OUTSIDE of render to satisfy static-components / component-during-render constraints
-function CustomTooltip({ 
-  active, 
-  payload, 
-  label, 
-  currencyFormatter, 
-  numberFormatter 
+function CustomTooltip({
+  active,
+  payload,
+  label,
+  currencyFormatter,
+  numberFormatter
 }: CustomTooltipProps) {
   if (active && payload && payload.length) {
+    // PieChart durumunda label undefined gelir, ad "name" payload icindedir.
+    const isPie = payload.length === 1 && payload[0].payload && payload[0].payload.name;
+
+    if (isPie) {
+      const data = payload[0];
+      return (
+        <div className="glass-panel-elevated p-4 rounded-2xl border border-cyan-500/20 bg-[#0a0a0f]/90 backdrop-blur-md shadow-2xl text-xs space-y-2">
+          <p className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <Award size={12} className="text-cyan-400" /> {data.name}
+          </p>
+          <div className="space-y-1 font-mono">
+            <p className="text-white font-bold flex justify-between gap-6">
+              <span>Değer:</span>
+              <span>{numberFormatter.format(data.value)}</span>
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="glass-panel-elevated p-4 rounded-2xl border border-cyan-500/20 bg-[#0a0a0f]/90 backdrop-blur-md shadow-2xl text-xs space-y-2">
         <p className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
@@ -85,6 +106,7 @@ export function BranchAnalytics({
   totalRevenueInKurus,
   chartData,
   isLoading = false,
+  selectedRange = '7days',
 }: BranchAnalyticsProps) {
   const [mounted, setMounted] = useState(false);
   const [chartType, setChartType] = useState<"alan" | "sütun">("alan");
@@ -128,7 +150,7 @@ export function BranchAnalytics({
           <p className="text-3xl font-black tracking-tighter text-white mb-1">
             {revenueValue}
           </p>
-          <p className="text-slate-400 text-[10px] uppercase font-semibold">Ciro Hareketi (Kuruş Mimarisi)</p>
+          <p className="text-slate-400 text-[10px] uppercase font-semibold">Ciro Hareketi</p>
           {/* Subtle bottom glowing line */}
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
         </motion.div>
@@ -181,34 +203,34 @@ export function BranchAnalytics({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.15 }}
-          className={`glass-panel bg-[#0a0a0f]/40 backdrop-blur-xl border border-cyan-500/20 rounded-3xl p-6 relative overflow-hidden transition-all lg:col-span-2 ${
-            isLoading ? "opacity-50" : ""
-          }`}
+          className={`glass-panel bg-[#0a0a0f]/40 backdrop-blur-xl border border-cyan-500/20 rounded-3xl p-6 relative overflow-hidden transition-all lg:col-span-2 ${isLoading ? "opacity-50" : ""
+            }`}
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <div>
               <h3 className="text-lg font-black tracking-tight text-white">Performans Grafik Trendi</h3>
               <p className="text-slate-400 text-xs font-medium">Seçili dönemdeki günlük ciro ve sadakat hareketi</p>
             </div>
-            
-            <div className="flex items-center gap-2 bg-slate-900/50 p-1 rounded-xl border border-white/5">
-              {([
-                { id: "alan", label: "Alan" },
-                { id: "sütun", label: "Sütun" }
-              ] as const).map((type) => (
-                <button
-                  key={type.id}
-                  onClick={() => setChartType(type.id as any)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                    chartType === type.id 
-                      ? "bg-cyan-500/20 text-cyan-400" 
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
-            </div>
+
+            {selectedRange !== "today" && (
+              <div className="flex items-center gap-2 bg-slate-900/50 p-1 rounded-xl border border-white/5">
+                {([
+                  { id: "alan", label: "Alan" },
+                  { id: "sütun", label: "Sütun" }
+                ] as const).map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setChartType(type.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${chartType === type.id
+                        ? "bg-cyan-500/20 text-cyan-400"
+                        : "text-slate-400 hover:text-slate-200"
+                      }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {isLoading && (
               <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
@@ -222,15 +244,51 @@ export function BranchAnalytics({
               <div className="absolute inset-0 bg-[#0a0a0f]/20 rounded-3xl animate-pulse flex items-center justify-center text-slate-500 text-xs font-bold uppercase tracking-wider">
                 Grafik Yükleniyor...
               </div>
-            ) : chartData.length === 0 ? (
+            ) : chartData.length === 0 || (selectedRange === "today" && totalPointsEarned === 0 && totalPointsBurned === 0) ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 border border-dashed border-white/5 rounded-2xl">
                 <Calendar size={32} className="text-slate-600" />
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Bu şubede veri bulunmamaktadır</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  {selectedRange === "today" ? "Bugün henüz hiçbir işlem yapılmadı" : "Bu tarih aralığında veri bulunmamaktadır"}
+                </p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                {chartType === "alan" ? (
-                  <AreaChart data={chartData.map((d) => ({ ...d, revenue: d.revenue / 100 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${selectedRange}-${chartType}`}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full h-full"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    {selectedRange === "today" ? (
+                  <PieChart margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+                    <Tooltip content={<CustomTooltip currencyFormatter={currencyFormatter} numberFormatter={numberFormatter} />} />
+                    <Pie
+                      data={[
+                        { name: "Kazandırılan Puan", value: totalPointsEarned, color: "#14b8a6" },
+                        { name: "Harcanan Puan", value: totalPointsBurned, color: "#f43f5e" }
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={120}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {
+                        [
+                          { name: "Kazandırılan Puan", value: totalPointsEarned, color: "#14b8a6" },
+                          { name: "Harcanan Puan", value: totalPointsBurned, color: "#f43f5e" }
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))
+                      }
+                    </Pie>
+                  </PieChart>
+                ) : chartType === "alan" ? (
+                  <AreaChart data={chartData.map((d) => ({ ...d, revenue: d.revenue / 100 }))} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#06b6d4" stopOpacity={0.2} /><stop offset="95%" stopColor="#06b6d4" stopOpacity={0} /></linearGradient>
                       <linearGradient id="colorPointsEarned" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#14b8a6" stopOpacity={0.2} /><stop offset="95%" stopColor="#14b8a6" stopOpacity={0} /></linearGradient>
@@ -238,24 +296,26 @@ export function BranchAnalytics({
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
                     <XAxis dataKey="date" stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dy={10} />
-                    <YAxis stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dx={-10} />
+                    <YAxis stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dx={-10} width={60} />
                     <Tooltip content={<CustomTooltip currencyFormatter={currencyFormatter} numberFormatter={numberFormatter} />} />
                     <Area type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" name="Ciro (TL)" />
                     <Area type="monotone" dataKey="pointsEarned" stroke="#14b8a6" strokeWidth={2} fillOpacity={1} fill="url(#colorPointsEarned)" name="Kazanılan Puan" />
                     <Area type="monotone" dataKey="pointsBurned" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorPointsBurned)" name="Harcanan Puan" />
                   </AreaChart>
                 ) : (
-                  <BarChart data={chartData.map((d) => ({ ...d, revenue: d.revenue / 100 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={chartData.map((d) => ({ ...d, revenue: d.revenue / 100 }))} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
                     <XAxis dataKey="date" stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dy={10} />
-                    <YAxis stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dx={-10} />
+                    <YAxis stroke="#ffffff30" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} dx={-10} width={60} />
                     <Tooltip content={<CustomTooltip currencyFormatter={currencyFormatter} numberFormatter={numberFormatter} />} />
                     <Bar dataKey="revenue" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Ciro (TL)" />
                     <Bar dataKey="pointsEarned" fill="#14b8a6" radius={[4, 4, 0, 0]} name="Kazanılan Puan" />
                     <Bar dataKey="pointsBurned" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Harcanan Puan" />
                   </BarChart>
-                )}
-              </ResponsiveContainer>
+                    )}
+                  </ResponsiveContainer>
+                </motion.div>
+              </AnimatePresence>
             )}
           </div>
         </motion.div>

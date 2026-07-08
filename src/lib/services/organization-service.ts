@@ -4,6 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath, unstable_cache, unstable_noStore } from "next/cache";
 import { CACHE_TAGS, purgeCacheTag } from "@/lib/cache-registry";
 import { db } from "@/db";
+import { nanoid } from "nanoid";
 
 // Önbellek yardımcı fonksiyonları
 const getCachedOrgProfileDetails = (orgId: string) => unstable_cache(
@@ -17,6 +18,8 @@ const getCachedOrgProfileDetails = (orgId: string) => unstable_cache(
       dbOrg,
       branchCount: branchCountResult?.count ?? 0,
       earnRatio: loyaltyRule?.earnRatio ?? 10,
+      pointsEquivalent: loyaltyRule?.pointsEquivalent ?? 1,
+      tlEquivalent: loyaltyRule?.tlEquivalent ?? 1,
     };
   },
   [`org-profile-details-${orgId}`],
@@ -78,7 +81,7 @@ export class OrganizationService extends BaseService {
       }
 
       // Detaylar cached fonksiyondan getirilir
-      const { dbOrg, branchCount, earnRatio } = await getCachedOrgProfileDetails(orgId)(orgId);
+      const { dbOrg, branchCount, earnRatio, pointsEquivalent, tlEquivalent } = await getCachedOrgProfileDetails(orgId)(orgId);
 
       if (!dbOrg) {
         // Webhook gecikmesi veya senkronizasyon kopukluğu: sistemi patlatma,
@@ -91,6 +94,8 @@ export class OrganizationService extends BaseService {
           name: orgName,
           slug: orgSlug,
           pointRate: 10,
+          pointsEquivalent: 1,
+          tlEquivalent: 1,
           validityMonths: 12,
           branchLimit: 3,
           currentBranches: 0,
@@ -101,6 +106,8 @@ export class OrganizationService extends BaseService {
           name: dbOrg.name || orgName,
           slug: orgSlug,
           pointRate: earnRatio,
+          pointsEquivalent: pointsEquivalent,
+          tlEquivalent: tlEquivalent,
           validityMonths: 12,
           branchLimit: dbOrg.branchLimit ?? 2,
           currentBranches: branchCount,
@@ -136,6 +143,7 @@ export class OrganizationService extends BaseService {
       id: org.id,
       name,
       bossId: dbUser.id,
+      registrationCode: nanoid(10),
       branchLimit: 2,
       isActive: true,
     });
@@ -195,9 +203,20 @@ export class OrganizationService extends BaseService {
     });
   }
 
-  async updateSettings(_pointRate: number, _validityMonths: number) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const dummy = [_pointRate, _validityMonths];
+  async updateSettings(pointRate: number, validityMonths: number, pointsEquivalent: number = 1, tlEquivalent: number = 1) {
+    const orgId = await this.requireOrg();
+    
+    await this.db
+      .insert(loyaltyRules)
+      .values({ organizationId: orgId, earnRatio: pointRate, pointsEquivalent, tlEquivalent })
+      .onConflictDoUpdate({
+        target: loyaltyRules.organizationId,
+        set: { earnRatio: pointRate, pointsEquivalent, tlEquivalent },
+      });
+
+    // Önbellek geçersiz kılma
+    purgeCacheTag(CACHE_TAGS.bossProfile(orgId));
+
     return { success: true };
   }
 

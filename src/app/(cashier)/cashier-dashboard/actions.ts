@@ -4,7 +4,8 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { users, branches, organizations, invitations, loyaltyTransactions, customers } from "@/db/schema";
+import { identityService } from "@/lib/services/identity-service";
+import { users, branches, organizations, invitations, loyaltyTransactions, customers, campaigns, loyaltyRules, qrCustomerRequests, staffProfiles } from "@/db/schema";
 import { eq, and, or, like, desc, asc, gte, lte, gt, sql, type SQL } from "drizzle-orm";
 import { loyaltyService } from "@/lib/services/loyalty-service";
 import { staffService } from "@/lib/services/staff-service";
@@ -13,7 +14,7 @@ import { randomBytes } from "crypto";
 
 // ─── SHARED HELPERS ──────────────────────────────────────────────────────────
 
-async function resolveCashierContext() {
+export async function resolveCashierContext() {
   const { userId } = await auth();
   if (!userId) throw new Error("Oturum bulunamadı.");
 
@@ -25,7 +26,16 @@ async function resolveCashierContext() {
 
   // Aktif şube çerezinden branchId çöz
   const cookieStore = await cookies();
-  const branchId = cookieStore.get("active_branch_id")?.value;
+  let branchId = cookieStore.get("active_branch_id")?.value;
+
+  // GÜVENLİK VE MANTIK: Kasiyer ise doğrudan kendi atanmış şubesini bul ve onu kullan!
+  if (dbUser.role === "CASHIER" || dbUser.role === "MANAGER") {
+     const profile = await db.select().from(staffProfiles).where(eq(staffProfiles.userId, dbUser.id)).get();
+     if (profile && profile.branchId) {
+        branchId = profile.branchId; // Cookie manipüle edilmişse veya eskiyse ez!
+     }
+  }
+
   if (!branchId) throw new Error("Aktif şube bağlamı bulunamadı. Lütfen şube seçin.");
 
   // orgId çöz
@@ -70,6 +80,9 @@ export async function searchCustomerAction(phoneNumber: string) {
  */
 export async function registerCustomerAction(name: string | null | undefined, phoneNumber: string, email: string) {
   try {
+    if (!name?.trim()) {
+      return { success: false, error: "Müşteri adı zorunludur." };
+    }
     if (!phoneNumber?.trim() || !email?.trim()) {
       return { success: false, error: "Telefon numarası ve e-posta adresi zorunludur." };
     }
@@ -79,7 +92,7 @@ export async function registerCustomerAction(name: string | null | undefined, ph
 
     const { dbUser, branchId, orgId } = await resolveCashierContext();
 
-    const safeName = name?.trim() || "İsimsiz Müşteri";
+    const safeName = name.trim();
     const parts = safeName.split(/\s+/);
     const firstName = parts.slice(0, -1).join(" ") || parts[0];
     const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
@@ -121,7 +134,7 @@ export async function registerCustomerAction(name: string | null | undefined, ph
  *  2. staffService.requireBranchAccess – kasiyerin aktif şubede yetkisi
  *  3. LoyaltyService ACID transaction
  */
-export async function earnPointsAction(customerId: string, amountSpentInKurus: number) {
+export async function earnPointsAction(customerId: string, amountSpentInKurus: number, campaignId?: string) {
   try {
     // 1. Girdi Sınır Muhafızı
     if (!amountSpentInKurus || amountSpentInKurus <= 0) {
@@ -134,7 +147,7 @@ export async function earnPointsAction(customerId: string, amountSpentInKurus: n
     await staffService.requireBranchAccess(dbUser.id, dbUser.role, branchId);
 
     // 3. İşlem yürütme
-    const result = await loyaltyService.earnPoints(branchId, dbUser.id, customerId, amountSpentInKurus);
+    const result = await loyaltyService.earnPoints(branchId, dbUser.id, customerId, amountSpentInKurus, campaignId);
     return {
       success: true,
       message: `${result.pointsEarned} puan yüklendi!`,
@@ -143,6 +156,31 @@ export async function earnPointsAction(customerId: string, amountSpentInKurus: n
   } catch (error: unknown) {
     console.error("[earnPointsAction] Error:", error);
     return { error: "İşlem sırasında sistemsel bir hata oluştu. Lütfen şube yöneticinizle iletişime geçin." };
+  }
+}
+
+/**
+ * Puan Ekleme Eylemi (DIRECT).
+ * Müşteriye alışverişten (sepet tutarı) bağımsız, doğrudan puan yükler.
+ */
+export async function addDirectPointsAction(customerId: string, pointsToAdd: number) {
+  try {
+    if (!pointsToAdd || pointsToAdd <= 0) {
+      return { error: "Puan tutarı 0'dan büyük olmalıdır." };
+    }
+
+    const { dbUser, branchId } = await resolveCashierContext();
+    await staffService.requireBranchAccess(dbUser.id, dbUser.role, branchId);
+
+    const result = await loyaltyService.addDirectPoints(branchId, dbUser.id, customerId, pointsToAdd);
+    return {
+      success: true,
+      message: `${result.pointsEarned} puan doğrudan yüklendi!`,
+      newTotal: result.newTotal,
+    };
+  } catch (error: unknown) {
+    console.error("[addDirectPointsAction] Error:", error);
+    return { error: "Puan eklenirken sistemsel bir hata oluştu." };
   }
 }
 
@@ -364,12 +402,10 @@ export async function getBranchStatus(): Promise<{ isActive: boolean; isDeleted:
       .where(eq(organizations.id, branch.orgId))
       .get();
 
-    // Eğer çerezdeki veri veritabanındaki gerçek şube ID'si ile uyuşmuyorsa, çerezi strictly güncelle/düzelt
-    const cookieStore = await cookies();
-    const currentCookieBranchId = cookieStore.get("active_branch_id")?.value;
-    if (currentCookieBranchId !== staffProfile.branchId) {
-      cookieStore.set("active_branch_id", staffProfile.branchId, { path: "/", httpOnly: true });
-    }
+    // Çerez kontrolü: Eğer çerezdeki veri veritabanındaki ile uyuşmuyorsa
+    // Server Component aşamasında çerez yazılamaz (Next.js kısıtlaması). 
+    // Bunun yerine, veritabanından çekilen staffProfile.branchId "Single Source of Truth" olarak güvenilirdir.
+    // İleride çereze ihtiyaç duyulursa Middleware veya Login Route Handler üzerinden set edilmelidir.
 
     return {
       isActive: (branch.isActive && (org?.isActive ?? false)),
@@ -766,35 +802,49 @@ export async function getCashierAcceptedCustomersAction() {
 }
 
 export async function getBranchCustomerInvitationsAction() {
+  console.log('GET BRANCH CUSTOMER INVITATIONS ACTION TRIGGERED!');
   try {
-    const { branchId } = await resolveCashierContext();
+    const { orgId } = await resolveCashierContext();
 
+    // Sadece bu organizasyona ait olanları getir
+    // (Customer tablosundaki orgId'ye göre)
     const result = await db
       .select({
-        id: invitations.id,
-        email: invitations.email,
-        phoneNumber: invitations.phoneNumber,
-        status: invitations.status,
-        createdAt: invitations.createdAt,
+        id: customers.id,
+        phoneNumber: customers.phoneNumber,
+        status: sql<string>`'ACCEPTED'`,
+        createdAt: customers.createdAt,
         customerName: customers.name,
         totalPoints: customers.totalPoints,
       })
-      .from(invitations)
-      .leftJoin(customers, eq(customers.phoneNumber, sql`'0' || substr(${invitations.phoneNumber}, -10)`))
-      .where(and(
-        eq(invitations.branchId, branchId),
-        eq(invitations.role, "CUSTOMER")
-      ))
+      .from(customers)
+      .where(eq(customers.organizationId, orgId))
       .all();
 
-    const serialized = result.map((item) => ({
-      ...item,
-      createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : String(item.createdAt),
-    }));
+    const allInvites = await db
+      .select({
+        email: invitations.email,
+        phoneNumber: invitations.phoneNumber,
+      })
+      .from(invitations)
+      .where(eq(invitations.organizationId, orgId))
+      .all();
 
-    return { success: true, invitations: serialized };
-  } catch (error) {
-    return { success: false, invitations: [] };
+    const formatted = result.map(cust => {
+      const custPhone = cust.phoneNumber.replace(/\D/g, '').slice(-10);
+      const invite = allInvites.find(inv => (inv.phoneNumber || "").replace(/\D/g, '').slice(-10) === custPhone);
+
+      return {
+        ...cust,
+        createdAt: cust.createdAt ? new Date(cust.createdAt).toISOString() : new Date().toISOString(),
+        email: invite?.email || "Belirtilmemiş",
+      };
+    });
+
+    return { success: true, invitations: formatted };
+  } catch (error: any) {
+    console.error("[getBranchCustomerInvitationsAction] Error:", error);
+    return { success: false, error: "Müşteriler yüklenirken bir hata oluştu." };
   }
 }
 
@@ -817,7 +867,8 @@ export async function getTransactionsWithCustomers(page: number = 1) {
       .where(and(
         eq(invitations.branchId, branchId),
         eq(invitations.role, "CUSTOMER"),
-        eq(invitations.status, "ACCEPTED")
+        eq(invitations.status, "ACCEPTED"),
+        eq(customers.organizationId, orgId)
       ))
       .limit(limitVal)
       .offset(offsetVal)
@@ -843,7 +894,7 @@ export async function getTransactionsWithCustomers(page: number = 1) {
  */
 export async function getCashierStatsAction() {
   try {
-    const { dbUser, branchId } = await resolveCashierContext();
+    const { dbUser, branchId, orgId } = await resolveCashierContext();
     
     // Türkiye saati (UTC+3) baz alınarak günün başlangıcı (00:00) hesaplanıyor
     const now = new Date();
@@ -883,15 +934,35 @@ export async function getCashierStatsAction() {
     const totalTxResult = await db
       .select({
         count: sql<number>`count(${loyaltyTransactions.id})`,
-        revenue: sql<number>`COALESCE(SUM(CASE WHEN ${loyaltyTransactions.type} = 'EARN' THEN ${loyaltyTransactions.amountSpent} ELSE 0 END), 0)`
+        revenue: sql<number>`COALESCE(SUM(CASE WHEN ${loyaltyTransactions.type} = 'EARN' THEN ${loyaltyTransactions.pointsAmount} ELSE 0 END), 0)`,
+        burned: sql<number>`COALESCE(SUM(CASE WHEN ${loyaltyTransactions.type} = 'BURN' THEN ${loyaltyTransactions.pointsAmount} ELSE 0 END), 0)`
       })
       .from(loyaltyTransactions)
       .where(
         and(
           eq(loyaltyTransactions.cashierId, dbUser.id),
-          eq(loyaltyTransactions.branchId, branchId)
+          eq(loyaltyTransactions.branchId, branchId),
+          gte(loyaltyTransactions.createdAt, startOfToday)
         )
       )
+      .get();
+
+    // d) Yönetici Puan Kuralları
+    const loyaltyRule = await db
+      .select({
+        earnRatio: loyaltyRules.earnRatio,
+        pointsEquivalent: loyaltyRules.pointsEquivalent,
+        tlEquivalent: loyaltyRules.tlEquivalent,
+      })
+      .from(loyaltyRules)
+      .where(eq(loyaltyRules.organizationId, orgId))
+      .get();
+      
+    // e) Şube Kuralları
+    const branch = await db
+      .select({ defaultEarnRatio: branches.defaultEarnRatio })
+      .from(branches)
+      .where(eq(branches.id, branchId))
       .get();
 
     return {
@@ -901,6 +972,10 @@ export async function getCashierStatsAction() {
         todayNewCustomers: todayNewCustomersResult?.count || 0,
         totalTxCount: totalTxResult?.count || 0,
         totalRevenue: totalTxResult?.revenue || 0,
+        totalBurned: totalTxResult?.burned || 0,
+        earnRatio: branch?.defaultEarnRatio ?? loyaltyRule?.earnRatio ?? 10,
+        pointsEquivalent: loyaltyRule?.pointsEquivalent || 1,
+        tlEquivalent: loyaltyRule?.tlEquivalent || 1
       }
     };
 
@@ -910,3 +985,185 @@ export async function getCashierStatsAction() {
   }
 }
 
+
+export async function getActiveCampaignForCashierAction() {
+  try {
+    const { branchId } = await resolveCashierContext();
+    const now = new Date();
+    
+    // First active campaign
+    const campaign = await db.select({ 
+      id: campaigns.id,
+      name: campaigns.name,
+      campaignType: campaigns.campaignType,
+      earnRatio: campaigns.earnRatio,
+      tiers: campaigns.tiers
+    })
+    .from(campaigns)
+    .where(
+      and(
+        eq(campaigns.branchId, branchId),
+        eq(campaigns.isActive, true),
+        lte(campaigns.startDate, now),
+        gte(campaigns.endDate, now)
+      )
+    )
+    .get();
+
+    return { success: true, campaign };
+  } catch (err) {
+    return { success: false };
+  }
+}
+
+
+export async function updateCustomerNameAction(phoneNumber: string, newName: string) {
+  try {
+    const { orgId } = await resolveCashierContext();
+    if (!phoneNumber || !newName || newName.trim().length === 0) {
+      return { success: false, error: "Geçersiz veriler." };
+    }
+
+    const result = await identityService.syncUserName({
+      phoneNumber,
+      orgId,
+      newName
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Müşteri ismi güncellenirken hata:", err);
+    return { success: false, error: "İsim güncellenemedi." };
+  }
+}
+
+export async function getEarnConfigAction() {
+  try {
+    const { branchId, dbUser, orgId } = await resolveCashierContext();
+    const now = new Date();
+    
+    const branch = await db.select({ defaultEarnRatio: branches.defaultEarnRatio }).from(branches).where(eq(branches.id, branchId)).get();
+    const orgRule = await db.select({ 
+      earnRatio: loyaltyRules.earnRatio,
+      pointsEquivalent: loyaltyRules.pointsEquivalent,
+      tlEquivalent: loyaltyRules.tlEquivalent
+    }).from(loyaltyRules).where(eq(loyaltyRules.organizationId, orgId)).get();
+
+    const activeCampaigns = await db.select({
+      id: campaigns.id,
+      name: campaigns.name,
+      earnRatio: campaigns.earnRatio,
+      campaignType: campaigns.campaignType,
+      tiers: campaigns.tiers
+    }).from(campaigns).where(
+      and(
+        eq(campaigns.branchId, branchId),
+        eq(campaigns.isActive, true),
+        lte(campaigns.startDate, now),
+        gte(campaigns.endDate, now)
+      )
+    ).all();
+
+    return {
+      success: true,
+      data: {
+        defaultEarnRatio: branch?.defaultEarnRatio ?? orgRule?.earnRatio ?? 10,
+        pointsEquivalent: orgRule?.pointsEquivalent ?? 1,
+        tlEquivalent: orgRule?.tlEquivalent ?? 1,
+        campaigns: activeCampaigns
+      }
+    };
+  } catch (error: any) {
+    console.error("[getEarnConfigAction] Error:", error);
+    return { success: false, error: "Ayarlar alınırken hata oluştu." };
+  }
+}
+
+
+export async function getPendingQrRequestsAction() {
+  try {
+    const { branchId, orgId } = await resolveCashierContext();
+    
+    const requests = await db.select()
+      .from(qrCustomerRequests)
+      .where(and(
+         eq(qrCustomerRequests.branchId, branchId),
+         eq(qrCustomerRequests.status, "PENDING")
+      ))
+      .orderBy(desc(qrCustomerRequests.createdAt))
+      .all();
+      
+    return { success: true, data: requests };
+  } catch (error) {
+    console.error("getPendingQrRequestsAction Error:", error);
+    return { success: false, error: "İstekler alınamadı." };
+  }
+}
+
+export async function approveQrRequestAction(requestId: string) {
+  try {
+    const { dbUser, branchId, orgId } = await resolveCashierContext();
+    
+    const request = await db.select()
+      .from(qrCustomerRequests)
+      .where(and(
+         eq(qrCustomerRequests.id, requestId),
+         eq(qrCustomerRequests.branchId, branchId)
+      )).get();
+      
+    if (!request) return { success: false, error: "İstek bulunamadı veya yetkisiz erişim." };
+    
+    // Use the existing registerCustomerAction logic or customerService directly
+    const res = await customerService.inviteCustomer({
+      firstName: request.firstName,
+      lastName: request.lastName,
+      phone: request.phoneNumber,
+      email: request.email,
+      branchId,
+      orgId,
+      invitedById: dbUser.id,
+    });
+    
+    if (!res.success) {
+      // @ts-ignore
+      return { success: false, error: res.message || res.error || "Müşteri davet edilirken hata oluştu." };
+    }
+    
+    // Update request status to APPROVED
+    await db.update(qrCustomerRequests)
+      .set({ 
+        status: "APPROVED",
+        clerkTicketUrl: "" // System sends sms/email automatically
+      })
+      .where(eq(qrCustomerRequests.id, requestId))
+      .run();
+      
+    return { success: true, url: "" };
+  } catch (error: any) {
+    console.error("approveQrRequestAction Error:", error);
+    return { success: false, error: error?.message || "Onaylama sırasında hata oluştu." };
+  }
+}
+
+export async function rejectQrRequestAction(requestId: string) {
+  try {
+    const { branchId } = await resolveCashierContext();
+    
+    await db.update(qrCustomerRequests)
+      .set({ status: "REJECTED" })
+      .where(and(
+         eq(qrCustomerRequests.id, requestId),
+         eq(qrCustomerRequests.branchId, branchId)
+      ))
+      .run();
+      
+    return { success: true };
+  } catch (error) {
+    console.error("rejectQrRequestAction Error:", error);
+    return { success: false, error: "Reddetme işlemi başarısız." };
+  }
+}

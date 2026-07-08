@@ -25,7 +25,7 @@ export default function AddCustomerClientPage() {
   const [newCustError, setNewCustError] = useState("");
 
   const isNewCustPhoneValid = /^05\d{9}$/.test(newCustForm.phone);
-  const isNewCustEmailValid = newCustForm.email.includes("@") && newCustForm.email.includes(".");
+  const isNewCustEmailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(newCustForm.email.trim());
   const isNewCustNameValid = newCustForm.name.trim().length > 0;
   const isNewCustFormValid = isNewCustPhoneValid && isNewCustEmailValid && isNewCustNameValid;
 
@@ -114,11 +114,18 @@ export default function AddCustomerClientPage() {
               value={newCustForm.email}
               onChange={(e) => setNewCustForm((f) => ({ ...f, email: e.target.value }))}
               className={`w-full h-14 pl-12 pr-4 rounded-xl border text-lg outline-none transition-all placeholder-slate-500 ${
-                isDarkMode
+                newCustForm.email.length > 0 && !isNewCustEmailValid
+                  ? "border-rose-500 bg-rose-500/5 focus:border-rose-500 text-rose-500"
+                  : isDarkMode
                   ? "bg-slate-800 border-slate-700 text-white focus:border-cyan-500"
                   : "bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-500"
               }`}
             />
+            {newCustForm.email.length > 0 && !isNewCustEmailValid && (
+              <p className="text-xs text-rose-500 mt-2 ml-2 font-medium">
+                Geçerli bir email giriniz (Türkçe karakter kullanılamaz).
+              </p>
+            )}
           </div>
         </div>
 

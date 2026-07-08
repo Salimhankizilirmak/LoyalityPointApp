@@ -3,12 +3,6 @@ import { loyaltyTransactions } from "@/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 
 export class AnalyticsService extends BaseService {
-  /**
-   * Yüksek Performanslı SQL Toplama (Aggregation) Servisi.
-   * - Boş şubelerde tipi kırmaması için SUM aggregasyonlarını COALESCE(SUM(...), 0) ile sarmalar.
-   * - Gün bazlı gruplama (Timeline Dataset) yaparak recharts için chartData üretir.
-   * - Bulletproof Timestamp Auto-Detection: JS milisaniye ve SQLite saniye verilerini otomatik ayırt eder.
-   */
   async getBranchAnalytics(
     branchId: string,
     startDate?: number,
@@ -29,10 +23,10 @@ export class AnalyticsService extends BaseService {
 
     const queryCondition = and(...conditions);
 
-    // 1. Single-Pass Günlük Zaman Serisi Sorgusu (UTC+3 Türkiye Saat Dilimi & Recharts Desteği)
+    // 1. Single-Pass Günlük Zaman Serisi Sorgusu (Tüm data ms kabul edilir)
     const chartDataResult = await this.db
       .select({
-        date: sql<string>`strftime('%Y-%m-%d', (${loyaltyTransactions.createdAt} / 1000) + 10800, 'unixepoch')`,
+        date: sql<string>`strftime('%Y-%m-%d', ${loyaltyTransactions.createdAt} + 10800, 'unixepoch')`,
         pointsEarned: sql<number>`COALESCE(SUM(CASE WHEN ${loyaltyTransactions.type} = 'EARN' THEN ${loyaltyTransactions.pointsAmount} ELSE 0 END), 0)`,
         pointsBurned: sql<number>`COALESCE(SUM(CASE WHEN ${loyaltyTransactions.type} = 'BURN' THEN ${loyaltyTransactions.pointsAmount} ELSE 0 END), 0)`,
         revenue: sql<number>`COALESCE(SUM(CASE WHEN ${loyaltyTransactions.type} = 'EARN' THEN ${loyaltyTransactions.amountSpent} ELSE 0 END), 0)`,
@@ -40,42 +34,64 @@ export class AnalyticsService extends BaseService {
       })
       .from(loyaltyTransactions)
       .where(queryCondition)
-      .groupBy(sql`strftime('%Y-%m-%d', (${loyaltyTransactions.createdAt} / 1000) + 10800, 'unixepoch')`)
-      .orderBy(sql`strftime('%Y-%m-%d', (${loyaltyTransactions.createdAt} / 1000) + 10800, 'unixepoch')`)
+      .groupBy(sql`strftime('%Y-%m-%d', ${loyaltyTransactions.createdAt} + 10800, 'unixepoch')`)
+      .orderBy(sql`strftime('%Y-%m-%d', ${loyaltyTransactions.createdAt} + 10800, 'unixepoch')`)
       .all();
 
-    // 2. In-Memory Toplama (Veritabanı I/O Maliyetini %50 Düşüren Tek Paslı Mimari)
+    // 2. Data Padding (Eksik günleri 0 ile doldurma)
+    const dataMap = new Map();
+    if (chartDataResult) {
+      for (const row of chartDataResult) {
+        dataMap.set(row.date, row);
+      }
+    }
+
+    const paddedChartData = [];
+    let startMs = startDate;
+    let endMs = endDate || Date.now();
+
+    // Eger hic parametre verilmemisse (veya veritabanından hic data gelmemisse) bos donmesin diye
+    // en azindan son 7 gunu dolduralım (eger startDate undefined ise)
+    if (!startMs) {
+      startMs = endMs - (6 * 24 * 60 * 60 * 1000);
+    }
+
+    const current = new Date(startMs);
+    current.setHours(0,0,0,0);
+    const end = new Date(endMs);
+    end.setHours(23,59,59,999);
+
+    while (current <= end) {
+      // Local time format (YYYY-MM-DD)
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      if (dataMap.has(dateStr)) {
+        paddedChartData.push(dataMap.get(dateStr));
+      } else {
+        paddedChartData.push({
+          date: dateStr,
+          pointsEarned: 0,
+          pointsBurned: 0,
+          revenue: 0,
+          transactionCount: 0
+        });
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
     let totalPointsEarned = 0;
     let totalPointsBurned = 0;
     let totalRevenueInKurus = 0;
     let totalTransactions = 0;
 
-    let finalChartData = chartDataResult;
-
-    // MOCK DATA YAYINI: Eğer hiç veri yoksa, UI testi için örnek veri oluştur
-    if (!finalChartData || finalChartData.length === 0) {
-      finalChartData = [];
-      const today = new Date();
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateStr = d.toISOString().split("T")[0];
-        finalChartData.push({
-          date: dateStr,
-          pointsEarned: Math.floor(Math.random() * 500) + 100,
-          pointsBurned: Math.floor(Math.random() * 300) + 50,
-          revenue: Math.floor(Math.random() * 100000) + 20000,
-          transactionCount: Math.floor(Math.random() * 50) + 10,
-        });
-      }
-    }
-
-    if (finalChartData) {
-      for (const day of finalChartData) {
-        totalPointsEarned += day.pointsEarned;
-        totalPointsBurned += day.pointsBurned;
-        totalRevenueInKurus += day.revenue;
-        totalTransactions += day.transactionCount;
-      }
+    for (const day of paddedChartData) {
+      totalPointsEarned += day.pointsEarned;
+      totalPointsBurned += day.pointsBurned;
+      totalRevenueInKurus += day.revenue;
+      totalTransactions += day.transactionCount;
     }
 
     return {
@@ -83,13 +99,7 @@ export class AnalyticsService extends BaseService {
       totalPointsBurned,
       totalRevenueInKurus,
       totalTransactions,
-      // Map chartData values cleanly for Recharts compatibility
-      chartData: (finalChartData || []).map(day => ({
-        date: day.date,
-        pointsEarned: day.pointsEarned,
-        pointsBurned: day.pointsBurned,
-        revenue: day.revenue
-      })),
+      chartData: paddedChartData,
     };
   }
 }

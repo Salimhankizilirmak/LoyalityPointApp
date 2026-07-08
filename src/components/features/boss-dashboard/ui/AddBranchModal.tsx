@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { X, Store, MapPin, Plus, ChevronDown } from "lucide-react";
 import ILLER from "@/constants/iller.json";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 interface AddBranchModalProps {
   onClose: () => void;
@@ -15,6 +16,14 @@ export function AddBranchModal({ onClose, onAdd, isDarkMode }: AddBranchModalPro
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useKeyboardShortcut('Escape', onClose);
+  useKeyboardShortcut('Enter', () => {
+    if (formRef.current && !loading) {
+      formRef.current.requestSubmit();
+    }
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +60,7 @@ export function AddBranchModal({ onClose, onAdd, isDarkMode }: AddBranchModalPro
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Şube Adı</label>
             <div className="relative">

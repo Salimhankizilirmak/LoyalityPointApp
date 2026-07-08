@@ -6,7 +6,9 @@ export interface CreateCampaignInput {
   branchId: string;
   createdBy: string;
   name: string;
+  campaignType: "multiplier" | "tiered";
   earnRatio: number;
+  tiers?: string | null;
   startDate: Date;
   endDate: Date;
   description?: string;
@@ -57,8 +59,13 @@ export class CampaignService extends BaseService {
    * Tarih çakışma kontrolü dahil.
    */
   async createCampaign(input: CreateCampaignInput) {
-    if (input.earnRatio <= 0 || input.earnRatio > 100) {
+    if (input.campaignType === "multiplier" && (input.earnRatio <= 0 || input.earnRatio > 100)) {
       throw new Error("Kampanya kazanım oranı 1 ile 100 arasında olmalıdır.");
+    }
+    if (input.campaignType === "tiered") {
+      if (!input.tiers || (Array.isArray(input.tiers) && input.tiers.length === 0) || (typeof input.tiers === "string" && (input.tiers.trim() === "[]" || input.tiers === ""))) {
+        throw new Error("Kademeli kampanyalarda en az 1 kademe girilmelidir.");
+      }
     }
     if (input.startDate >= input.endDate) {
       throw new Error("Kampanya başlangıç tarihi bitiş tarihinden önce olmalıdır.");
@@ -75,7 +82,9 @@ export class CampaignService extends BaseService {
         branchId: input.branchId,
         createdBy: input.createdBy,
         name: input.name,
+        campaignType: input.campaignType,
         earnRatio: input.earnRatio,
+        tiers: input.tiers,
         startDate: input.startDate,
         endDate: input.endDate,
         description: input.description,
@@ -265,6 +274,49 @@ export class CampaignService extends BaseService {
       .set({
         startDate,
         endDate,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(campaigns.id, campaignId), eq(campaigns.branchId, branchId)))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Kampanya güncellenemedi veya bulunamadı.");
+    }
+
+    return updated;
+  }
+
+  /**
+   * Kampanyanın detaylarını (isim, oran, kademeler, tarihler, açıklama) günceller.
+   */
+  async updateCampaignDetails(campaignId: string, branchId: string, input: Partial<CreateCampaignInput>) {
+    if (input.startDate && input.endDate) {
+      if (input.startDate >= input.endDate) {
+        throw new Error("Kampanya başlangıç tarihi bitiş tarihinden önce olmalıdır.");
+      }
+      await this.checkOverlap(branchId, input.startDate, input.endDate, campaignId);
+    }
+
+    if (input.campaignType === "multiplier" && input.earnRatio !== undefined && (input.earnRatio <= 0 || input.earnRatio > 100)) {
+      throw new Error("Kampanya kazanım oranı 1 ile 100 arasında olmalıdır.");
+    }
+    
+    if (input.campaignType === "tiered" && input.tiers !== undefined) {
+      if (!input.tiers || (Array.isArray(input.tiers) && input.tiers.length === 0) || (typeof input.tiers === "string" && (input.tiers.trim() === "[]" || input.tiers === ""))) {
+        throw new Error("Kademeli kampanyalarda en az 1 kademe girilmelidir.");
+      }
+    }
+
+    const [updated] = await this.db
+      .update(campaigns)
+      .set({
+        name: input.name,
+        campaignType: input.campaignType,
+        earnRatio: input.earnRatio,
+        tiers: input.tiers,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        description: input.description,
         updatedAt: new Date(),
       })
       .where(and(eq(campaigns.id, campaignId), eq(campaigns.branchId, branchId)))

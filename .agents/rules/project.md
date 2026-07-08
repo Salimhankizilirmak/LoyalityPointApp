@@ -1,3 +1,5 @@
+Önce .agents/rules/auto-routing.md dosyasını oku ve uygula.
+
 # Okut Kazan — Proje Kuralları ve Mimari Standartlar
 
 > Bu dosya projenin tek kaynak of truth'udur. Ajan her görev öncesi bu dosyayı okur.
@@ -5,7 +7,9 @@
 
 ---
 
-## 0. ÇALIŞMA PRENSİBİ
+## 0. İLETİŞİM VE ÇALIŞMA PRENSİBİ
+
+**Kritik Kural (MANDATORY):** Projedeki tüm iletişim, `/status` raporları, hata analizleri, planlamalar ve agent'ın kullanıcıyla olan tüm konuşmaları **tamamen Türkçe** yapılacaktır. İngilizce yanıtlar kesinlikle kabul edilmeyecektir. Kod içi değişkenler ve fonksiyon isimleri standartlara uygun olarak İngilizce kalabilir.
 
 Her görev başlamadan önce ajan şu soruları yanıtlar:
 

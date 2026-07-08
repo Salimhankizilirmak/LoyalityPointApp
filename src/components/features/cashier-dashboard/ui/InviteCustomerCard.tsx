@@ -88,7 +88,7 @@ export function InviteCustomerCard({
         <div className="grid grid-cols-2 gap-3">
           {/* Ad */}
           <div>
-            <label className={labelClass}>Ad</label>
+            <label className={labelClass}>Ad *</label>
             <input
               type="text"
               value={form.firstName}
@@ -101,7 +101,7 @@ export function InviteCustomerCard({
 
           {/* Soyad */}
           <div>
-            <label className={labelClass}>Soyad</label>
+            <label className={labelClass}>Soyad *</label>
             <input
               type="text"
               value={form.lastName}
@@ -140,7 +140,8 @@ export function InviteCustomerCard({
           <div>
             <label className={labelClass}>E-posta</label>
             <input
-              type="email"
+              type="text"
+              inputMode="email"
               value={form.email}
               onChange={(e) => setField("email", e.target.value)}
               placeholder="novexitech@gmail.com"
@@ -152,6 +153,11 @@ export function InviteCustomerCard({
                 }`}
               autoComplete="email"
             />
+            {form.email.length > 0 && !isEmailValid && (
+              <p className="text-[10px] text-rose-500 mt-1.5 font-medium">
+                Geçerli bir email giriniz (Türkçe karakter kullanılamaz).
+              </p>
+            )}
           </div>
         </div>
       </div>

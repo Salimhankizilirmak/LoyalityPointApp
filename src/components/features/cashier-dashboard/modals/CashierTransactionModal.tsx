@@ -19,6 +19,7 @@ interface CashierTransactionModalProps {
   txError: string;
   handleTx: () => Promise<void>;
   isDarkMode: boolean;
+  activeCampaign?: any;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat("tr-TR").format(n);
@@ -38,6 +39,7 @@ export function CashierTransactionModal({
   txError,
   handleTx,
   isDarkMode,
+  activeCampaign,
 }: CashierTransactionModalProps) {
   if (!customer) return null;
 
@@ -67,6 +69,20 @@ export function CashierTransactionModal({
   const isInvalid = isEarn
     ? (!amount || amountNum <= 0 || isNaN(amountNum))
     : (!amount || !totalCartAmount || amountNum <= 0 || totalCartNum <= 0 || isNaN(amountNum) || isNaN(totalCartNum) || amountNum > customer.pts || amountNum > totalCartNum);
+
+  let upsellMessage = null;
+  if (isEarn && activeCampaign && activeCampaign.campaignType === "tiered" && amountNum > 0) {
+    const tiersStr = activeCampaign.tiers;
+    const tiers = typeof tiersStr === 'string' ? JSON.parse(tiersStr) : tiersStr;
+    if (Array.isArray(tiers)) {
+      const sortedTiers = tiers.sort((a: any, b: any) => a.limit - b.limit);
+      const nextTier = sortedTiers.find((t: any) => t.limit > amountNum);
+      if (nextTier) {
+        const diff = nextTier.limit - amountNum;
+        upsellMessage = `Müşteri şu anda ${ptsPreview} Puan kazanıyor. Sepete ${fmt(diff)} TL'lik daha ürün eklerse toplam ${nextTier.points} Puan kazanabilir!`;
+      }
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -206,13 +222,21 @@ export function CashierTransactionModal({
 
               {/* Dinamik Puan Önizlemesi (Yalnızca Puan Yükleme Eylemi İçin) */}
               {isEarn && ptsPreview > 0 && (
-                <div className={`flex items-center justify-between p-2 rounded-xl border transition-colors duration-300 ${themeClasses.badge}`}>
-                  <span className="text-[10px] font-black uppercase tracking-wider font-mono">
-                    Kazanılacak Puan
-                  </span>
-                  <span className="text-[10px] font-bold font-mono">
-                    +{fmt(ptsPreview)} Pts
-                  </span>
+                <div className="space-y-2">
+                  <div className={`flex items-center justify-between p-2 rounded-xl border transition-colors duration-300 ${themeClasses.badge}`}>
+                    <span className="text-[10px] font-black uppercase tracking-wider font-mono">
+                      Kazanılacak Puan
+                    </span>
+                    <span className="text-[10px] font-bold font-mono">
+                      +{fmt(ptsPreview)} Pts
+                    </span>
+                  </div>
+                  {upsellMessage && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-medium leading-relaxed">
+                      <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                      <span>💡 <strong>Fırsat:</strong> {upsellMessage}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

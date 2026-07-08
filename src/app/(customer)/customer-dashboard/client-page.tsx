@@ -1,13 +1,13 @@
 "use client";
 
 import { useCustomerDashboard } from "@/components/features/customer-dashboard/hooks/useCustomerDashboard";
-
 import { CustomerDashboardModals } from "@/components/features/customer-dashboard/modals/CustomerDashboardModals";
 import { UniversalSidebar } from "@/components/ui/UniversalSidebar";
 import { DigitalWalletCard } from "@/components/features/customer-dashboard/ui/DigitalWalletCard";
 import { AntiFraudQR } from "@/components/features/customer-dashboard/ui/AntiFraudQR";
 import { LiveLedgerTimeline } from "@/components/features/customer-dashboard/ui/LiveLedgerTimeline";
-import { ActiveCampaignsSection } from "@/components/features/customer-dashboard/ui/ActiveCampaignsSection";
+import { CustomerCampaignsView } from "@/components/features/customer-dashboard/ui/CustomerCampaignsView";
+import { Wallet, History, Megaphone } from "lucide-react";
 
 interface CustomerDashboardClientPageProps {
   initialCustomerData: {
@@ -35,49 +35,43 @@ export function CustomerDashboardClientPage({
     paginatedTransactions,
     currentPage,
     totalPages,
-    loading, 
-    showProfileModal, 
-    showSignOutOverlay,
     pts, 
     user, 
-    organization, 
-    isDarkMode
   } = state;
 
   const { 
     setActiveTab, 
     setCurrentPage,
-    setShowProfileModal, 
-    setShowSignOutOverlay,
-    signOut,
-    toggleTheme
   } = actions;
 
   // Kullanıcı Bilgileri
   const userFullName = user?.fullName || (customerData ? `${customerData.firstName} ${customerData.lastName}` : "Sadakat Üyesi");
-  const userEmail = user?.primaryEmailAddress?.emailAddress || customerData?.email || "";
-  const userAvatar = user?.imageUrl || "";
 
   return (
     <div className="flex-1 flex min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-
 
       {/* Ortak Modaller ve Çıkış Overlay'i */}
       <CustomerDashboardModals state={state} actions={actions} />
 
       {/* MASAÜSTÜ SOL DİKEY MENÜ */}
       <UniversalSidebar
-        title="Müşteri Paneli"
+        title={userFullName}
         navItems={[
           {
             name: "Cüzdanım",
-            icon: require("lucide-react").Wallet,
-            isActive: activeTab === "cuzdan",
+            icon: Wallet,
+            isActive: activeTab === "cuzdan" || !activeTab, // fallback
             onClick: () => setActiveTab("cuzdan")
           },
           {
+            name: "Kampanyalar",
+            icon: Megaphone,
+            isActive: activeTab === "kampanyalar",
+            onClick: () => setActiveTab("kampanyalar")
+          },
+          {
             name: "İşlem Geçmişi",
-            icon: require("lucide-react").History,
+            icon: History,
             isActive: activeTab === "islemler",
             onClick: () => setActiveTab("islemler")
           }
@@ -92,44 +86,40 @@ export function CustomerDashboardClientPage({
 
         {/* SEKMELİ SAYFA GÖVDESİ */}
         <div className="flex-1 px-5 md:px-8 py-6 relative z-10 max-w-7xl w-full mx-auto">
-          {/* Cüzdan Görünümü */}
-          {activeTab === "cuzdan" && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch gap-6">
-              {/* Sol Sütun: Cüzdan Kartı & Canlı QR */}
-              <div className="lg:col-span-5 flex flex-col gap-6">
-                <DigitalWalletCard pts={pts} />
-                <AntiFraudQR />
-                {/* Aktif Kampanyalar - Mobil görünümü için sol kolona */}
-                <div className="lg:hidden">
-                  <ActiveCampaignsSection />
+          
+          {/* Cüzdan Görünümü (Yan yana Grid yapısı) */}
+          {(activeTab === "cuzdan" || !activeTab) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto mt-4 md:mt-12">
+              <div className="flex justify-center md:justify-end">
+                <div className="w-full max-w-md">
+                   <DigitalWalletCard pts={pts} />
                 </div>
               </div>
-              {/* Sağ Sütun: Defter Akışı & Kampanyalar */}
-              <div className="hidden md:block lg:col-span-7">
-                <LiveLedgerTimeline
-                  activeTab={activeTab}
-                  ledgerTransactions={ledgerTransactions}
-                  paginatedTransactions={paginatedTransactions}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  setCurrentPage={setCurrentPage}
-                />
-                {/* Aktif Kampanyalar - Desktop */}
-                <ActiveCampaignsSection />
+              <div className="flex justify-center md:justify-start">
+                 <div className="w-full max-w-md">
+                   <AntiFraudQR />
+                 </div>
               </div>
             </div>
           )}
 
+          {/* Kampanyalar Görünümü */}
+          {activeTab === "kampanyalar" && (
+            <CustomerCampaignsView />
+          )}
+
           {/* İşlem Geçmişi Görünümü */}
           {activeTab === "islemler" && (
-            <LiveLedgerTimeline
-              activeTab={activeTab}
-              ledgerTransactions={ledgerTransactions}
-              paginatedTransactions={paginatedTransactions}
-              currentPage={currentPage}
-              totalPages={totalPages}
-              setCurrentPage={setCurrentPage}
-            />
+            <div className="max-w-4xl mx-auto">
+              <LiveLedgerTimeline
+                activeTab={activeTab}
+                ledgerTransactions={ledgerTransactions}
+                paginatedTransactions={paginatedTransactions}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                setCurrentPage={setCurrentPage}
+              />
+            </div>
           )}
         </div>
 

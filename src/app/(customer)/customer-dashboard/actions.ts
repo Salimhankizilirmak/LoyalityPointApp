@@ -232,3 +232,48 @@ export async function getActiveCampaignsForCustomerAction() {
   }
 }
 
+
+import { campaigns } from "@/db/schema";
+import { inArray } from "drizzle-orm";
+
+export async function getAllCampaignsForCustomerAction() {
+  try {
+    const { sessionClaims } = await auth();
+    const metadata = (sessionClaims?.metadata || {}) as Record<string, unknown>;
+    const orgId = metadata.orgId as string;
+
+    if (!orgId) {
+      return { success: false, error: "Organizasyon bilgisi bulunamadı.", campaigns: [] };
+    }
+
+    const orgBranches = await db.select({ id: branches.id, name: branches.name })
+      .from(branches)
+      .where(eq(branches.orgId, orgId))
+      .all();
+
+    if (orgBranches.length === 0) {
+      return { success: true, campaigns: [] };
+    }
+
+    const branchIds = orgBranches.map((b) => b.id);
+
+    const allCampaigns = await db.select()
+      .from(campaigns)
+      .where(inArray(campaigns.branchId, branchIds))
+      .orderBy(desc(campaigns.createdAt))
+      .all();
+
+    const result = allCampaigns.map((c) => {
+      const b = orgBranches.find((br) => br.id === c.branchId);
+      return {
+        ...c,
+        branchName: b?.name || "Bilinmeyen Şube"
+      };
+    });
+
+    return { success: true, campaigns: result };
+  } catch (error: unknown) {
+    console.error("[getAllCampaignsForCustomerAction] Error:", error);
+    return { success: false, error: "Kampanyalar yüklenemedi.", campaigns: [] };
+  }
+}

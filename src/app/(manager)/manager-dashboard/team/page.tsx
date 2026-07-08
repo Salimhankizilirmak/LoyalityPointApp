@@ -1,5 +1,5 @@
 import { TeamClient } from "./client-page";
-import { getManagerProfile, getOrgMembers } from "../actions";
+import { getManagerProfile, getOrgMembers, getBranchTransactions } from "../actions";
 import { getInvitationsAction } from "@/app/actions/invitation-actions";
 import { checkLayoutGuard } from "@/lib/layout-guard";
 
@@ -12,15 +12,16 @@ async function safeFetch<T>(promise: Promise<T>): Promise<T | null> {
 export default async function TeamPage() {
   await checkLayoutGuard();
   
-  const [profile, emps, invitesList] = await Promise.all([
+  const [profile, emps, invitesList, txs] = await Promise.all([
     safeFetch(getManagerProfile()),
     safeFetch(getOrgMembers()),
-    safeFetch(getInvitationsAction())
+    safeFetch(getInvitationsAction()),
+    safeFetch(getBranchTransactions())
   ]);
 
   return (
     <TeamClient 
-      initialData={{ profile, members: emps, invitations: invitesList }}
+      initialData={{ profile, members: emps, invitations: invitesList, transactions: txs }}
     />
   );
 }

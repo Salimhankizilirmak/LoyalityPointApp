@@ -34,7 +34,8 @@ export function EmployeeManagement({
   const [lastName, setLastName] = useState("");
 
   const startEdit = (emp: Employee) => {
-    const parts = emp.name.split(" ");
+    const isNameless = emp.name === emp.email || !emp.name;
+    const parts = isNameless ? [] : emp.name.split(" ");
     setFirstName(parts[0] || "");
     setLastName(parts.slice(1).join(" ") || "");
     setEditingId(emp.id);
@@ -172,7 +173,9 @@ export function EmployeeManagement({
                       ) : (
                         <>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-bold text-white truncate">{emp.name}</h4>
+                            <h4 className={`text-sm font-bold truncate ${emp.name === emp.email || !emp.name ? "text-amber-400 italic" : "text-white"}`}>
+                              {emp.name === emp.email || !emp.name ? "İsimsiz Personel" : emp.name}
+                            </h4>
                             {emp.role === "manager" && <ShieldCheck size={14} className="text-cyan-400 shrink-0" />}
                           </div>
                           <p className="text-neutral-400 text-[10px] truncate mt-0.5">{emp.email}</p>
