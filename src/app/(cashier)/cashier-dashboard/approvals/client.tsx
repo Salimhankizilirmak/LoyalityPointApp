@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, X, User } from "lucide-react";
-import { approveQrRequestAction, rejectQrRequestAction } from "../actions";
+import { approveQrRequestAction, rejectQrRequestAction, getPendingQrRequestsAction } from "../actions";
 
 interface RequestItem {
   id: string;
@@ -15,6 +15,25 @@ interface RequestItem {
 export function ApprovalsClient({ initialRequests }: { initialRequests: RequestItem[] }) {
   const [requests, setRequests] = useState<RequestItem[]>(initialRequests);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  // Polling mechanism
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const res = await getPendingQrRequestsAction();
+      if (res.success && res.data) {
+        const formattedRequests = res.data.map((req: any) => ({
+          id: req.id,
+          name: `${req.firstName} ${req.lastName}`,
+          email: req.email,
+          phone: req.phoneNumber,
+          createdAt: Math.floor(new Date(req.createdAt).getTime() / 1000)
+        }));
+        setRequests(formattedRequests);
+      }
+    }, 10000); // 10 saniyede bir
+
+    return () => clearInterval(interval);
+  }, []);
 
   const onAction = async (id: string, action: "APPROVE" | "REJECT") => {
     setLoadingId(id);

@@ -1,86 +1,54 @@
 "use server";
 
 import { db } from "@/db";
-import { customerRegistrationRequests, customers, activityLogs } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { createClerkClient } from "@clerk/backend";
+import { qrCustomerRequests } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { checkLayoutGuard } from "@/lib/layout-guard";
-import { revalidatePath } from "next/cache";
 
-const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-
-export async function handleApprovalAction(requestId: string, action: "APPROVE" | "REJECT") {
+export async function getPendingApprovalsCountAction(branchId: string) {
   try {
     const dbUser = await checkLayoutGuard();
-    if (dbUser.role !== "CASHIER" && dbUser.role !== "MANAGER" && dbUser.role !== "BOSS") {
-      throw new Error("Yetkisiz işlem.");
-    }
+    if (!dbUser || !branchId) return { success: false, count: 0 };
 
-    const request = await db.select().from(customerRegistrationRequests).where(eq(customerRegistrationRequests.id, requestId)).get();
-    if (!request) return { error: "Kayıt talebi bulunamadı." };
-    if (request.status !== "PENDING_APPROVAL") return { error: "Bu talep zaten işlenmiş." };
-
-    const now = new Date();
-
-    if (action === "APPROVE") {
-      await db.transaction(async (tx) => {
-        // 1. Status güncelle
-        await tx.update(customerRegistrationRequests)
-          .set({ status: "APPROVED", approvedByCashierId: dbUser.id, decidedAt: now })
-          .where(eq(customerRegistrationRequests.id, requestId));
-
-        // 2. Müşteri oluştur
-        await tx.insert(customers).values({
-          organizationId: request.orgId,
-          phoneNumber: request.phone,
-          name: request.name,
-          registrationSource: "CASHIER_INVITE",
-        });
-
-        // 3. Activity Log
-        await tx.insert(activityLogs).values({
-          orgId: request.orgId,
-          type: "QR_REGISTRATION_APPROVED",
-          actorName: dbUser.name || "Kasiyer",
-          actorRole: dbUser.role,
-          targetName: request.name,
-          description: `${dbUser.name || "Yetkili"}, ${request.name} adlı müşterinin QR kaydını onayladı.`,
-        });
-      });
-    } else if (action === "REJECT") {
-      await db.transaction(async (tx) => {
-        // 1. Status güncelle
-        await tx.update(customerRegistrationRequests)
-          .set({ status: "REJECTED", approvedByCashierId: dbUser.id, decidedAt: now })
-          .where(eq(customerRegistrationRequests.id, requestId));
-
-        // 2. Activity Log
-        await tx.insert(activityLogs).values({
-          orgId: request.orgId,
-          type: "QR_REGISTRATION_REJECTED",
-          actorName: dbUser.name || "Kasiyer",
-          actorRole: dbUser.role,
-          targetName: request.name,
-          description: `${dbUser.name || "Yetkili"}, ${request.name} adlı müşterinin QR kaydını reddetti.`,
-        });
-      });
-
-      // 3. Clerk Account'unu sil
-      if (request.clerkUserId) {
-        try {
-          await clerkClient.users.deleteUser(request.clerkUserId);
-        } catch (err) {
-          console.error("Clerk delete user failed:", err);
-        }
-      }
-    }
-
-    revalidatePath("/cashier-dashboard/approvals");
-    revalidatePath("/cashier-dashboard");
-    return { success: true };
-
-  } catch (error: any) {
-    console.error("Approval action error:", error);
-    return { error: error.message || "İşlem sırasında bir hata oluştu." };
+    const requests = await db.select({ id: qrCustomerRequests.id })
+      .from(qrCustomerRequests)
+      .where(and(
+        eq(qrCustomerRequests.branchId, branchId),
+        eq(qrCustomerRequests.status, "PENDING")
+      ))
+      .all();
+      
+    return { success: true, count: requests.length };
+  } catch (error) {
+    return { success: false, count: 0 };
   }
 }
+
+export async function getPendingRequestsAction(branchId: string) {
+  try {
+    const dbUser = await checkLayoutGuard();
+    if (!dbUser || !branchId) return { success: false, data: [] };
+
+    const requests = await db.select()
+      .from(qrCustomerRequests)
+      .where(and(
+        eq(qrCustomerRequests.branchId, branchId),
+        eq(qrCustomerRequests.status, "PENDING")
+      ))
+      .all();
+      
+    const formattedRequests = requests.map(req => ({
+      id: req.id,
+      name: `${req.firstName} ${req.lastName}`,
+      email: req.email,
+      phone: req.phoneNumber,
+      createdAt: Math.floor(req.createdAt.getTime() / 1000)
+    }));
+
+    return { success: true, data: formattedRequests };
+  } catch (error) {
+    return { success: false, data: [] };
+  }
+}
+
+

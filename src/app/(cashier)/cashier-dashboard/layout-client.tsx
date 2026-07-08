@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { BranchSelector, type BranchOption } from "@/components/ui/BranchSelector";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LayoutDashboard, Receipt, Users, UserPlus, LogOut, ChevronDown, QrCode } from "lucide-react";
 import Image from "next/image";
 import { useUser, useClerk } from "@clerk/nextjs";
+import { getPendingApprovalsCountAction } from "./approvals/actions";
 
 interface CashierLayoutClientProps {
   children: ReactNode;
@@ -26,8 +27,28 @@ export function CashierLayoutClient({
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [realtimeCount, setRealtimeCount] = useState(pendingCount);
   const { user } = useUser();
   const { signOut } = useClerk();
+
+  // Initial değeri güncelle
+  useEffect(() => {
+    setRealtimeCount(pendingCount);
+  }, [pendingCount]);
+
+  // Polling for pending count
+  useEffect(() => {
+    if (!activeBranchId) return;
+
+    const interval = setInterval(async () => {
+      const res = await getPendingApprovalsCountAction(activeBranchId);
+      if (res.success) {
+        setRealtimeCount(res.count);
+      }
+    }, 10000); // 10 saniyede bir kontrol et
+
+    return () => clearInterval(interval);
+  }, [activeBranchId]);
 
   const navItems = [
     { name: "Kasa Paneli", href: "/cashier-dashboard", icon: LayoutDashboard },
@@ -35,7 +56,7 @@ export function CashierLayoutClient({
     { name: "Müşteriler", href: "/cashier-dashboard/customers", icon: Users },
     { name: "Yeni Müşteri Ekle", href: "/cashier-dashboard/add-customer", icon: UserPlus },
     { name: "QR Davet", href: "/cashier-dashboard/qr-invite", icon: QrCode },
-    { name: "Onay Bekleyenler", href: "/cashier-dashboard/approvals", icon: Users, badge: pendingCount },
+    { name: "Onay Bekleyenler", href: "/cashier-dashboard/approvals", icon: Users, badge: realtimeCount },
   ];
 
   return (
