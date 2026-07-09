@@ -5,6 +5,7 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { Search, RefreshCw, Check, Edit2, X as CloseIcon, Users as UsersIcon } from "lucide-react";
 import { GlassPanel } from "@/components/ui/GlassPanel";
 import { getBranchCustomerInvitationsAction, updateCustomerNameAction } from "../actions";
+import { updateInvitationEmailAction } from "@/app/actions/invitation-actions";
 import { CashierDashboardModals } from "@/components/features/cashier-dashboard/modals/CashierDashboardModals";
 
 interface CashierInfo {
@@ -55,11 +56,15 @@ export function CustomersClientPage({ cashierInfo }: CustomersClientPageProps) {
   const [invitationsLoading, setInvitationsLoading] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
 
-  // Inline Edit States
+  // Inline Edit States (Name)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Inline Edit States (Email)
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
+  const [editEmailValue, setEditEmailValue] = useState("");
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
   
   
   const loadInvitations = useCallback(async () => {
@@ -108,6 +113,40 @@ export function CustomersClientPage({ cashierInfo }: CustomersClientPageProps) {
     } finally {
       setIsSaving(false);
       setEditingId(null);
+    }
+  };
+
+  const handleEditEmailStart = (id: string, currentEmail: string) => {
+    setEditingEmailId(id);
+    setEditEmailValue(currentEmail || "");
+  };
+
+  const handleEditEmailCancel = () => {
+    setEditingEmailId(null);
+    setEditEmailValue("");
+  };
+
+  const handleEditEmailSave = async (id: string) => {
+    if (!editEmailValue.trim() || !editEmailValue.includes("@")) {
+       alert("Lütfen geçerli bir e-posta adresi girin.");
+       return;
+    }
+    
+    setIsSavingEmail(true);
+    try {
+      const res = await updateInvitationEmailAction(id, editEmailValue);
+      if (res.success) {
+        setInvitations(prev => prev.map(inv => 
+          inv.id === id ? { ...inv, email: editEmailValue.trim() } : inv
+        ));
+      } else {
+        alert("E-posta güncellenemedi: " + (res.error || "Bilinmeyen hata"));
+      }
+    } catch (err) {
+      alert("Sunucuyla iletişimde hata oluştu.");
+    } finally {
+      setIsSavingEmail(false);
+      setEditingEmailId(null);
     }
   };
 
@@ -248,9 +287,45 @@ export function CustomersClientPage({ cashierInfo }: CustomersClientPageProps) {
                       <span className="text-slate-500">Telefon:</span>
                       <span className="font-mono font-medium">{invite.phoneNumber || "Belirtilmemiş"}</span>
                     </div>
-                    <div className="flex justify-between items-center text-xs">
+                    <div className="flex justify-between items-center text-xs relative group/email">
                       <span className="text-slate-500">E-posta:</span>
-                      <span className="font-mono font-medium truncate max-w-[150px]" title={invite.email}>{invite.email || "Belirtilmemiş"}</span>
+                      
+                      {editingEmailId === invite.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            autoFocus
+                            type="email"
+                            value={editEmailValue}
+                            onChange={(e) => setEditEmailValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleEditEmailSave(invite.id);
+                              if (e.key === "Escape") handleEditEmailCancel();
+                            }}
+                            className={`w-32 px-1 py-0.5 text-[10px] font-mono rounded border outline-none ${
+                              isDarkMode ? "bg-slate-950 border-indigo-500/50 text-white" : "bg-slate-50 border-indigo-300 text-slate-900"
+                            }`}
+                          />
+                          <button onClick={() => handleEditEmailSave(invite.id)} disabled={isSavingEmail} className="text-emerald-500 hover:text-emerald-400">
+                            <Check size={12} />
+                          </button>
+                          <button onClick={handleEditEmailCancel} disabled={isSavingEmail} className="text-rose-500 hover:text-rose-400">
+                            <CloseIcon size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono font-medium truncate max-w-[150px]" title={invite.email}>{invite.email || "Belirtilmemiş"}</span>
+                          {!isAccepted && (
+                             <button
+                               onClick={() => handleEditEmailStart(invite.id, invite.email)}
+                               className="opacity-0 group-hover/email:opacity-100 p-0.5 rounded text-slate-400 hover:text-indigo-500 transition"
+                               title="E-postayı Düzenle"
+                             >
+                               <Edit2 size={10} />
+                             </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex justify-between items-center text-xs">

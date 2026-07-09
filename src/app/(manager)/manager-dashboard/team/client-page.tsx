@@ -40,6 +40,7 @@ export function TeamClient({
               transactions={dashboard.transactions}
               handleUpdateCashier={dashboard.handleUpdateCashier} handleRemoveCashier={dashboard.handleRemoveCashier}
               handleToggleStatus={dashboard.handleToggleStatus}
+              handleUpdateEmail={dashboard.handleUpdateEmail}
               setShowInvite={setShowInvite} loadingId={dashboard.loadingId}
               invitations={dashboard.invitations}
             />

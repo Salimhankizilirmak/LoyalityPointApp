@@ -20,7 +20,7 @@ import {
 } from "@/app/(manager)/manager-dashboard/actions";
 import { getCampaignsAction } from "@/app/(manager)/manager-dashboard/campaign-actions";
 import { Transaction, Customer, Employee, ActivityItem, ActivityType } from "../types";
-import { getInvitationsAction } from "@/app/actions/invitation-actions";
+import { getInvitationsAction, updateInvitationEmailAction } from "@/app/actions/invitation-actions";
 
 interface InvitationItem {
   id: string;
@@ -278,6 +278,23 @@ export function useManagerDashboard(initialData?: any) {
     }
   };
 
+  const handleUpdateEmail = async (id: string, newEmail: string) => {
+    setLoadingId(id);
+    try {
+      const res = await updateInvitationEmailAction(id, newEmail);
+      if (res && !res.success) {
+        setError(res.error || "E-posta güncellenemedi.");
+      } else {
+        await refreshData();
+      }
+    } catch (err) {
+      console.error(err);
+      setError("E-posta güncellenirken beklenmeyen bir hata oluştu.");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   const handleAddCustomer = async (data: { firstName: string; lastName: string; phone: string; email: string }) => {
     try {
       const res = await addCustomerAction(data.firstName, data.lastName, data.phone, data.email);
@@ -443,6 +460,7 @@ export function useManagerDashboard(initialData?: any) {
     refreshData,
     handleRemoveCashier,
     handleUpdateCashier,
+    handleUpdateEmail,
     handleAddCustomer,
     handleUpdateCustomer,
     handleDeleteCustomer,

@@ -22,6 +22,7 @@ interface StaffSectionProps {
   setShowInvite: (show: boolean) => void;
   loadingId: string | null;
   invitations: InvitationItem[];
+  handleUpdateEmail?: (id: string, newEmail: string) => Promise<void>;
 }
 
 export function StaffSection({
@@ -33,7 +34,8 @@ export function StaffSection({
   handleToggleStatus,
   setShowInvite,
   loadingId,
-  invitations
+  invitations,
+  handleUpdateEmail
 }: StaffSectionProps) {
   
   return (
@@ -46,6 +48,7 @@ export function StaffSection({
           onUpdate={handleUpdateCashier}
           onRemove={handleRemoveCashier}
           onToggleStatus={handleToggleStatus}
+          onUpdateEmail={handleUpdateEmail}
           loadingId={loadingId}
           onAddClick={() => setShowInvite(true)}
         />

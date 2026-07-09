@@ -15,6 +15,7 @@ interface EmployeeManagementProps {
   loadingId: string | null;
   onAddClick?: () => void;
   onViewDetails?: (employeeId: string) => void;
+  onUpdateEmail?: (id: string, newEmail: string) => Promise<void>;
 }
 
 export function EmployeeManagement({
@@ -26,12 +27,15 @@ export function EmployeeManagement({
   onToggleStatus,
   loadingId,
   onAddClick,
-  onViewDetails
+  onViewDetails,
+  onUpdateEmail
 }: EmployeeManagementProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
   const [selectedEmployeeForDetails, setSelectedEmployeeForDetails] = useState<Employee | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [editEmailValue, setEditEmailValue] = useState("");
 
   const startEdit = (emp: Employee) => {
     const isNameless = emp.name === emp.email || !emp.name;
@@ -46,6 +50,18 @@ export function EmployeeManagement({
       await onUpdate(id, firstName, lastName);
     }
     setEditingId(null);
+  };
+
+  const saveEmailEdit = async (id: string) => {
+    if (!editEmailValue.trim() || !editEmailValue.includes("@")) {
+      alert("Lütfen geçerli bir e-posta adresi girin.");
+      return;
+    }
+    if (onUpdateEmail) {
+      const realId = id.startsWith("inv-") ? id.replace("inv-", "") : id;
+      await onUpdateEmail(realId, editEmailValue);
+    }
+    setEditingEmailId(null);
   };
 
   const getInitials = (name: string) => {
@@ -178,7 +194,36 @@ export function EmployeeManagement({
                             </h4>
                             {emp.role === "manager" && <ShieldCheck size={14} className="text-cyan-400 shrink-0" />}
                           </div>
-                          <p className="text-neutral-400 text-[10px] truncate mt-0.5">{emp.email}</p>
+                          <div className="group/email flex items-center gap-2 mt-0.5 relative">
+                            {editingEmailId === emp.id ? (
+                              <div className="flex items-center gap-1 z-10">
+                                <input
+                                  autoFocus
+                                  value={editEmailValue}
+                                  onChange={e => setEditEmailValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveEmailEdit(emp.id);
+                                    if (e.key === "Escape") setEditingEmailId(null);
+                                  }}
+                                  className="w-32 px-1 py-0.5 rounded text-[10px] bg-neutral-900 border border-indigo-500 text-white outline-none"
+                                />
+                                <button onClick={() => saveEmailEdit(emp.id)} className="text-cyan-400 hover:text-cyan-300"><Check size={12} /></button>
+                                <button onClick={() => setEditingEmailId(null)} className="text-neutral-400 hover:text-neutral-300"><X size={12} /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <p className="text-neutral-400 text-[10px] truncate">{emp.email}</p>
+                                {isPending && onUpdateEmail && (
+                                  <button
+                                    onClick={() => { setEditingEmailId(emp.id); setEditEmailValue(emp.email); }}
+                                    className="opacity-0 group-hover/email:opacity-100 p-0.5 text-neutral-500 hover:text-cyan-400 transition-colors"
+                                  >
+                                    <Edit3 size={10} />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </>
                       )}
                     </div>
